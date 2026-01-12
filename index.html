@@ -46,10 +46,17 @@
     }
     .font-shaiya { font-family: 'MedievalSharp', cursive; }
     .glass-panel {
-        background: rgba(10, 10, 12, 0.75);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(212, 175, 55, 0.15);
+        background: rgba(10, 10, 12, 0.8);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(212, 175, 55, 0.2);
+    }
+    .animate-glow {
+        animation: glow 2s ease-in-out infinite alternate;
+    }
+    @keyframes glow {
+        from { box-shadow: 0 0 5px rgba(212,175,55,0.2); }
+        to { box-shadow: 0 0 20px rgba(212,175,55,0.4); }
     }
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: #050507; }

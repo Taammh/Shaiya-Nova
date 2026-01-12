@@ -22,7 +22,8 @@ export const getSupabase = (): SupabaseClient => {
 
   if (!url || !key || !isValidSupabaseUrl(url)) {
     isPlaceholder = true;
-    supabaseInstance = createClient('https://placeholder-project.supabase.co', 'no-key-provided');
+    // URL dummy para evitar errores de inicialización
+    supabaseInstance = createClient('https://xyz.supabase.co', 'dummy-key');
   } else {
     isPlaceholder = false;
     supabaseInstance = createClient(url, key);
@@ -32,7 +33,12 @@ export const getSupabase = (): SupabaseClient => {
 };
 
 export const getItemsFromDB = async () => {
-  if (isPlaceholder) return [];
+  // Siempre cargar ítems locales primero
+  const localItemsRaw = localStorage.getItem('nova_local_items');
+  const localItems = localItemsRaw ? JSON.parse(localItemsRaw) : [];
+
+  if (isPlaceholder) return localItems;
+
   const client = getSupabase();
   try {
     const { data, error } = await client
@@ -40,29 +46,44 @@ export const getItemsFromDB = async () => {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    return [...localItems, ...(data || [])];
   } catch (err) {
-    return [];
+    return localItems;
   }
 };
 
 export const addItemToDB = async (item: any) => {
-  if (isPlaceholder) throw new Error("Cloud no configurado.");
-  const client = getSupabase();
-  const { data, error } = await client.from('items').insert([item]);
-  if (error) throw error;
-  return data;
+  const newItem = {
+    ...item,
+    id: item.id || `local-${Date.now()}`,
+    created_at: new Date().toISOString()
+  };
+
+  // Guardar en local siempre
+  const localItemsRaw = localStorage.getItem('nova_local_items');
+  const localItems = localItemsRaw ? JSON.parse(localItemsRaw) : [];
+  localStorage.setItem('nova_local_items', JSON.stringify([newItem, ...localItems]));
+
+  if (!isPlaceholder) {
+    const client = getSupabase();
+    try {
+      await client.from('items').insert([newItem]);
+    } catch (e) {
+      console.warn("No se pudo sincronizar con la nube, guardado solo localmente.");
+    }
+  }
+  
+  return newItem;
 };
 
 export const getSetting = async (key: string) => {
-  // Primero intentar LocalStorage (Modo manual/offline)
   const localVal = localStorage.getItem(`nova_setting_${key}`);
   if (localVal) return localVal;
 
   if (isPlaceholder) return null;
   const client = getSupabase();
   try {
-    const { data, error } = await client
+    const { data } = await client
       .from('settings')
       .select('value')
       .eq('key', key)
@@ -74,11 +95,11 @@ export const getSetting = async (key: string) => {
 };
 
 export const saveSetting = async (key: string, value: string) => {
-  // Guardar siempre en LocalStorage como respaldo
   localStorage.setItem(`nova_setting_${key}`, value);
-
   if (!isPlaceholder) {
     const client = getSupabase();
-    await client.from('settings').upsert({ key, value });
+    try {
+      await client.from('settings').upsert({ key, value });
+    } catch(e) {}
   }
 };

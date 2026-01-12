@@ -120,69 +120,55 @@ const AdminPanel: React.FC = () => {
   };
 
   const assignDiscordRole = async (userId: string, position: string) => {
-    // 1. Obtener valores frescos y limpiar espacios en blanco
     const botTokenRaw = (await getSetting('DISCORD_BOT_TOKEN') || '').trim();
     const guildId = (await getSetting('DISCORD_GUILD_ID') || '').trim();
     const roleGs = (await getSetting('ROLE_ID_GS') || '').trim();
     const roleLgs = (await getSetting('ROLE_ID_LGS') || '').trim();
     const roleGm = (await getSetting('ROLE_ID_GM') || '').trim();
 
-    if (!botTokenRaw || !guildId) {
-      console.warn("Auto-Rol: Configuración incompleta (Bot Token o Guild ID faltante).");
-      return false;
-    }
+    if (!botTokenRaw || !guildId) return false;
 
-    // 2. Limpiar prefijo 'Bot ' por si acaso se puso doble o falta
     let cleanToken = botTokenRaw;
     if (cleanToken.startsWith('Bot ')) {
       cleanToken = cleanToken.replace('Bot ', '').trim();
     }
 
-    // 3. Determinar ID de rol según la posición
     let roleId = '';
     const pos = position.toLowerCase();
     if (pos.includes('sage') && !pos.includes('lider')) roleId = roleGs;
     else if (pos.includes('lider')) roleId = roleLgs;
     else if (pos.includes('gm')) roleId = roleGm;
 
-    if (!roleId) {
-      console.warn(`Auto-Rol: No se encontró ID de rol para la posición "${position}". Revisa los IDs en Ajustes.`);
-      return false;
-    }
-
-    // 4. Limpiar el ID de usuario (asegurar que sea solo números)
-    const cleanUserId = userId.trim();
-
-    console.log(`Intentando auto-rol: Usuario ${cleanUserId} -> Rol ${roleId} en Guild ${guildId}`);
+    if (!roleId) return false;
 
     try {
-      // Endpoint oficial PUT para roles
-      const url = `https://discord.com/api/v10/guilds/${guildId}/members/${cleanUserId}/roles/${roleId}`;
+      const url = `https://discord.com/api/v10/guilds/${guildId}/members/${userId.trim()}/roles/${roleId}`;
       
+      // Enviamos un cuerpo vacío y cabeceras de seguridad para evitar 403 por falta de contenido
       const response = await fetch(url, {
         method: 'PUT',
         headers: {
           'Authorization': `Bot ${cleanToken}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({}) // Algunos proxies de Discord requieren un body aunque sea vacío
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Error de Discord API (${response.status}):`, errorText);
-        
-        // Explicación de errores comunes para el usuario en consola
-        if (response.status === 403) console.error("CONSEJO: El bot no tiene permisos o su rol está por DEBAJO del rol que intenta asignar.");
-        if (response.status === 404) console.error("CONSEJO: Uno de los IDs (Usuario, Servidor o Rol) es incorrecto.");
-        if (response.status === 401) console.error("CONSEJO: El Bot Token es inválido.");
-        
+        const errorData = await response.json().catch(() => ({}));
+        console.group("🛡️ Error de Discord 403 Detectado");
+        console.error("Causa técnica:", errorData);
+        console.warn("SOLUCIÓN 1: Asegúrate de que no estás intentando dar rol al DUEÑO del servidor (inmune).");
+        console.warn("SOLUCIÓN 2: Verifica que el ROL DE INTEGRACIÓN del bot (no uno manual) esté arriba de todos.");
+        console.warn("SOLUCIÓN 3: El bot debe haber sido invitado con permisos de 'Administrador' o 'Gestionar Roles'.");
+        console.groupEnd();
         return false;
       }
 
-      console.log("¡Rol asignado con éxito por el poder de Etain!");
       return true;
     } catch (e) {
-      console.error("Error de red al intentar conectar con Discord:", e);
+      console.error("Error de comunicación:", e);
       return false;
     }
   };
@@ -194,10 +180,8 @@ const AdminPanel: React.FC = () => {
       await updateStaffApplicationStatus(app.id, status);
       
       if (status === 'accepted') {
-        // Ejecutar asignación de rol
         const roleSuccess = await assignDiscordRole(app.discord_user_id, app.position);
         
-        // Enviar Webhook de Bienvenida
         const webhookWelcome = await getSetting('NOVA_STAFF_WELCOME_WEBHOOK');
         if (webhookWelcome) {
           await fetch(webhookWelcome, {
@@ -206,7 +190,7 @@ const AdminPanel: React.FC = () => {
             body: JSON.stringify({
               embeds: [{
                 title: "🛡️ ¡Nuevo Guardián en NOVA! 🛡️",
-                description: `¡Bienvenido **${app.username}** como **${app.position}**!\n\n${roleSuccess ? '✅ **Rol de Discord asignado automáticamente.**' : '⚠️ **Atención:** El rol no pudo ser asignado. Verifica que los IDs sean correctos y que el rol del Bot esté arriba de todo en Discord.'}`,
+                description: `¡Bienvenido **${app.username}** como **${app.position}**!\n\n${roleSuccess ? '✅ **Rol de Discord asignado automáticamente.**' : '⚠️ **Error 403:** El rol no pudo ser asignado. **Si el bot es Admin**, lo más probable es que el candidato sea el **Dueño del Servidor** o el rol del Bot no sea el de Integración.'}`,
                 color: 0xd4af37,
                 thumbnail: { url: app.avatar_url },
                 fields: [

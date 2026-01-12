@@ -4,9 +4,6 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 let supabaseInstance: SupabaseClient | null = null;
 let isPlaceholder = false;
 
-/**
- * Valida si una cadena es una URL de Supabase válida
- */
 const isValidSupabaseUrl = (url: string) => {
   try {
     const parsed = new URL(url);
@@ -19,13 +16,11 @@ const isValidSupabaseUrl = (url: string) => {
 export const getSupabase = (): SupabaseClient => {
   if (supabaseInstance) return supabaseInstance;
 
-  // Acceso seguro a variables de entorno
   const env = (window as any).process?.env || {};
   const url = env.SUPABASE_URL || '';
   const key = env.SUPABASE_ANON_KEY || '';
 
   if (!url || !key || !isValidSupabaseUrl(url)) {
-    console.warn("Supabase: El Reino está operando en modo Offline.");
     isPlaceholder = true;
     supabaseInstance = createClient('https://placeholder-project.supabase.co', 'no-key-provided');
   } else {
@@ -37,61 +32,53 @@ export const getSupabase = (): SupabaseClient => {
 };
 
 export const getItemsFromDB = async () => {
-  const client = getSupabase();
   if (isPlaceholder) return [];
-  
+  const client = getSupabase();
   try {
     const { data, error } = await client
       .from('items')
       .select('*')
       .order('created_at', { ascending: false });
-    
     if (error) throw error;
     return data || [];
-  } catch (err: any) {
-    console.warn('Supabase: Fallo al obtener datos remotos:', err?.message || err);
+  } catch (err) {
     return [];
   }
 };
 
 export const addItemToDB = async (item: any) => {
+  if (isPlaceholder) throw new Error("Cloud no configurado.");
   const client = getSupabase();
-  if (isPlaceholder) {
-    throw new Error("Conexión con el Reino no establecida.");
-  }
-  const { data, error } = await client
-    .from('items')
-    .insert([item]);
-  
+  const { data, error } = await client.from('items').insert([item]);
   if (error) throw error;
   return data;
 };
 
 export const getSetting = async (key: string) => {
-  const client = getSupabase();
+  // Primero intentar LocalStorage (Modo manual/offline)
+  const localVal = localStorage.getItem(`nova_setting_${key}`);
+  if (localVal) return localVal;
+
   if (isPlaceholder) return null;
+  const client = getSupabase();
   try {
     const { data, error } = await client
       .from('settings')
       .select('value')
       .eq('key', key)
       .single();
-    
-    if (error) return null;
-    return data?.value;
+    return data?.value || null;
   } catch {
     return null;
   }
 };
 
 export const saveSetting = async (key: string, value: string) => {
-  const client = getSupabase();
-  if (isPlaceholder) {
-    throw new Error("No se puede guardar configuración en modo offline.");
+  // Guardar siempre en LocalStorage como respaldo
+  localStorage.setItem(`nova_setting_${key}`, value);
+
+  if (!isPlaceholder) {
+    const client = getSupabase();
+    await client.from('settings').upsert({ key, value });
   }
-  const { error } = await client
-    .from('settings')
-    .upsert({ key, value });
-  
-  if (error) throw error;
 };

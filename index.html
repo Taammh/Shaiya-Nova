@@ -16,22 +16,6 @@
                 API_KEY: ''
             } 
         };
-        
-        window.addEventListener('error', function(e) {
-            if (e.target.tagName === 'SCRIPT' || e.message.includes('import')) {
-                const root = document.getElementById('root');
-                if (root) {
-                    root.innerHTML = `
-                        <div style="height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#050507; color:#ff4444; font-family:sans-serif; text-align:center; padding:20px;">
-                            <h2 style="color:#d4af37; font-family:'MedievalSharp';">FALLO DE INVOCACIÓN</h2>
-                            <p style="margin:10px 0; color:#888;">No se pudo cargar el conocimiento antiguo.</p>
-                            <code style="background:#1a1a1c; padding:10px; border-radius:5px; font-size:12px; max-width:100%; overflow:auto;">${e.message || 'Error de red en módulos'}</code>
-                            <button onclick="window.location.reload()" style="margin-top:20px; background:#d4af37; color:black; border:none; padding:10px 20px; font-weight:bold; cursor:pointer;">REINTENTAR</button>
-                        </div>
-                    `;
-                }
-            }
-        }, true);
     </script>
 <script type="importmap">
 {
@@ -52,31 +36,28 @@
         margin: 0;
         padding: 0;
         overflow-x: hidden;
+        min-height: 100vh;
     }
     .bg-shaiya-epic {
-        background-image: linear-gradient(to bottom, rgba(5, 5, 7, 0.85), rgba(5, 5, 7, 0.7)), url('https://media.discordapp.net/attachments/1460068773175492641/1460108918108852366/img_81.jpg?ex=6965b7e5&is=69646665&hm=a7e75adc4d118167bb2bb7b2bb31788a19bbfd5c922679a20128ba599684ea38&=&format=webp&width=816&height=466');
+        background-image: linear-gradient(to bottom, rgba(5, 5, 7, 0.8), rgba(5, 5, 7, 0.6)), url('https://media.discordapp.net/attachments/1460068773175492641/1460108918108852366/img_81.jpg?ex=6965b7e5&is=69646665&hm=a7e75adc4d118167bb2bb7b2bb31788a19bbfd5c922679a20128ba599684ea38&=&format=webp&width=816&height=466');
         background-attachment: fixed;
         background-size: cover;
         background-position: center;
     }
     .font-shaiya { font-family: 'MedievalSharp', cursive; }
     .glass-panel {
-        background: rgba(10, 10, 12, 0.7);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        background: rgba(10, 10, 12, 0.75);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(212, 175, 55, 0.15);
     }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #050507; }
+    ::-webkit-scrollbar-thumb { background: #d4af37; border-radius: 4px; }
 </style>
 </head>
 <body class="bg-shaiya-epic">
-    <div id="root">
-        <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #d4af37; font-family: 'MedievalSharp', cursive; font-size: 24px; text-align: center; gap: 20px;">
-            <div style="width: 50px; height: 50px; border: 3px solid rgba(212,175,55,0.2); border-top-color: #d4af37; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-            Invocando Shaiya NOVA...
-            <style>
-                @keyframes spin { to { transform: rotate(360deg); } }
-            </style>
-        </div>
-    </div>
+    <div id="root"></div>
     <script type="module" src="index.tsx"></script>
 </body>
 </html>

@@ -24,12 +24,16 @@ const AdminPanel: React.FC = () => {
   }, []);
 
   const handleSaveWebhook = async () => {
+    if (!webhook.startsWith('https://discord.com/api/webhooks/')) {
+      alert("La URL del Webhook debe empezar con https://discord.com/api/webhooks/");
+      return;
+    }
     setIsSaving(true);
     try {
       await saveSetting('NOVA_WEBHOOK_URL', webhook);
-      alert('Webhook guardado en la nube.');
+      alert('Configuración guardada localmente y en nube (si está activa).');
     } catch (e) {
-      alert('Error al guardar.');
+      alert('Error al guardar. Se intentó guardar localmente.');
     } finally {
       setIsSaving(false);
     }
@@ -37,124 +41,59 @@ const AdminPanel: React.FC = () => {
 
   const handleAddItem = async () => {
     if (!newItem.name || !newItem.image) {
-      alert('Nombre e Imagen son obligatorios.');
+      alert('Faltan datos obligatorios.');
       return;
     }
     setIsSaving(true);
     try {
-      await addItemToDB({
-        name: newItem.name,
-        category: newItem.category,
-        image: newItem.image,
-        description: newItem.description,
-        faction: newItem.faction,
-        item_class: newItem.item_class, // Usando item_class alineado con SQL
-      });
-      setNewItem({
-        name: '',
-        category: Category.MOUNT,
-        image: '',
-        description: '',
-        faction: Faction.LIGHT,
-        item_class: ''
-      });
-      alert('Objeto forjado en la base de datos eterna.');
+      await addItemToDB(newItem);
+      alert('Objeto forjado exitosamente.');
       window.location.reload();
     } catch (e) {
-      alert('Error al forjar el objeto. Verifica la conexión con Supabase.');
+      alert('Error al forjar objeto. Cloud no detectada.');
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
-      <div className="glass-panel p-8 rounded-2xl border border-[#d4af37]/30">
-        <h2 className="text-2xl font-shaiya text-[#d4af37] mb-6 uppercase tracking-widest">Configuración del Reino (Cloud)</h2>
+    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-20">
+      <div className="glass-panel p-8 rounded-3xl border-[#d4af37]/30">
+        <h2 className="text-3xl font-shaiya text-[#d4af37] mb-6 uppercase tracking-widest">Ajustes de Soporte</h2>
         <div className="space-y-4">
-          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest">URL del Webhook de Discord</label>
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Webhook de Discord (Tickets)</label>
           <div className="flex gap-4">
             <input 
               type="password"
               value={webhook}
               onChange={(e) => setWebhook(e.target.value)}
               placeholder="https://discord.com/api/webhooks/..."
-              className="flex-grow bg-black/60 border border-white/10 p-3 rounded-lg text-white outline-none focus:border-[#d4af37]"
+              className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white outline-none focus:border-[#d4af37]"
             />
             <button 
               onClick={handleSaveWebhook}
-              disabled={isSaving}
-              className="bg-[#d4af37] text-black font-bold px-6 py-2 rounded-lg hover:bg-white transition-all uppercase text-xs tracking-widest disabled:opacity-50"
+              className="bg-[#d4af37] text-black font-black px-8 py-2 rounded-xl hover:bg-white transition-all uppercase text-xs tracking-widest"
             >
-              {isSaving ? 'Sincronizando...' : 'Guardar'}
+              Vincular
             </button>
           </div>
         </div>
       </div>
 
-      <div className="glass-panel p-8 rounded-2xl border border-[#d4af37]/30">
-        <h2 className="text-2xl font-shaiya text-[#d4af37] mb-6 uppercase tracking-widest">Agregar Nueva Reliquia</h2>
+      <div className="glass-panel p-8 rounded-3xl border-[#d4af37]/30">
+        <h2 className="text-3xl font-shaiya text-[#d4af37] mb-6 uppercase tracking-widest">Crear Nueva Reliquia</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
-            <input 
-              placeholder="Nombre del Objeto"
-              className="w-full bg-black/60 border border-white/10 p-3 rounded-lg text-white outline-none focus:border-[#d4af37]"
-              value={newItem.name}
-              onChange={e => setNewItem({...newItem, name: e.target.value})}
-            />
-            <select 
-              className="w-full bg-black/60 border border-white/10 p-3 rounded-lg text-white outline-none focus:border-[#d4af37]"
-              value={newItem.category}
-              onChange={e => setNewItem({...newItem, category: e.target.value as Category})}
-            >
+            <input placeholder="Nombre" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white outline-none" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
+            <select className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value as Category})}>
               {Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}
             </select>
-            <input 
-              placeholder="URL de la Imagen"
-              className="w-full bg-black/60 border border-white/10 p-3 rounded-lg text-white outline-none focus:border-[#d4af37]"
-              value={newItem.image}
-              onChange={e => setNewItem({...newItem, image: e.target.value})}
-            />
+            <input placeholder="URL Imagen" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newItem.image} onChange={e => setNewItem({...newItem, image: e.target.value})} />
           </div>
-          <div className="space-y-4">
-            <textarea 
-              placeholder="Descripción épica..."
-              className="w-full h-[142px] bg-black/60 border border-white/10 p-3 rounded-lg text-white outline-none focus:border-[#d4af37] resize-none"
-              value={newItem.description}
-              onChange={e => setNewItem({...newItem, description: e.target.value})}
-            />
-          </div>
+          <textarea placeholder="Descripción épica..." className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white outline-none resize-none h-[184px]" value={newItem.description} onChange={e => setNewItem({...newItem, description: e.target.value})} />
         </div>
-
-        {newItem.category === Category.COSTUME && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-            <select 
-              className="w-full bg-black/60 border border-white/10 p-3 rounded-lg text-white outline-none focus:border-[#d4af37]"
-              value={newItem.faction}
-              onChange={e => setNewItem({...newItem, faction: e.target.value as Faction, item_class: ''})}
-            >
-              <option value={Faction.LIGHT}>Luz</option>
-              <option value={Faction.FURY}>Furia</option>
-            </select>
-            <select 
-              className="w-full bg-black/60 border border-white/10 p-3 rounded-lg text-white outline-none focus:border-[#d4af37]"
-              value={newItem.item_class}
-              onChange={e => setNewItem({...newItem, item_class: e.target.value})}
-            >
-              <option value="">Seleccionar Clase</option>
-              {newItem.faction && CLASSES_BY_FACTION[newItem.faction as Faction].map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        <button 
-          onClick={handleAddItem}
-          disabled={isSaving}
-          className="w-full mt-8 bg-gradient-to-r from-[#d4af37] to-[#8a6d3b] text-black font-bold py-4 rounded-xl hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] transition-all uppercase tracking-[4px] disabled:opacity-50"
-        >
-          {isSaving ? 'Invocando datos...' : 'Forjar Objeto en la Base de Datos'}
+        <button onClick={handleAddItem} className="w-full mt-8 bg-white text-black font-black py-5 rounded-2xl uppercase tracking-widest hover:bg-[#d4af37] transition-all">
+          Publicar Objeto
         </button>
       </div>
     </div>

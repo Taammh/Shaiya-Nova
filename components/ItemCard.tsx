@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { GameItem, Category, Faction } from '../types';
+import { GameItem, Category, Faction, Gender } from '../types';
 import { getLoreForItem } from '../services/geminiService';
 
 interface ItemCardProps {
@@ -45,9 +45,16 @@ const ItemCard: React.FC<ItemCardProps> = ({ item }) => {
       </div>
       <div className="p-6 space-y-4">
         <div className="flex justify-between items-start">
-          <h3 className="text-2xl font-shaiya text-white group-hover:text-[#d4af37] transition-colors drop-shadow-md">
-            {item.name}
-          </h3>
+          <div className="space-y-1">
+            <h3 className="text-2xl font-shaiya text-white group-hover:text-[#d4af37] transition-colors drop-shadow-md">
+              {item.name}
+            </h3>
+            {item.category === Category.COSTUME && item.gender && (
+              <p className="text-[9px] text-gray-500 uppercase tracking-widest font-black">
+                GÉNERO: <span className="text-gray-300">{item.gender}</span>
+              </p>
+            )}
+          </div>
           {item.category === Category.COSTUME && item.faction && (
             <span className={`text-[10px] font-bold uppercase tracking-tighter px-2 py-0.5 border rounded ${factionColor} bg-black/40`}>
               {item.faction}

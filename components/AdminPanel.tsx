@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Category, Faction, GameItem, CLASSES_BY_FACTION } from '../types';
+import { Category, Faction, GameItem, CLASSES_BY_FACTION, Gender } from '../types';
 import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting } from '../services/supabaseClient';
 
 const AdminPanel: React.FC = () => {
@@ -19,6 +19,7 @@ const AdminPanel: React.FC = () => {
     hidden_history: '',
     faction: Faction.LIGHT,
     item_class: 'All',
+    gender: Gender.BOTH,
     stats: ''
   });
 
@@ -70,6 +71,7 @@ const AdminPanel: React.FC = () => {
       if (itemToSave.category !== Category.COSTUME) {
         delete itemToSave.faction;
         delete itemToSave.item_class;
+        delete itemToSave.gender;
       }
 
       if (editingId) {
@@ -98,6 +100,7 @@ const AdminPanel: React.FC = () => {
       hidden_history: '',
       faction: Faction.LIGHT,
       item_class: 'All',
+      gender: Gender.BOTH,
       stats: ''
     });
     setEditingId(null);
@@ -108,6 +111,7 @@ const AdminPanel: React.FC = () => {
       ...item,
       faction: item.faction || Faction.LIGHT,
       item_class: item.item_class || 'All',
+      gender: item.gender || Gender.BOTH,
       hidden_history: item.hidden_history || ''
     });
     setEditingId(item.id);
@@ -144,21 +148,29 @@ const AdminPanel: React.FC = () => {
             </div>
 
             {newItem.category === Category.COSTUME && (
-              <div className="grid grid-cols-2 gap-4 animate-fade-in">
-                <div>
-                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[4px] mb-2">Facción</label>
-                  <select className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.faction} onChange={e => setNewItem({...newItem, faction: e.target.value as Faction, item_class: 'All'})}>
-                    <option value={Faction.LIGHT}>Luz</option>
-                    <option value={Faction.FURY}>Furia</option>
-                  </select>
+              <div className="space-y-4 animate-fade-in">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[4px] mb-2">Facción</label>
+                    <select className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.faction} onChange={e => setNewItem({...newItem, faction: e.target.value as Faction, item_class: 'All'})}>
+                      <option value={Faction.LIGHT}>Luz</option>
+                      <option value={Faction.FURY}>Furia</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[4px] mb-2">Clase</label>
+                    <select className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.item_class} onChange={e => setNewItem({...newItem, item_class: e.target.value})}>
+                      <option value="All">Todas</option>
+                      {CLASSES_BY_FACTION[newItem.faction as Faction || Faction.LIGHT].map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[4px] mb-2">Clase</label>
-                  <select className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.item_class} onChange={e => setNewItem({...newItem, item_class: e.target.value})}>
-                    <option value="All">Todas</option>
-                    {CLASSES_BY_FACTION[newItem.faction as Faction || Faction.LIGHT].map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[4px] mb-2">Sexo / Género</label>
+                  <select className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.gender} onChange={e => setNewItem({...newItem, gender: e.target.value as Gender})}>
+                    {Object.values(Gender).map(g => <option key={g} value={g}>{g}</option>)}
                   </select>
                 </div>
               </div>
@@ -212,7 +224,7 @@ const AdminPanel: React.FC = () => {
                   <div>
                     <h4 className="text-white font-shaiya text-lg">{item.name}</h4>
                     <p className="text-[#d4af37] text-[10px] uppercase tracking-widest">
-                      {item.category} {item.faction ? `| ${item.faction}` : ''} {item.item_class && item.item_class !== 'All' ? `| ${item.item_class}` : ''}
+                      {item.category} {item.faction ? `| ${item.faction}` : ''} {item.item_class && item.item_class !== 'All' ? `| ${item.item_class}` : ''} {item.gender ? `| ${item.gender}` : ''}
                     </p>
                   </div>
                 </div>

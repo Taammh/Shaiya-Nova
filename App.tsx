@@ -6,12 +6,13 @@ import BugReportForm from './components/BugReportForm';
 import AdminPanel from './components/AdminPanel';
 import { getItemsFromDB } from './services/supabaseClient';
 import { ITEMS as STATIC_ITEMS } from './constants';
-import { Category, Faction, CLASSES_BY_FACTION, GameItem } from './types';
+import { Category, Faction, CLASSES_BY_FACTION, GameItem, Gender } from './types';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('mounts');
   const [selectedFaction, setSelectedFaction] = useState<Faction>(Faction.LIGHT);
   const [selectedClass, setSelectedClass] = useState<string>('All');
+  const [selectedGender, setSelectedGender] = useState<string>('All');
   const [cloudItems, setCloudItems] = useState<GameItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
@@ -97,11 +98,20 @@ const App: React.FC = () => {
         const matchesClass = selectedClass === 'All' || 
           item.item_class === selectedClass || 
           (item.classes && item.classes.includes(selectedClass));
-        return matchesFaction && matchesClass;
+        
+        // El filtro de género:
+        // Si es 'All', pasa cualquiera.
+        // Si el ítem es 'Ambos', pasa cualquier filtro de género específico.
+        // Si el ítem es específico, debe coincidir.
+        const matchesGender = selectedGender === 'All' || 
+          item.gender === Gender.BOTH || 
+          item.gender === selectedGender;
+
+        return matchesFaction && matchesClass && matchesGender;
       }
       return true;
     });
-  }, [activeTab, selectedFaction, selectedClass, allItems]);
+  }, [activeTab, selectedFaction, selectedClass, selectedGender, allItems]);
 
   const handleAdminAuth = (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,7 +139,7 @@ const App: React.FC = () => {
             </header>
 
             {activeTab === 'costumes' && (
-              <div className="mb-12 glass-panel p-6 rounded-3xl border border-white/10 shadow-2xl animate-fade-in flex flex-col md:flex-row gap-8 items-center justify-center">
+              <div className="mb-12 glass-panel p-8 rounded-[2rem] border border-white/10 shadow-2xl animate-fade-in flex flex-col md:flex-row gap-8 items-center justify-center">
                 <div className="flex flex-col items-center">
                   <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Facción</span>
                   <div className="flex gap-4">
@@ -137,12 +147,22 @@ const App: React.FC = () => {
                     <button onClick={() => setSelectedFaction(Faction.FURY)} className={`px-6 py-2 rounded-lg font-bold uppercase text-xs transition-all ${selectedFaction === Faction.FURY ? 'bg-red-600/40 border border-red-400 text-red-100 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'bg-black/40 border border-white/5 text-gray-500'}`}>Furia</button>
                   </div>
                 </div>
+                
                 <div className="flex flex-col items-center">
                   <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Clase</span>
-                  <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="bg-black/60 border border-white/10 text-gray-200 p-2 rounded-lg outline-none font-bold uppercase text-[10px] tracking-widest w-48">
+                  <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="bg-black/60 border border-white/10 text-gray-200 p-2 rounded-lg outline-none font-bold uppercase text-[10px] tracking-widest w-48 hover:border-[#d4af37]/40 transition-all">
                     <option value="All">Todas</option>
                     {CLASSES_BY_FACTION[selectedFaction].map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
+                </div>
+
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Sexo</span>
+                  <div className="flex gap-2 bg-black/40 p-1 rounded-xl border border-white/5">
+                    <button onClick={() => setSelectedGender('All')} className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase transition-all ${selectedGender === 'All' ? 'bg-[#d4af37] text-black' : 'text-gray-500 hover:text-white'}`}>Todos</button>
+                    <button onClick={() => setSelectedGender(Gender.MALE)} className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase transition-all ${selectedGender === Gender.MALE ? 'bg-[#d4af37] text-black' : 'text-gray-500 hover:text-white'}`}>Masc</button>
+                    <button onClick={() => setSelectedGender(Gender.FEMALE)} className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase transition-all ${selectedGender === Gender.FEMALE ? 'bg-[#d4af37] text-black' : 'text-gray-500 hover:text-white'}`}>Fem</button>
+                  </div>
                 </div>
               </div>
             )}

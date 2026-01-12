@@ -30,7 +30,7 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    // 1. Lógica de Sincronización de Portal (Solo Configuración)
+    // 1. Sincronización Maestra (Webhook + Supabase Keys)
     const urlParams = new URLSearchParams(window.location.search);
     const syncData = urlParams.get('sync');
     
@@ -39,9 +39,11 @@ const App: React.FC = () => {
         const decoded = JSON.parse(decodeURIComponent(escape(atob(syncData))));
         if (decoded.webhook) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', decoded.webhook);
         if (decoded.clientId) localStorage.setItem('nova_setting_DISCORD_CLIENT_ID', decoded.clientId);
+        if (decoded.sUrl) localStorage.setItem('nova_setting_SUPABASE_URL', decoded.sUrl);
+        if (decoded.sKey) localStorage.setItem('nova_setting_SUPABASE_ANON_KEY', decoded.sKey);
         
         window.history.replaceState({}, document.title, window.location.pathname);
-        alert("¡Reino Sincronizado! Ahora verás los datos oficiales del portal en tiempo real.");
+        alert("¡PORTAL SINCRONIZADO CON ÉXITO! Ahora verás el catálogo en tiempo real.");
         window.location.reload(); 
       } catch (e) {
         console.error("Fallo en la sincronización:", e);
@@ -70,13 +72,12 @@ const App: React.FC = () => {
         window.location.hash = ''; 
         setActiveTab('report');
       })
-      .catch(err => console.error("Error en login real de Discord:", err))
+      .catch(err => console.error("Error en login real:", err))
       .finally(() => setIsLoading(false));
     }
 
     fetchItems();
-    // Refresco automático de objetos cada minuto para usuarios
-    const interval = setInterval(fetchItems, 60000);
+    const interval = setInterval(fetchItems, 45000); // Refresco cada 45s
     return () => clearInterval(interval);
   }, []);
 
@@ -114,7 +115,7 @@ const App: React.FC = () => {
     if (adminPassword === 'Nova2296') {
       setIsAdminAuthenticated(true);
     } else {
-      alert('Contraseña de Administrador incorrecta.');
+      alert('Contraseña incorrecta.');
     }
   };
 
@@ -192,7 +193,7 @@ const App: React.FC = () => {
       <footer className="bg-black/95 py-12 border-t border-[#d4af37]/30 mt-20 relative z-20">
         <div className="container mx-auto px-4 text-center">
           <p className="text-[#d4af37] font-shaiya text-2xl mb-2 tracking-widest">SHAIYA NOVA DATABASE</p>
-          <p className="text-gray-600 text-[10px] uppercase tracking-[5px]">Portal de Sincronización Real v2.5</p>
+          <p className="text-gray-600 text-[10px] uppercase tracking-[5px]">Portal de Sincronización Real v3.0</p>
         </div>
       </footer>
     </div>

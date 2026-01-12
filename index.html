@@ -1,0 +1,71 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shaiya NOVA Database</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=MedievalSharp&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #050507;
+            color: #e2e8f0;
+            font-family: 'Cormorant+Garamond', serif;
+            margin: 0;
+            padding: 0;
+        }
+        .font-shaiya {
+            font-family: 'MedievalSharp', cursive;
+        }
+        .fantasy-border {
+            border: 2px solid transparent;
+            border-image: linear-gradient(to bottom, #d4af37, #8a6d3b) 1;
+        }
+        .glow-hover:hover {
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+        }
+        .bg-shaiya-nova {
+            background-image: url('https://media.discordapp.net/attachments/1460068773175492641/1460108918108852366/img_81.jpg?ex=6965b7e5&is=69646665&hm=a7e75adc4d118167bb2bb7b2bb31788a19bbfd5c922679a20128ba599684ea38&=&format=webp&width=816&height=466');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+        }
+        .glass-panel {
+            background: rgba(10, 10, 12, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(212, 175, 55, 0.15);
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1a1a1e;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4a4a4e;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #d4af37;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.45.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>

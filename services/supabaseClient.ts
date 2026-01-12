@@ -145,7 +145,6 @@ export const getStaffApplications = async () => {
     const { data, error } = await client.from('staff_applications').select('*').order('created_at', { ascending: false });
     if (error) {
       console.error("Supabase Staff Fetch Error:", error);
-      // Si el error es de columna inexistente, devolvemos array vacío pero avisamos
       return [];
     }
     return data || [];
@@ -159,6 +158,12 @@ export const updateStaffApplicationStatus = async (id: string, status: string) =
   const { client, isPlaceholder } = getSupabase();
   if (isPlaceholder) return;
   return await client.from('staff_applications').update({ status }).eq('id', id);
+};
+
+export const deleteStaffApplicationFromDB = async (id: string) => {
+  const { client, isPlaceholder } = getSupabase();
+  if (isPlaceholder) return;
+  return await client.from('staff_applications').delete().eq('id', id);
 };
 
 export const getSetting = async (key: string) => {

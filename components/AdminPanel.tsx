@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Category, Faction, GameItem, CLASSES_BY_FACTION, Gender, StaffApplication } from '../types';
-import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting, getStaffApplications, updateStaffApplicationStatus, pushLocalItemsToCloud } from '../services/supabaseClient';
+import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting, getStaffApplications, updateStaffApplicationStatus, pushLocalItemsToCloud, deleteStaffApplicationFromDB } from '../services/supabaseClient';
 
 const AdminPanel: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'items' | 'promos' | 'apps' | 'settings'>('items');
@@ -157,9 +157,8 @@ const AdminPanel: React.FC = () => {
         const errorData = await response.json().catch(() => ({}));
         console.group("🛡️ Error de Discord 403 - Diagnóstico NOVA");
         console.error("Respuesta de Discord:", errorData);
-        console.warn("IMPORTANTE: Si estás probando con tu propia cuenta y eres DUEÑO (Owner) del servidor, Discord BLOQUEA la asignación por bot.");
-        console.warn("SOLUCIÓN: Prueba con una cuenta secundaria o un miembro común.");
-        console.warn("VERIFICACIÓN: El rol de integración del Bot debe estar FÍSICAMENTE arriba de los roles que intenta dar en la lista de roles del servidor.");
+        console.warn("DUEÑO DEL SERVIDOR: Si eres el dueño, Discord prohíbe que el bot te cambie roles.");
+        console.warn("JERARQUÍA: El rol de INTEGRACIÓN del Bot debe estar arriba de los roles del Staff.");
         console.groupEnd();
         return false;
       }
@@ -188,7 +187,7 @@ const AdminPanel: React.FC = () => {
             body: JSON.stringify({
               embeds: [{
                 title: "🛡️ ¡Nuevo Guardián en NOVA! 🛡️",
-                description: `¡Bienvenido **${app.username}** como **${app.position}**!\n\n${roleSuccess ? '✅ **Rol de Discord asignado automáticamente.**' : '⚠️ **Error de Jerarquía/Owner:** El rol no pudo ser asignado. **Si el bot es Admin**, esto ocurre porque el candidato es el **Dueño del Servidor** o el rol del Bot no es el de Integración (Tool icon).'}`,
+                description: `¡Bienvenido **${app.username}** como **${app.position}**!\n\n${roleSuccess ? '✅ **Rol de Discord asignado automáticamente.**' : '⚠️ **Advertencia de Jerarquía:** No se pudo asignar el rol. Esto es común si el bot intenta darle un rol al dueño del servidor o si su propio rol de integración no está por encima de los demás.'}`,
                 color: 0xd4af37,
                 thumbnail: { url: app.avatar_url },
                 fields: [
@@ -209,6 +208,19 @@ const AdminPanel: React.FC = () => {
       alert("Error al procesar el pergamino."); 
     }
     finally { setIsSaving(false); }
+  };
+
+  const handleDeleteApp = async (id: string) => {
+    if (!window.confirm("¿Estás seguro de que quieres eliminar esta postulación para siempre?")) return;
+    setIsSaving(true);
+    try {
+      await deleteStaffApplicationFromDB(id);
+      loadData();
+    } catch (e) {
+      alert("Error al eliminar.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -367,13 +379,14 @@ const AdminPanel: React.FC = () => {
                      </div>
                    </div>
                    <div className="flex gap-3">
-                     <button onClick={() => setViewingApp(app)} className="p-3 bg-white/5 text-[#d4af37] border border-[#d4af37]/20 rounded-xl hover:bg-[#d4af37]/10 transition-all">👁️</button>
+                     <button onClick={() => setViewingApp(app)} title="Ver Detalle" className="p-3 bg-white/5 text-[#d4af37] border border-[#d4af37]/20 rounded-xl hover:bg-[#d4af37]/10 transition-all">👁️</button>
                      {app.status === 'pending' ? (
                        <>
                         <button onClick={() => handleAppStatus(app, 'accepted')} className="bg-green-600/20 text-green-500 border border-green-500/30 px-6 py-2 rounded-xl font-black text-[10px] uppercase hover:bg-green-600 hover:text-white transition-all">Aceptar</button>
                         <button onClick={() => handleAppStatus(app, 'rejected')} className="bg-red-600/20 text-red-500 border border-red-500/30 px-6 py-2 rounded-xl font-black text-[10px] uppercase hover:bg-red-600 hover:text-white transition-all">Rechazar</button>
                        </>
                      ) : <span className={`px-6 py-2 rounded-xl font-black uppercase text-[10px] border ${app.status === 'accepted' ? 'text-green-500 border-green-500/20 bg-green-500/5' : 'text-red-500 border-red-500/20 bg-red-500/5'}`}>{app.status}</span>}
+                     <button onClick={() => handleDeleteApp(app.id)} title="Eliminar" className="p-3 bg-red-600/10 text-red-500 border border-red-500/20 rounded-xl hover:bg-red-600 hover:text-white transition-all">🗑️</button>
                    </div>
                  </div>
                ))
@@ -417,6 +430,7 @@ const AdminPanel: React.FC = () => {
                         <button onClick={() => handleAppStatus(viewingApp, 'rejected')} className="flex-grow bg-red-600/20 text-red-500 border border-red-500/30 font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:bg-red-600 hover:text-white transition-all">Denegar</button>
                      </>
                    )}
+                   <button onClick={() => { handleDeleteApp(viewingApp.id); setViewingApp(null); }} className="px-8 bg-red-600/10 text-red-500 border border-red-500/20 font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:bg-red-600 hover:text-white transition-all">Eliminar</button>
                  </div>
                </div>
              </div>

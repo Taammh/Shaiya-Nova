@@ -19,9 +19,8 @@ const ItemCard: React.FC<ItemCardProps> = ({ item }) => {
     setIsLoadingLore(false);
   };
 
-  // Fixed: Comparison with Faction enum values instead of incompatible hardcoded string literals
-  const factionColor = item.faction === Faction.LIGHT ? 'text-blue-400' : 
-                       item.faction === Faction.FURY ? 'text-red-500' : 'text-yellow-500';
+  const factionColor = item.faction === Faction.LIGHT ? 'text-blue-400 border-blue-400/30' : 
+                       item.faction === Faction.FURY ? 'text-red-500 border-red-500/30' : 'text-yellow-500 border-yellow-500/30';
 
   return (
     <div className="glass-panel border border-white/10 hover:border-[#d4af37]/60 rounded-xl overflow-hidden transition-all duration-500 group shadow-lg hover:shadow-[#d4af37]/10">
@@ -31,7 +30,7 @@ const ItemCard: React.FC<ItemCardProps> = ({ item }) => {
           alt={item.name} 
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 opacity-90 group-hover:opacity-100"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#16161a] via-transparent to-transparent opacity-60"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c] via-transparent to-transparent opacity-80"></div>
         <div className="absolute top-3 right-3 px-3 py-1 bg-black/80 backdrop-blur-md text-[10px] font-bold uppercase tracking-widest text-[#d4af37] border border-[#d4af37]/30 rounded-lg">
           {item.category}
         </div>
@@ -41,33 +40,21 @@ const ItemCard: React.FC<ItemCardProps> = ({ item }) => {
           <h3 className="text-2xl font-shaiya text-white group-hover:text-[#d4af37] transition-colors drop-shadow-md">
             {item.name}
           </h3>
-          <span className={`text-[10px] font-bold uppercase tracking-tighter p-1 border rounded border-white/10 ${factionColor}`}>
-            {item.faction}
-          </span>
+          {/* Solo mostrar facción si es un Traje */}
+          {item.category === Category.COSTUME && item.faction && (
+            <span className={`text-[10px] font-bold uppercase tracking-tighter px-2 py-0.5 border rounded ${factionColor} bg-black/40`}>
+              {item.faction}
+            </span>
+          )}
         </div>
         
-        <p className="text-gray-300 text-sm leading-relaxed italic opacity-80 group-hover:opacity-100 transition-opacity">
+        <p className="text-gray-300 text-sm leading-relaxed italic opacity-80 group-hover:opacity-100 transition-opacity line-clamp-2">
           {item.description}
         </p>
 
         {item.stats && (
           <div className="bg-black/60 p-3 rounded-lg border border-white/5 group-hover:border-[#d4af37]/20 transition-colors">
             <p className="text-[#d4af37] text-xs font-mono font-bold tracking-tight">{item.stats}</p>
-          </div>
-        )}
-
-        {(item.classes || item.gender) && (
-          <div className="flex flex-wrap gap-2 pt-2">
-            {item.gender && (
-              <span className="bg-gray-800/80 text-gray-300 text-[9px] px-2 py-1 rounded border border-white/5 uppercase font-bold">
-                {item.gender}
-              </span>
-            )}
-            {item.classes?.map(c => (
-              <span key={c} className="bg-indigo-900/40 text-indigo-200 text-[9px] px-2 py-1 rounded border border-indigo-500/20 uppercase font-bold">
-                {c}
-              </span>
-            ))}
           </div>
         )}
 

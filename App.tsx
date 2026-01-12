@@ -19,6 +19,25 @@ const App: React.FC = () => {
   const [adminPassword, setAdminPassword] = useState('');
 
   useEffect(() => {
+    // Verificar si hay un Link Maestro para importar
+    const urlParams = new URLSearchParams(window.location.search);
+    const masterConfig = urlParams.get('master');
+    
+    if (masterConfig) {
+      try {
+        const decoded = JSON.parse(decodeURIComponent(escape(atob(masterConfig))));
+        if (confirm('¡Se ha detectado una Configuración Maestra de NOVA! ¿Deseas importar el Webhook y los Objetos de este reino?')) {
+          if (decoded.items) localStorage.setItem('nova_local_items', JSON.stringify(decoded.items));
+          if (decoded.webhook) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', decoded.webhook);
+          alert('Reino sincronizado con éxito.');
+          // Limpiar URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      } catch (e) {
+        console.error("Error al importar configuración maestra:", e);
+      }
+    }
+
     const fetchItems = async () => {
       try {
         const items = await getItemsFromDB();

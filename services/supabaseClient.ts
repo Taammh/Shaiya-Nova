@@ -145,6 +145,7 @@ export const getStaffApplications = async () => {
     const { data, error } = await client.from('staff_applications').select('*').order('created_at', { ascending: false });
     if (error) {
       console.error("Supabase Staff Fetch Error:", error);
+      // Si el error es de columna inexistente, devolvemos array vacío pero avisamos
       return [];
     }
     return data || [];

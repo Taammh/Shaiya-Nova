@@ -30,8 +30,9 @@ const AdminPanel: React.FC = () => {
     faction: Faction.LIGHT, item_class: 'All', gender: Gender.BOTH, price: '', stats: ''
   });
 
-  const sqlSchema = `-- REPARACIÓN DE TABLAS NOVA (COPIAR Y PEGAR EN SUPABASE)
+  const sqlSchema = `-- REPARACIÓN COMPLETA DE TABLAS NOVA
 
+-- Agregar columnas faltantes a Items
 ALTER TABLE items ADD COLUMN IF NOT EXISTS faction TEXT;
 ALTER TABLE items ADD COLUMN IF NOT EXISTS item_class TEXT;
 ALTER TABLE items ADD COLUMN IF NOT EXISTS gender TEXT;
@@ -39,6 +40,7 @@ ALTER TABLE items ADD COLUMN IF NOT EXISTS stats TEXT;
 ALTER TABLE items ADD COLUMN IF NOT EXISTS price TEXT;
 ALTER TABLE items ADD COLUMN IF NOT EXISTS hidden_history TEXT;
 
+-- Reparar tabla de Postulaciones (Staff)
 CREATE TABLE IF NOT EXISTS staff_applications (
   id TEXT PRIMARY KEY,
   username TEXT NOT NULL,
@@ -51,11 +53,10 @@ CREATE TABLE IF NOT EXISTS staff_applications (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS settings (
-  key TEXT PRIMARY KEY,
-  value TEXT
-);
+-- Forzar la columna discord_user_id si la tabla ya existía
+ALTER TABLE staff_applications ADD COLUMN IF NOT EXISTS discord_user_id TEXT;
 
+-- Recargar esquema de Supabase (Importante para el error de cache)
 NOTIFY pgrst, 'reload schema';`;
 
   const loadData = async () => {
@@ -141,7 +142,7 @@ NOTIFY pgrst, 'reload schema';`;
       setNewItem({ name: '', category: Category.MOUNT, image: '', description: '', faction: Faction.LIGHT, item_class: 'All', gender: Gender.BOTH, price: '', stats: '' });
       setEditingId(null);
       loadData();
-    } catch { alert('Error de sincronización. Asegúrate de haber ejecutado el SQL en Supabase.'); }
+    } catch { alert('Error de sincronización. Ejecuta el SQL de reparación en Supabase.'); }
     finally { setIsSaving(false); }
   };
 
@@ -259,7 +260,7 @@ NOTIFY pgrst, 'reload schema';`;
             </h3>
             {showSqlHelp && (
               <div className="space-y-4 animate-fade-in">
-                <p className="text-[10px] text-gray-400 uppercase mb-2">Copia y pega esto en Supabase SQL Editor para arreglar el error del esquema:</p>
+                <p className="text-[10px] text-gray-400 uppercase mb-2">Copia y pega esto en Supabase SQL Editor si tienes errores de esquema:</p>
                 <textarea readOnly className="w-full bg-black/80 text-green-500 font-mono text-[10px] p-4 rounded-lg h-48 border border-white/10" value={sqlSchema}></textarea>
                 <button onClick={() => { navigator.clipboard.writeText(sqlSchema); alert("SQL Copiado."); }} className="bg-white/10 text-white px-4 py-2 rounded text-[9px] font-black uppercase">Copiar SQL</button>
               </div>
@@ -308,10 +309,10 @@ NOTIFY pgrst, 'reload schema';`;
            </div>
            
            <div className="space-y-6">
-             {appsList.length === 0 ? (
+             {!appsList || appsList.length === 0 ? (
                <div className="text-center py-20">
                  <p className="text-gray-600 font-shaiya text-xl uppercase mb-4">No hay pergaminos en el archivo</p>
-                 <p className="text-[10px] text-gray-500 uppercase">Asegúrate de haber ejecutado el SQL en Supabase para crear la tabla 'staff_applications'</p>
+                 <p className="text-[10px] text-gray-500 uppercase">Asegúrate de haber ejecutado el SQL para reparar la columna 'discord_user_id'</p>
                </div>
              ) : (
                appsList.map(app => (

@@ -35,20 +35,24 @@ export const getSupabase = (): { client: SupabaseClient, isPlaceholder: boolean 
 };
 
 const mapItemForDB = (item: any) => {
-  return {
-    id: item.id?.toString() || `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+  const mapped: any = {
+    id: item.id?.toString() || `item-${Date.now()}`,
     name: item.name || '',
     category: item.category || 'Montura',
     image: item.image || '',
     description: item.description || '',
-    hidden_history: item.hidden_history || '',
-    faction: item.faction || null,
-    item_class: item.item_class || 'All',
-    gender: item.gender || 'Ambos',
-    stats: item.stats || '',
-    price: item.price || '',
     created_at: item.created_at || new Date().toISOString()
   };
+  
+  // Solo incluimos campos opcionales si tienen valor para evitar errores de columnas faltantes en lo posible
+  if (item.hidden_history) mapped.hidden_history = item.hidden_history;
+  if (item.faction) mapped.faction = item.faction;
+  if (item.item_class) mapped.item_class = item.item_class;
+  if (item.gender) mapped.gender = item.gender;
+  if (item.stats) mapped.stats = item.stats;
+  if (item.price) mapped.price = item.price;
+  
+  return mapped;
 };
 
 export const pushLocalItemsToCloud = async () => {
@@ -59,11 +63,15 @@ export const pushLocalItemsToCloud = async () => {
   const { client, isPlaceholder } = getSupabase();
   if (isPlaceholder) throw new Error("Portal no conectado a la nube. Configura Supabase en Ajustes.");
 
-  // Mapear y limpiar items antes de subir
   const itemsToUpload = localItems.map(mapItemForDB);
   
   const { error } = await client.from('items').upsert(itemsToUpload, { onConflict: 'id' });
-  if (error) throw error;
+  if (error) {
+    if (error.message.includes('column "price"')) {
+      throw new Error("Falta la columna 'price' en tu tabla de Supabase. Ejecuta el SQL de Ajustes.");
+    }
+    throw error;
+  }
   return { success: true, count: localItems.length };
 };
 
@@ -79,7 +87,6 @@ export const getItemsFromDB = async () => {
     if (error) throw error;
     return data && data.length > 0 ? data : localItems;
   } catch (err) { 
-    console.error("Error fetching cloud items:", err);
     return localItems; 
   }
 };
@@ -94,9 +101,7 @@ export const addItemToDB = async (item: any) => {
   if (!isPlaceholder) {
     try { 
       await client.from('items').insert([mapItemForDB(newItem)]); 
-    } catch (e) {
-      console.error("Error saving to cloud:", e);
-    }
+    } catch {}
   }
   return newItem;
 };
@@ -125,7 +130,6 @@ export const deleteItemFromDB = async (id: string) => {
   }
 };
 
-// --- Postulaciones ---
 export const submitStaffApplication = async (app: any) => {
   const { client, isPlaceholder } = getSupabase();
   if (isPlaceholder) throw new Error("Portal no configurado.");
@@ -134,16 +138,12 @@ export const submitStaffApplication = async (app: any) => {
 
 export const getStaffApplications = async () => {
   const { client, isPlaceholder } = getSupabase();
-  if (isPlaceholder) {
-    console.warn("Usando Supabase Placeholder para aplicaciones.");
-    return [];
-  }
+  if (isPlaceholder) return [];
   try {
     const { data, error } = await client.from('staff_applications').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     return data || [];
   } catch (err) {
-    console.error("Error al obtener postulaciones:", err);
     return [];
   }
 };
@@ -154,7 +154,6 @@ export const updateStaffApplicationStatus = async (id: string, status: string) =
   return await client.from('staff_applications').update({ status }).eq('id', id);
 };
 
-// --- Ajustes ---
 export const getSetting = async (key: string) => {
   const localVal = localStorage.getItem(`nova_setting_${key}`);
   if (localVal) return localVal;

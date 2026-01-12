@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Category, Faction, GameItem } from '../types';
+import { Category, Faction, GameItem, CLASSES_BY_FACTION } from '../types';
 import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting } from '../services/supabaseClient';
 
 const AdminPanel: React.FC = () => {
@@ -17,7 +17,7 @@ const AdminPanel: React.FC = () => {
     image: '',
     description: '',
     faction: Faction.LIGHT,
-    item_class: '',
+    item_class: 'All',
     stats: ''
   });
 
@@ -65,24 +65,22 @@ const AdminPanel: React.FC = () => {
 
     setIsSaving(true);
     try {
+      const itemToSave = { ...newItem };
+      // Limpiar facción y clase si no es un traje para mantener la DB limpia
+      if (itemToSave.category !== Category.COSTUME) {
+        delete itemToSave.faction;
+        delete itemToSave.item_class;
+      }
+
       if (editingId) {
-        await updateItemInDB({ ...newItem, id: editingId });
+        await updateItemInDB({ ...itemToSave, id: editingId });
         alert('¡Reliquia actualizada!');
       } else {
-        await addItemToDB(newItem);
+        await addItemToDB(itemToSave);
         alert('¡Reliquia forjada!');
       }
       
-      setNewItem({
-        name: '',
-        category: Category.MOUNT,
-        image: '',
-        description: '',
-        faction: Faction.LIGHT,
-        item_class: '',
-        stats: ''
-      });
-      setEditingId(null);
+      resetForm();
       loadAll();
     } catch (error) {
       alert('Error al procesar objeto.');
@@ -91,8 +89,25 @@ const AdminPanel: React.FC = () => {
     }
   };
 
+  const resetForm = () => {
+    setNewItem({
+      name: '',
+      category: Category.MOUNT,
+      image: '',
+      description: '',
+      faction: Faction.LIGHT,
+      item_class: 'All',
+      stats: ''
+    });
+    setEditingId(null);
+  };
+
   const handleEdit = (item: GameItem) => {
-    setNewItem(item);
+    setNewItem({
+      ...item,
+      faction: item.faction || Faction.LIGHT,
+      item_class: item.item_class || 'All'
+    });
     setEditingId(item.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -102,19 +117,6 @@ const AdminPanel: React.FC = () => {
       await deleteItemFromDB(id);
       loadAll();
     }
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setNewItem({
-      name: '',
-      category: Category.MOUNT,
-      image: '',
-      description: '',
-      faction: Faction.LIGHT,
-      item_class: '',
-      stats: ''
-    });
   };
 
   return (
@@ -127,15 +129,51 @@ const AdminPanel: React.FC = () => {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-6">
-            <input placeholder="Nombre del Objeto" className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none focus:border-[#d4af37]" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
-            <select className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value as Category})}>
-              {Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <input placeholder="Enlace de la Imagen" className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none focus:border-[#d4af37]" value={newItem.image} onChange={e => setNewItem({...newItem, image: e.target.value})} />
-            <input placeholder="Stats (Ej: Vel +150%)" className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none focus:border-[#d4af37]" value={newItem.stats} onChange={e => setNewItem({...newItem, stats: e.target.value})} />
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[4px] mb-2">Nombre</label>
+              <input placeholder="Nombre del Objeto" className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none focus:border-[#d4af37]" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
+            </div>
+            
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[4px] mb-2">Categoría</label>
+              <select className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value as Category})}>
+                {Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
+            {newItem.category === Category.COSTUME && (
+              <div className="grid grid-cols-2 gap-4 animate-fade-in">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[4px] mb-2">Facción</label>
+                  <select className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.faction} onChange={e => setNewItem({...newItem, faction: e.target.value as Faction, item_class: 'All'})}>
+                    <option value={Faction.LIGHT}>Luz</option>
+                    <option value={Faction.FURY}>Furia</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[4px] mb-2">Clase</label>
+                  <select className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.item_class} onChange={e => setNewItem({...newItem, item_class: e.target.value})}>
+                    <option value="All">Todas</option>
+                    {CLASSES_BY_FACTION[newItem.faction as Faction || Faction.LIGHT].map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[4px] mb-2">Imagen (URL)</label>
+              <input placeholder="Enlace de la Imagen" className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none focus:border-[#d4af37]" value={newItem.image} onChange={e => setNewItem({...newItem, image: e.target.value})} />
+            </div>
           </div>
-          <textarea placeholder="Narra la historia de esta reliquia..." className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none resize-none min-h-[250px] focus:border-[#d4af37]" value={newItem.description} onChange={e => setNewItem({...newItem, description: e.target.value})} />
+
+          <div>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[4px] mb-2">Lore / Descripción</label>
+            <textarea placeholder="Narra la historia de esta reliquia..." className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none resize-none min-h-[300px] focus:border-[#d4af37]" value={newItem.description} onChange={e => setNewItem({...newItem, description: e.target.value})} />
+          </div>
         </div>
+
         <div className="flex gap-4 mt-10">
           <button 
             onClick={handleAddItem} 
@@ -145,7 +183,7 @@ const AdminPanel: React.FC = () => {
             {isSaving ? 'Procesando...' : editingId ? 'Guardar Cambios' : 'Publicar en el Catálogo'}
           </button>
           {editingId && (
-            <button onClick={cancelEdit} className="px-8 bg-gray-800 text-white font-bold rounded-[1.5rem] uppercase tracking-widest hover:bg-gray-700 transition-all">
+            <button onClick={resetForm} className="px-8 bg-gray-800 text-white font-bold rounded-[1.5rem] uppercase tracking-widest hover:bg-gray-700 transition-all">
               Cancelar
             </button>
           )}
@@ -165,7 +203,9 @@ const AdminPanel: React.FC = () => {
                   <img src={item.image} className="w-12 h-12 rounded-lg object-cover border border-[#d4af37]/20" alt={item.name} />
                   <div>
                     <h4 className="text-white font-shaiya text-lg">{item.name}</h4>
-                    <p className="text-[#d4af37] text-[10px] uppercase tracking-widest">{item.category}</p>
+                    <p className="text-[#d4af37] text-[10px] uppercase tracking-widest">
+                      {item.category} {item.faction ? `| ${item.faction}` : ''} {item.item_class && item.item_class !== 'All' ? `| ${item.item_class}` : ''}
+                    </p>
                   </div>
                 </div>
                 <div className="flex gap-2">

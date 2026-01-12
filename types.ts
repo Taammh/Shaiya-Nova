@@ -12,26 +12,23 @@ export enum Faction {
 }
 
 export enum Class {
-  FIGHTER = 'Luchador',
-  DEFENDER = 'Defensor',
+  FIGHTER_DEFENDER = 'Luchador/Defensor',
   PRIEST = 'Cura',
   MAGE = 'Mago',
-  ARCHER = 'Arquero',
-  RANGER = 'Ranger',
-  WAR = 'War',
-  GUARDIAN = 'Guardian',
+  ARCHER_RANGER = 'Arquero/Ranger',
+  WAR_GUARDIAN = 'War/Guardian',
   ORACLE = 'Oraculo',
   PAGAN = 'Pagano',
   ASSASSIN = 'Asesino',
   HUNTER = 'Hunter'
 }
 
-export type LuzClass = 'Luchador' | 'Defensor' | 'Cura' | 'Mago' | 'Arquero' | 'Ranger';
-export type FuriaClass = 'War' | 'Guardian' | 'Oraculo' | 'Pagano' | 'Asesino' | 'Hunter';
+export type LuzClass = 'Luchador/Defensor' | 'Cura' | 'Mago' | 'Arquero/Ranger';
+export type FuriaClass = 'War/Guardian' | 'Oraculo' | 'Pagano' | 'Asesino' | 'Hunter';
 
 export const CLASSES_BY_FACTION = {
-  [Faction.LIGHT]: ['Luchador', 'Defensor', 'Cura', 'Mago', 'Arquero', 'Ranger'] as LuzClass[],
-  [Faction.FURY]: ['War', 'Guardian', 'Oraculo', 'Pagano', 'Asesino', 'Hunter'] as FuriaClass[],
+  [Faction.LIGHT]: ['Luchador/Defensor', 'Cura', 'Mago', 'Arquero/Ranger'] as LuzClass[],
+  [Faction.FURY]: ['War/Guardian', 'Oraculo', 'Pagano', 'Asesino', 'Hunter'] as FuriaClass[],
   [Faction.NEUTRAL]: [] as string[]
 };
 

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { GameItem, Category } from '../types';
+import { GameItem, Category, Faction } from '../types';
 import { getLoreForItem } from '../services/geminiService';
 
 interface ItemCardProps {
@@ -19,8 +19,9 @@ const ItemCard: React.FC<ItemCardProps> = ({ item }) => {
     setIsLoadingLore(false);
   };
 
-  const factionColor = item.faction === 'Alliance of Light' ? 'text-blue-400' : 
-                       item.faction === 'Union of Fury' ? 'text-red-500' : 'text-yellow-500';
+  // Fixed: Comparison with Faction enum values instead of incompatible hardcoded string literals
+  const factionColor = item.faction === Faction.LIGHT ? 'text-blue-400' : 
+                       item.faction === Faction.FURY ? 'text-red-500' : 'text-yellow-500';
 
   return (
     <div className="glass-panel border border-white/10 hover:border-[#d4af37]/60 rounded-xl overflow-hidden transition-all duration-500 group shadow-lg hover:shadow-[#d4af37]/10">

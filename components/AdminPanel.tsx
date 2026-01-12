@@ -96,7 +96,7 @@ const AdminPanel: React.FC = () => {
     localStorage.setItem('nova_setting_SUPABASE_ANON_KEY', config.supabaseKey);
     setIsSaving(false);
     alert('Configuración Nucleares Guardada.');
-    loadConfig(); // Recargar para asegurar que assignDiscordRole tenga lo último
+    loadConfig();
   };
 
   const generateMasterLink = () => {
@@ -120,24 +120,25 @@ const AdminPanel: React.FC = () => {
   };
 
   const assignDiscordRole = async (userId: string, position: string) => {
-    // Obtenemos los valores más frescos directamente para evitar Stale State
-    const botTokenRaw = await getSetting('DISCORD_BOT_TOKEN') || '';
+    // 1. Obtener valores frescos y limpiar espacios en blanco
+    const botTokenRaw = (await getSetting('DISCORD_BOT_TOKEN') || '').trim();
     const guildId = (await getSetting('DISCORD_GUILD_ID') || '').trim();
     const roleGs = (await getSetting('ROLE_ID_GS') || '').trim();
     const roleLgs = (await getSetting('ROLE_ID_LGS') || '').trim();
     const roleGm = (await getSetting('ROLE_ID_GM') || '').trim();
 
     if (!botTokenRaw || !guildId) {
-      console.error("Faltan ajustes nucleares para Discord (Bot Token o Guild ID).");
+      console.warn("Auto-Rol: Configuración incompleta (Bot Token o Guild ID faltante).");
       return false;
     }
 
-    // Limpiar el token de prefijos duplicados y espacios
-    let cleanToken = botTokenRaw.trim();
+    // 2. Limpiar prefijo 'Bot ' por si acaso se puso doble o falta
+    let cleanToken = botTokenRaw;
     if (cleanToken.startsWith('Bot ')) {
-      cleanToken = cleanToken.replace('Bot ', '');
+      cleanToken = cleanToken.replace('Bot ', '').trim();
     }
 
+    // 3. Determinar ID de rol según la posición
     let roleId = '';
     const pos = position.toLowerCase();
     if (pos.includes('sage') && !pos.includes('lider')) roleId = roleGs;
@@ -145,13 +146,18 @@ const AdminPanel: React.FC = () => {
     else if (pos.includes('gm')) roleId = roleGm;
 
     if (!roleId) {
-      console.error(`No se encontró un ID de rol configurado para la posición: ${position}`);
+      console.warn(`Auto-Rol: No se encontró ID de rol para la posición "${position}". Revisa los IDs en Ajustes.`);
       return false;
     }
 
+    // 4. Limpiar el ID de usuario (asegurar que sea solo números)
+    const cleanUserId = userId.trim();
+
+    console.log(`Intentando auto-rol: Usuario ${cleanUserId} -> Rol ${roleId} en Guild ${guildId}`);
+
     try {
-      // Endpoint oficial Discord V10 para agregar rol a un miembro
-      const url = `https://discord.com/api/v10/guilds/${guildId}/members/${userId.trim()}/roles/${roleId}`;
+      // Endpoint oficial PUT para roles
+      const url = `https://discord.com/api/v10/guilds/${guildId}/members/${cleanUserId}/roles/${roleId}`;
       
       const response = await fetch(url, {
         method: 'PUT',
@@ -162,14 +168,21 @@ const AdminPanel: React.FC = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error("Discord API Error:", errorData);
+        const errorText = await response.text();
+        console.error(`Error de Discord API (${response.status}):`, errorText);
+        
+        // Explicación de errores comunes para el usuario en consola
+        if (response.status === 403) console.error("CONSEJO: El bot no tiene permisos o su rol está por DEBAJO del rol que intenta asignar.");
+        if (response.status === 404) console.error("CONSEJO: Uno de los IDs (Usuario, Servidor o Rol) es incorrecto.");
+        if (response.status === 401) console.error("CONSEJO: El Bot Token es inválido.");
+        
         return false;
       }
 
+      console.log("¡Rol asignado con éxito por el poder de Etain!");
       return true;
     } catch (e) {
-      console.error("Error crítico en comunicación con Discord:", e);
+      console.error("Error de red al intentar conectar con Discord:", e);
       return false;
     }
   };
@@ -181,10 +194,10 @@ const AdminPanel: React.FC = () => {
       await updateStaffApplicationStatus(app.id, status);
       
       if (status === 'accepted') {
-        // Intentar auto-rol con los nuevos mecanismos de limpieza
+        // Ejecutar asignación de rol
         const roleSuccess = await assignDiscordRole(app.discord_user_id, app.position);
         
-        // Webhook de Bienvenida
+        // Enviar Webhook de Bienvenida
         const webhookWelcome = await getSetting('NOVA_STAFF_WELCOME_WEBHOOK');
         if (webhookWelcome) {
           await fetch(webhookWelcome, {
@@ -193,7 +206,7 @@ const AdminPanel: React.FC = () => {
             body: JSON.stringify({
               embeds: [{
                 title: "🛡️ ¡Nuevo Guardián en NOVA! 🛡️",
-                description: `¡Bienvenido **${app.username}** como **${app.position}**!\n\n${roleSuccess ? '✅ **Rol de Discord asignado automáticamente.**' : '⚠️ **Atención:** El rol no pudo ser asignado. Verifica la jerarquía del bot en Discord o el ID del Rol.'}`,
+                description: `¡Bienvenido **${app.username}** como **${app.position}**!\n\n${roleSuccess ? '✅ **Rol de Discord asignado automáticamente.**' : '⚠️ **Atención:** El rol no pudo ser asignado. Verifica que los IDs sean correctos y que el rol del Bot esté arriba de todo en Discord.'}`,
                 color: 0xd4af37,
                 thumbnail: { url: app.avatar_url },
                 fields: [
@@ -307,7 +320,7 @@ const AdminPanel: React.FC = () => {
             {showSqlHelp && (
               <div className="space-y-4 animate-fade-in">
                 <p className="text-[10px] text-gray-400 uppercase mb-2">Copia y pega esto en Supabase SQL Editor si tienes errores de esquema:</p>
-                <textarea readOnly className="w-full bg-black/80 text-green-500 font-mono text-[10px] p-4 rounded-lg h-48 border border-white/10" value={`-- SQL Schema omitido por brevedad`}></textarea>
+                <textarea readOnly className="w-full bg-black/80 text-green-500 font-mono text-[10px] p-4 rounded-lg h-48 border border-white/10" value={`-- SQL Schema`}></textarea>
               </div>
             )}
           </div>

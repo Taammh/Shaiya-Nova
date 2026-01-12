@@ -63,8 +63,9 @@ export const pushLocalItemsToCloud = async () => {
   
   const { error } = await client.from('items').upsert(itemsToUpload, { onConflict: 'id' });
   if (error) {
+    console.error("Supabase Push Error:", error);
     if (error.message.includes('column "price"')) {
-      throw new Error("Falta la columna 'price' en Supabase. Ejecuta el SQL de Ajustes.");
+      throw new Error("ERROR DE ESQUEMA: Falta la columna 'price'. Ejecuta el SQL de reparación en Supabase.");
     }
     throw error;
   }
@@ -83,6 +84,7 @@ export const getItemsFromDB = async () => {
     if (error) throw error;
     return data && data.length > 0 ? data : localItems;
   } catch (err) { 
+    console.error("Fetch Items Error:", err);
     return localItems; 
   }
 };
@@ -96,8 +98,12 @@ export const addItemToDB = async (item: any) => {
   const { client, isPlaceholder } = getSupabase();
   if (!isPlaceholder) {
     try { 
-      await client.from('items').insert([mapItemForDB(newItem)]); 
-    } catch {}
+      const { error } = await client.from('items').insert([mapItemForDB(newItem)]); 
+      if (error) throw error;
+    } catch (e) {
+      console.error("Add Item Error:", e);
+      throw e;
+    }
   }
   return newItem;
 };
@@ -137,9 +143,13 @@ export const getStaffApplications = async () => {
   if (isPlaceholder) return [];
   try {
     const { data, error } = await client.from('staff_applications').select('*').order('created_at', { ascending: false });
-    if (error) throw error;
+    if (error) {
+      console.error("Supabase Staff Fetch Error:", error);
+      return [];
+    }
     return data || [];
   } catch (err) {
+    console.error("Staff Apps catch error:", err);
     return [];
   }
 };

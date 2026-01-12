@@ -30,21 +30,14 @@ const AdminPanel: React.FC = () => {
     faction: Faction.LIGHT, item_class: 'All', gender: Gender.BOTH, price: '', stats: ''
   });
 
-  const sqlSchema = `-- EJECUTAR ESTO EN EL SQL EDITOR DE SUPABASE:
-CREATE TABLE IF NOT EXISTS items (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  category TEXT NOT NULL,
-  image TEXT,
-  description TEXT,
-  hidden_history TEXT,
-  faction TEXT,
-  item_class TEXT,
-  gender TEXT,
-  stats TEXT,
-  price TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+  const sqlSchema = `-- REPARACIÓN DE TABLAS NOVA (COPIAR Y PEGAR EN SUPABASE)
+
+ALTER TABLE items ADD COLUMN IF NOT EXISTS faction TEXT;
+ALTER TABLE items ADD COLUMN IF NOT EXISTS item_class TEXT;
+ALTER TABLE items ADD COLUMN IF NOT EXISTS gender TEXT;
+ALTER TABLE items ADD COLUMN IF NOT EXISTS stats TEXT;
+ALTER TABLE items ADD COLUMN IF NOT EXISTS price TEXT;
+ALTER TABLE items ADD COLUMN IF NOT EXISTS hidden_history TEXT;
 
 CREATE TABLE IF NOT EXISTS staff_applications (
   id TEXT PRIMARY KEY,
@@ -61,16 +54,18 @@ CREATE TABLE IF NOT EXISTS staff_applications (
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT
-);`;
+);
+
+NOTIFY pgrst, 'reload schema';`;
 
   const loadData = async () => {
     try {
       if (activeSubTab === 'apps') {
         const apps = await getStaffApplications();
-        setAppsList(apps);
-      } else if (activeSubTab === 'items' || activeSubTab === 'promos') {
+        setAppsList(apps || []);
+      } else {
         const items = await getItemsFromDB();
-        setItemsList(items);
+        setItemsList(items || []);
       }
     } catch (e) {
       console.error("Error loading data:", e);
@@ -146,7 +141,7 @@ CREATE TABLE IF NOT EXISTS settings (
       setNewItem({ name: '', category: Category.MOUNT, image: '', description: '', faction: Faction.LIGHT, item_class: 'All', gender: Gender.BOTH, price: '', stats: '' });
       setEditingId(null);
       loadData();
-    } catch { alert('Error.'); }
+    } catch { alert('Error de sincronización. Asegúrate de haber ejecutado el SQL en Supabase.'); }
     finally { setIsSaving(false); }
   };
 
@@ -264,6 +259,7 @@ CREATE TABLE IF NOT EXISTS settings (
             </h3>
             {showSqlHelp && (
               <div className="space-y-4 animate-fade-in">
+                <p className="text-[10px] text-gray-400 uppercase mb-2">Copia y pega esto en Supabase SQL Editor para arreglar el error del esquema:</p>
                 <textarea readOnly className="w-full bg-black/80 text-green-500 font-mono text-[10px] p-4 rounded-lg h-48 border border-white/10" value={sqlSchema}></textarea>
                 <button onClick={() => { navigator.clipboard.writeText(sqlSchema); alert("SQL Copiado."); }} className="bg-white/10 text-white px-4 py-2 rounded text-[9px] font-black uppercase">Copiar SQL</button>
               </div>
@@ -306,28 +302,38 @@ CREATE TABLE IF NOT EXISTS settings (
         </div>
       ) : (
         <div className="glass-panel p-10 rounded-[3rem] min-h-[400px] border border-white/10">
-           <h2 className="text-3xl font-shaiya text-white mb-10 text-center uppercase tracking-widest">Candidatos al Staff</h2>
+           <div className="flex justify-between items-center mb-10">
+             <h2 className="text-3xl font-shaiya text-white uppercase tracking-widest">Candidatos al Staff</h2>
+             <button onClick={loadData} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[10px] font-black uppercase text-[#d4af37] hover:bg-white/10">Refrescar Lista</button>
+           </div>
+           
            <div className="space-y-6">
-             {appsList.length === 0 && <p className="text-center py-20 text-gray-600 font-shaiya">No hay pergaminos por ahora...</p>}
-             {appsList.map(app => (
-               <div key={app.id} className="bg-black/40 p-8 rounded-3xl border border-white/10 flex justify-between items-center group hover:border-[#d4af37]/40 transition-all">
-                 <div className="flex gap-6 items-center">
-                   <img src={app.avatar_url} className="w-16 h-16 rounded-2xl border-2 border-[#d4af37] shadow-lg" />
-                   <div>
-                     <p className="text-white text-xl font-shaiya">{app.username}</p>
-                     <p className="text-[#d4af37] text-[10px] uppercase font-black tracking-widest">{app.position} • {app.discord_id}</p>
+             {appsList.length === 0 ? (
+               <div className="text-center py-20">
+                 <p className="text-gray-600 font-shaiya text-xl uppercase mb-4">No hay pergaminos en el archivo</p>
+                 <p className="text-[10px] text-gray-500 uppercase">Asegúrate de haber ejecutado el SQL en Supabase para crear la tabla 'staff_applications'</p>
+               </div>
+             ) : (
+               appsList.map(app => (
+                 <div key={app.id} className="bg-black/40 p-8 rounded-3xl border border-white/10 flex flex-col md:flex-row justify-between items-center gap-6 group hover:border-[#d4af37]/40 transition-all">
+                   <div className="flex gap-6 items-center flex-grow">
+                     <img src={app.avatar_url} className="w-16 h-16 rounded-2xl border-2 border-[#d4af37] shadow-lg" />
+                     <div>
+                       <p className="text-white text-xl font-shaiya">{app.username}</p>
+                       <p className="text-[#d4af37] text-[10px] uppercase font-black tracking-widest">{app.position} • {app.discord_id}</p>
+                     </div>
+                   </div>
+                   <div className="flex gap-3">
+                     {app.status === 'pending' ? (
+                       <>
+                        <button onClick={() => handleAppStatus(app, 'accepted')} className="bg-green-600/20 text-green-500 border border-green-500/30 px-6 py-2 rounded-xl font-black text-[10px] uppercase hover:bg-green-600 hover:text-white transition-all">Aceptar</button>
+                        <button onClick={() => handleAppStatus(app, 'rejected')} className="bg-red-600/20 text-red-500 border border-red-500/30 px-6 py-2 rounded-xl font-black text-[10px] uppercase hover:bg-red-600 hover:text-white transition-all">Rechazar</button>
+                       </>
+                     ) : <span className={`px-6 py-2 rounded-xl font-black uppercase text-[10px] border ${app.status === 'accepted' ? 'text-green-500 border-green-500/20 bg-green-500/5' : 'text-red-500 border-red-500/20 bg-red-500/5'}`}>{app.status}</span>}
                    </div>
                  </div>
-                 <div className="flex gap-3">
-                   {app.status === 'pending' ? (
-                     <>
-                      <button onClick={() => handleAppStatus(app, 'accepted')} className="bg-green-600/20 text-green-500 border border-green-500/30 px-6 py-2 rounded-xl font-black text-[10px] uppercase hover:bg-green-600 hover:text-white transition-all">Aceptar</button>
-                      <button onClick={() => handleAppStatus(app, 'rejected')} className="bg-red-600/20 text-red-500 border border-red-500/30 px-6 py-2 rounded-xl font-black text-[10px] uppercase hover:bg-red-600 hover:text-white transition-all">Rechazar</button>
-                     </>
-                   ) : <span className={`px-6 py-2 rounded-xl font-black uppercase text-[10px] border ${app.status === 'accepted' ? 'text-green-500 border-green-500/20 bg-green-500/5' : 'text-red-500 border-red-500/20 bg-red-500/5'}`}>{app.status}</span>}
-                 </div>
-               </div>
-             ))}
+               ))
+             )}
            </div>
         </div>
       )}

@@ -57,6 +57,7 @@ export interface StaffApplication {
   id: string;
   username: string;
   discord_id: string;
+  discord_user_id: string; // ID numérico para auto-rol
   position: 'Game Sage' | 'Lider Game Sage' | 'GM';
   answers: {
     experience: string;

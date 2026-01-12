@@ -4,7 +4,7 @@ import Navbar from './components/Navbar';
 import ItemCard from './components/ItemCard';
 import BugReportForm from './components/BugReportForm';
 import AdminPanel from './components/AdminPanel';
-import { getItemsFromDB, getSetting } from './services/supabaseClient';
+import { getItemsFromDB } from './services/supabaseClient';
 import { ITEMS as STATIC_ITEMS } from './constants';
 import { Category, Faction, CLASSES_BY_FACTION, GameItem } from './types';
 
@@ -14,52 +14,56 @@ const App: React.FC = () => {
   const [selectedClass, setSelectedClass] = useState<string>('All');
   const [cloudItems, setCloudItems] = useState<GameItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
 
   useEffect(() => {
+    // 1. Lógica de Sincronización Maestra (Importación de Reino)
     const urlParams = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const masterData = urlParams.get('master');
     
-    // 1. Manejo de Sincronización (Link Maestro)
-    const masterConfig = urlParams.get('master');
-    if (masterConfig) {
+    if (masterData) {
       try {
-        const decoded = JSON.parse(decodeURIComponent(escape(atob(masterConfig))));
-        // Sincronización forzada
+        // Descomprimimos y cargamos el estado del reino compartido
+        const decoded = JSON.parse(decodeURIComponent(escape(atob(masterData))));
+        
         if (decoded.items) localStorage.setItem('nova_local_items', JSON.stringify(decoded.items));
         if (decoded.webhook) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', decoded.webhook);
         if (decoded.clientId) localStorage.setItem('nova_setting_DISCORD_CLIENT_ID', decoded.clientId);
         
-        // Limpiar URL y recargar para aplicar cambios
+        // Limpiamos la URL para que el usuario no esté recargando los datos constantemente
         window.history.replaceState({}, document.title, window.location.pathname);
-        window.location.reload();
+        alert("¡Sincronización con el Reino NOVA completada! Has importado todos los objetos y configuraciones.");
+        window.location.reload(); 
       } catch (e) {
-        console.error("Error en sincronización maestra:", e);
+        console.error("Fallo en la sincronización maestra:", e);
       }
     }
 
-    // 2. Manejo de Retorno de Discord (OAuth2 Real)
+    // 2. Manejo de Retorno de Discord OAuth2 (Real)
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const accessToken = hashParams.get('access_token');
+    
     if (accessToken) {
+      setIsLoading(true);
       fetch('https://discord.com/api/users/@me', {
         headers: { Authorization: `Bearer ${accessToken}` }
       })
       .then(res => res.json())
       .then(user => {
         const userData = {
-          name: `${user.username}${user.discriminator !== '0' ? `#${user.discriminator}` : ''}`,
+          name: `${user.username}${user.discriminator !== '0' ? '#' + user.discriminator : ''}`,
           id: user.id,
           avatar: user.avatar 
             ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
             : `https://cdn.discordapp.com/embed/avatars/${parseInt(user.id) % 5}.png`
         };
         localStorage.setItem('nova_session', JSON.stringify(userData));
-        window.location.hash = ''; // Limpiar token de la URL
-        setActiveTab('report'); // Ir a soporte tras loguear
+        window.location.hash = ''; // Limpiamos el token de la URL
+        setActiveTab('report');
       })
-      .catch(err => console.error("Error al obtener usuario de Discord:", err));
+      .catch(err => console.error("Error en login real de Discord:", err))
+      .finally(() => setIsLoading(false));
     }
 
     const fetchItems = async () => {
@@ -67,7 +71,7 @@ const App: React.FC = () => {
         const items = await getItemsFromDB();
         setCloudItems(items as GameItem[]);
       } catch (e) {
-        console.error("Failed to fetch cloud items:", e);
+        console.error("Error cargando reliquias:", e);
       } finally {
         setIsLoading(false);
       }
@@ -95,7 +99,6 @@ const App: React.FC = () => {
           (item.classes && item.classes.includes(selectedClass));
         return matchesFaction && matchesClass;
       }
-
       return true;
     });
   }, [activeTab, selectedFaction, selectedClass, allItems]);
@@ -105,77 +108,50 @@ const App: React.FC = () => {
     if (adminPassword === 'Nova2296') {
       setIsAdminAuthenticated(true);
     } else {
-      alert('Acceso denegado, forastero.');
+      alert('Contraseña de Administrador incorrecta.');
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col relative">
-      <Navbar activeTab={activeTab} onTabChange={(tab) => {
-        setActiveTab(tab);
-        setSelectedClass('All');
-      }} />
+      <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
 
       <main className="flex-grow container mx-auto px-4 py-12 relative z-10">
-        
         {activeTab !== 'report' && activeTab !== 'admin' && (
           <>
             <header className="text-center mb-16 animate-fade-in">
-              <h1 className="text-6xl md:text-8xl font-shaiya text-white mb-2 tracking-tighter drop-shadow-[0_0_30px_rgba(212,175,55,0.4)]">
-                {activeTab === 'mounts' ? 'LEGENDARIAS' : activeTab === 'costumes' ? 'VESTIMENTAS' : 'ESENCIAS'} <span className="text-[#d4af37]">NOVA</span>
+              <h1 className="text-6xl md:text-8xl font-shaiya text-white mb-2 tracking-tighter drop-shadow-[0_0_25px_rgba(212,175,55,0.5)]">
+                {activeTab === 'mounts' ? 'MONTURAS' : activeTab === 'costumes' ? 'TRAJES' : 'TRANSFORMS'} <span className="text-[#d4af37]">NOVA</span>
               </h1>
-              <p className="text-[#d4af37] max-w-2xl mx-auto uppercase tracking-[6px] text-xs font-bold opacity-80">
-                {activeTab === 'mounts' ? 'Bestias sagradas de Teos' : activeTab === 'costumes' ? 'Poder forjado en armaduras' : 'Transformaciones prohibidas'}
+              <p className="text-[#d4af37] max-w-2xl mx-auto uppercase tracking-[8px] text-[10px] font-bold opacity-70">
+                La base de datos definitiva de Teos
               </p>
             </header>
 
             {activeTab === 'costumes' && (
-              <div className="mb-12 glass-panel p-6 rounded-3xl border border-white/10 shadow-2xl animate-fade-in">
-                <div className="flex flex-col md:flex-row gap-8 items-center justify-center">
-                  <div className="flex flex-col items-center">
-                    <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Reino</span>
-                    <div className="flex gap-4">
-                      <button 
-                        onClick={() => {setSelectedFaction(Faction.LIGHT); setSelectedClass('All');}}
-                        className={`px-8 py-3 rounded-xl font-bold uppercase tracking-widest transition-all ${selectedFaction === Faction.LIGHT ? 'bg-blue-600/30 border border-blue-400 text-blue-100' : 'bg-black/40 border border-white/5 text-gray-500'}`}
-                      >
-                        Luz
-                      </button>
-                      <button 
-                        onClick={() => {setSelectedFaction(Faction.FURY); setSelectedClass('All');}}
-                        className={`px-8 py-3 rounded-xl font-bold uppercase tracking-widest transition-all ${selectedFaction === Faction.FURY ? 'bg-red-600/30 border border-red-400 text-red-100' : 'bg-black/40 border border-white/5 text-gray-500'}`}
-                      >
-                        Furia
-                      </button>
-                    </div>
+              <div className="mb-12 glass-panel p-6 rounded-3xl border border-white/10 shadow-2xl animate-fade-in flex flex-col md:flex-row gap-8 items-center justify-center">
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Facción</span>
+                  <div className="flex gap-4">
+                    <button onClick={() => setSelectedFaction(Faction.LIGHT)} className={`px-6 py-2 rounded-lg font-bold uppercase text-xs transition-all ${selectedFaction === Faction.LIGHT ? 'bg-blue-600/40 border border-blue-400 text-blue-100 shadow-[0_0_15px_rgba(59,130,246,0.3)]' : 'bg-black/40 border border-white/5 text-gray-500'}`}>Luz</button>
+                    <button onClick={() => setSelectedFaction(Faction.FURY)} className={`px-6 py-2 rounded-lg font-bold uppercase text-xs transition-all ${selectedFaction === Faction.FURY ? 'bg-red-600/40 border border-red-400 text-red-100 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'bg-black/40 border border-white/5 text-gray-500'}`}>Furia</button>
                   </div>
-                  <div className="w-px h-12 bg-white/10 hidden md:block"></div>
-                  <div className="flex flex-col items-center">
-                    <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Especialización</span>
-                    <select 
-                      className="bg-black/60 border border-white/10 text-gray-200 p-3 rounded-xl outline-none min-w-[220px] font-bold uppercase tracking-widest text-center"
-                      value={selectedClass}
-                      onChange={(e) => setSelectedClass(e.target.value)}
-                    >
-                      <option value="All">Todas las Clases</option>
-                      {CLASSES_BY_FACTION[selectedFaction].map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Clase</span>
+                  <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="bg-black/60 border border-white/10 text-gray-200 p-2 rounded-lg outline-none font-bold uppercase text-[10px] tracking-widest w-48">
+                    <option value="All">Todas</option>
+                    {CLASSES_BY_FACTION[selectedFaction].map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
                 </div>
               </div>
             )}
 
             {isLoading ? (
-              <div className="text-center py-20">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#d4af37]"></div>
-              </div>
+              <div className="text-center py-20 animate-pulse"><p className="text-[#d4af37] font-shaiya text-2xl">Abriendo los archivos de Etain...</p></div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10 animate-fade-in">
-                {filteredItems.map(item => (
-                  <ItemCard key={item.id} item={item} />
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 animate-fade-in">
+                {filteredItems.map(item => <ItemCard key={item.id} item={item} />)}
               </div>
             )}
           </>
@@ -185,33 +161,22 @@ const App: React.FC = () => {
         {activeTab === 'admin' && (
           <div className="py-10">
             {!isAdminAuthenticated ? (
-              <div className="max-w-md mx-auto glass-panel p-10 rounded-3xl border border-[#d4af37]/40 shadow-2xl animate-fade-in text-center">
-                <div className="text-[#d4af37] text-4xl mb-6">🔒</div>
-                <h2 className="text-2xl font-shaiya text-white mb-8 uppercase tracking-widest">Cámara de Control</h2>
+              <div className="max-w-md mx-auto glass-panel p-10 rounded-3xl border border-[#d4af37]/40 text-center animate-fade-in">
+                <h2 className="text-2xl font-shaiya text-white mb-8 uppercase tracking-widest">Panel del Consejo</h2>
                 <form onSubmit={handleAdminAuth} className="space-y-6">
-                  <input 
-                    type="password"
-                    placeholder="Contraseña"
-                    className="w-full bg-black/80 border border-white/10 p-4 rounded-xl text-white outline-none focus:border-[#d4af37] text-center"
-                    value={adminPassword}
-                    onChange={e => setAdminPassword(e.target.value)}
-                  />
-                  <button className="w-full bg-[#d4af37] text-black font-black py-4 rounded-xl uppercase tracking-[4px]">
-                    Acceder
-                  </button>
+                  <input type="password" placeholder="Contraseña de Maestro" className="w-full bg-black/80 border border-white/10 p-4 rounded-xl text-white text-center outline-none focus:border-[#d4af37]" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} />
+                  <button className="w-full bg-[#d4af37] text-black font-black py-4 rounded-xl uppercase tracking-widest hover:bg-white transition-all">Acceder</button>
                 </form>
               </div>
-            ) : (
-              <AdminPanel />
-            )}
+            ) : <AdminPanel />}
           </div>
         )}
       </main>
 
       <footer className="bg-black/95 py-12 border-t border-[#d4af37]/30 mt-20 relative z-20">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-[#d4af37] font-shaiya text-3xl mb-4 tracking-widest">SHAIYA NOVA</p>
-          <p className="text-gray-500 text-[10px] uppercase tracking-[6px]">Sincronización Maestra Activa</p>
+          <p className="text-[#d4af37] font-shaiya text-2xl mb-2 tracking-widest">SHAIYA NOVA DATABASE</p>
+          <p className="text-gray-600 text-[10px] uppercase tracking-[5px]">Portal de Sincronización Maestra v2.0</p>
         </div>
       </footer>
     </div>

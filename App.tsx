@@ -14,16 +14,20 @@ const App: React.FC = () => {
   const [cloudItems, setCloudItems] = useState<GameItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Admin logic
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
 
   useEffect(() => {
     const fetchItems = async () => {
       setIsLoading(true);
-      const items = await getItemsFromDB();
-      setCloudItems(items as GameItem[]);
-      setIsLoading(false);
+      try {
+        const items = await getItemsFromDB();
+        setCloudItems(items as GameItem[]);
+      } catch (e) {
+        console.error("Fetch error:", e);
+      } finally {
+        setIsLoading(false);
+      }
     };
     fetchItems();
   }, []);
@@ -39,8 +43,9 @@ const App: React.FC = () => {
 
       if (activeTab === 'costumes') {
         const matchesFaction = item.faction === selectedFaction;
+        // Cambiado itemClass por item_class para coincidir con DB
         const matchesClass = selectedClass === 'All' || 
-          item.itemClass === selectedClass || 
+          item.item_class === selectedClass || 
           (item.classes && item.classes.includes(selectedClass));
         return matchesFaction && matchesClass;
       }

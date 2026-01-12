@@ -12,7 +12,7 @@ const AdminPanel: React.FC = () => {
     image: '',
     description: '',
     faction: Faction.LIGHT,
-    itemClass: ''
+    item_class: ''
   });
 
   useEffect(() => {
@@ -48,8 +48,7 @@ const AdminPanel: React.FC = () => {
         image: newItem.image,
         description: newItem.description,
         faction: newItem.faction,
-        itemClass: newItem.itemClass,
-        // created_at se genera solo en DB
+        item_class: newItem.item_class, // Usando item_class alineado con SQL
       });
       setNewItem({
         name: '',
@@ -57,12 +56,12 @@ const AdminPanel: React.FC = () => {
         image: '',
         description: '',
         faction: Faction.LIGHT,
-        itemClass: ''
+        item_class: ''
       });
       alert('Objeto forjado en la base de datos eterna.');
       window.location.reload();
     } catch (e) {
-      alert('Error al forjar el objeto.');
+      alert('Error al forjar el objeto. Verifica la conexión con Supabase.');
     } finally {
       setIsSaving(false);
     }
@@ -132,15 +131,15 @@ const AdminPanel: React.FC = () => {
             <select 
               className="w-full bg-black/60 border border-white/10 p-3 rounded-lg text-white outline-none focus:border-[#d4af37]"
               value={newItem.faction}
-              onChange={e => setNewItem({...newItem, faction: e.target.value as Faction, itemClass: ''})}
+              onChange={e => setNewItem({...newItem, faction: e.target.value as Faction, item_class: ''})}
             >
               <option value={Faction.LIGHT}>Luz</option>
               <option value={Faction.FURY}>Furia</option>
             </select>
             <select 
               className="w-full bg-black/60 border border-white/10 p-3 rounded-lg text-white outline-none focus:border-[#d4af37]"
-              value={newItem.itemClass}
-              onChange={e => setNewItem({...newItem, itemClass: e.target.value})}
+              value={newItem.item_class}
+              onChange={e => setNewItem({...newItem, item_class: e.target.value})}
             >
               <option value="">Seleccionar Clase</option>
               {newItem.faction && CLASSES_BY_FACTION[newItem.faction as Faction].map(c => (

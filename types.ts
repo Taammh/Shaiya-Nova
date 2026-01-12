@@ -11,7 +11,6 @@ export enum Faction {
   NEUTRAL = 'Neutral'
 }
 
-// Added Class enum to support the constants.ts definitions and class filtering
 export enum Class {
   FIGHTER = 'Luchador',
   DEFENDER = 'Defensor',
@@ -50,8 +49,7 @@ export interface GameItem {
   image: string;
   description: string;
   stats?: string;
-  itemClass?: string;
-  // Fixed: Added classes property to support items that apply to multiple classes
+  item_class?: string; // Alineado con la base de datos SQL
   classes?: string[];
   gender?: Gender;
 }

@@ -7,6 +7,10 @@
     <title>Shaiya NOVA Database</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=MedievalSharp&display=swap" rel="stylesheet">
+    <script>
+        // Evita que la app choque si process.env no está definido globalmente
+        window.process = window.process || { env: {} };
+    </script>
     <style>
         body {
             background-color: #050507;
@@ -50,6 +54,13 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #d4af37;
         }
+        .animate-fade-in {
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 <script type="importmap">
 {
@@ -62,10 +73,8 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
 <body>
     <div id="root"></div>
-<script type="module" src="/index.tsx"></script>
 </body>
 </html>

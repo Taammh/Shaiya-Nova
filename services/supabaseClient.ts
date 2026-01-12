@@ -1,16 +1,20 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Estas variables se configurarán en Vercel como Environment Variables
-// Agregamos una validación para evitar que el script falle si aún no se han configurado
-const supabaseUrl = process.env.SUPABASE_URL || 'https://placeholder-project.supabase.co';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || 'placeholder-key';
+// Intentar obtener de process.env de forma segura
+const getEnv = (key: string) => {
+  try {
+    return (process?.env && process.env[key]) || '';
+  } catch {
+    return '';
+  }
+};
 
-// Solo inicializamos si tenemos valores que no sean los de marcador de posición (placeholder)
-// de lo contrario, creamos una instancia que al menos no rompa la carga inicial de la página
+const supabaseUrl = getEnv('SUPABASE_URL') || 'https://placeholder.supabase.co';
+const supabaseAnonKey = getEnv('SUPABASE_ANON_KEY') || 'placeholder';
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Helpers para la base de datos con manejo de errores mejorado
 export const getItemsFromDB = async () => {
   if (supabaseUrl.includes('placeholder')) return [];
   
@@ -20,21 +24,15 @@ export const getItemsFromDB = async () => {
       .select('*')
       .order('created_at', { ascending: false });
     
-    if (error) {
-      console.error('Error fetching items:', error);
-      return [];
-    }
+    if (error) throw error;
     return data || [];
   } catch (err) {
-    console.error('Database connection error:', err);
+    console.error('Error Supabase:', err);
     return [];
   }
 };
 
 export const addItemToDB = async (item: any) => {
-  if (supabaseUrl.includes('placeholder')) {
-    throw new Error('Supabase no está configurado. Revisa las variables de entorno.');
-  }
   const { data, error } = await supabase
     .from('items')
     .insert([item]);
@@ -44,8 +42,6 @@ export const addItemToDB = async (item: any) => {
 };
 
 export const getSetting = async (key: string) => {
-  if (supabaseUrl.includes('placeholder')) return null;
-  
   try {
     const { data, error } = await supabase
       .from('settings')
@@ -55,15 +51,12 @@ export const getSetting = async (key: string) => {
     
     if (error) return null;
     return data?.value;
-  } catch (err) {
+  } catch {
     return null;
   }
 };
 
 export const saveSetting = async (key: string, value: string) => {
-  if (supabaseUrl.includes('placeholder')) {
-    throw new Error('Supabase no está configurado.');
-  }
   const { error } = await supabase
     .from('settings')
     .upsert({ key, value });

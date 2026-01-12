@@ -36,7 +36,7 @@ export const getSupabase = (): { client: SupabaseClient, isPlaceholder: boolean 
 
 const mapItemForDB = (item: any) => {
   return {
-    id: item.id.toString(),
+    id: item.id?.toString() || `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     name: item.name || '',
     category: item.category || 'Montura',
     image: item.image || '',
@@ -57,9 +57,12 @@ export const pushLocalItemsToCloud = async () => {
   
   const localItems = JSON.parse(localItemsRaw);
   const { client, isPlaceholder } = getSupabase();
-  if (isPlaceholder) throw new Error("Configura Supabase.");
+  if (isPlaceholder) throw new Error("Portal no conectado a la nube. Configura Supabase en Ajustes.");
 
-  const { error } = await client.from('items').upsert(localItems.map(mapItemForDB), { onConflict: 'id' });
+  // Mapear y limpiar items antes de subir
+  const itemsToUpload = localItems.map(mapItemForDB);
+  
+  const { error } = await client.from('items').upsert(itemsToUpload, { onConflict: 'id' });
   if (error) throw error;
   return { success: true, count: localItems.length };
 };
@@ -68,11 +71,17 @@ export const getItemsFromDB = async () => {
   const localItemsRaw = localStorage.getItem('nova_local_items');
   const localItems = localItemsRaw ? JSON.parse(localItemsRaw) : [];
   const { client, isPlaceholder } = getSupabase();
+  
   if (isPlaceholder) return localItems;
+  
   try {
-    const { data } = await client.from('items').select('*').order('created_at', { ascending: false });
+    const { data, error } = await client.from('items').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
     return data && data.length > 0 ? data : localItems;
-  } catch { return localItems; }
+  } catch (err) { 
+    console.error("Error fetching cloud items:", err);
+    return localItems; 
+  }
 };
 
 export const addItemToDB = async (item: any) => {
@@ -80,8 +89,15 @@ export const addItemToDB = async (item: any) => {
   const localItemsRaw = localStorage.getItem('nova_local_items');
   const localItems = localItemsRaw ? JSON.parse(localItemsRaw) : [];
   localStorage.setItem('nova_local_items', JSON.stringify([newItem, ...localItems]));
+  
   const { client, isPlaceholder } = getSupabase();
-  if (!isPlaceholder) try { await client.from('items').insert([mapItemForDB(newItem)]); } catch {}
+  if (!isPlaceholder) {
+    try { 
+      await client.from('items').insert([mapItemForDB(newItem)]); 
+    } catch (e) {
+      console.error("Error saving to cloud:", e);
+    }
+  }
   return newItem;
 };
 
@@ -90,8 +106,11 @@ export const updateItemInDB = async (item: any) => {
   let localItems = localItemsRaw ? JSON.parse(localItemsRaw) : [];
   localItems = localItems.map((i: any) => i.id === item.id ? item : i);
   localStorage.setItem('nova_local_items', JSON.stringify(localItems));
+  
   const { client, isPlaceholder } = getSupabase();
-  if (!isPlaceholder) await client.from('items').update(mapItemForDB(item)).eq('id', item.id);
+  if (!isPlaceholder) {
+    await client.from('items').update(mapItemForDB(item)).eq('id', item.id);
+  }
   return item;
 };
 
@@ -99,8 +118,11 @@ export const deleteItemFromDB = async (id: string) => {
   const localItemsRaw = localStorage.getItem('nova_local_items');
   let localItems = localItemsRaw ? JSON.parse(localItemsRaw) : [];
   localStorage.setItem('nova_local_items', JSON.stringify(localItems.filter((i: any) => i.id !== id)));
+  
   const { client, isPlaceholder } = getSupabase();
-  if (!isPlaceholder) await client.from('items').delete().eq('id', id);
+  if (!isPlaceholder) {
+    await client.from('items').delete().eq('id', id);
+  }
 };
 
 // --- Postulaciones ---
@@ -112,9 +134,18 @@ export const submitStaffApplication = async (app: any) => {
 
 export const getStaffApplications = async () => {
   const { client, isPlaceholder } = getSupabase();
-  if (isPlaceholder) return [];
-  const { data } = await client.from('staff_applications').select('*').order('created_at', { ascending: false });
-  return data || [];
+  if (isPlaceholder) {
+    console.warn("Usando Supabase Placeholder para aplicaciones.");
+    return [];
+  }
+  try {
+    const { data, error } = await client.from('staff_applications').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error("Error al obtener postulaciones:", err);
+    return [];
+  }
 };
 
 export const updateStaffApplicationStatus = async (id: string, status: string) => {
@@ -127,8 +158,10 @@ export const updateStaffApplicationStatus = async (id: string, status: string) =
 export const getSetting = async (key: string) => {
   const localVal = localStorage.getItem(`nova_setting_${key}`);
   if (localVal) return localVal;
+  
   const { client, isPlaceholder } = getSupabase();
   if (isPlaceholder) return null;
+  
   try {
     const { data } = await client.from('settings').select('value').eq('key', key).single();
     return data?.value || null;
@@ -138,5 +171,9 @@ export const getSetting = async (key: string) => {
 export const saveSetting = async (key: string, value: string) => {
   localStorage.setItem(`nova_setting_${key}`, value);
   const { client, isPlaceholder } = getSupabase();
-  if (!isPlaceholder) try { await client.from('settings').upsert({ key, value }); } catch {}
+  if (!isPlaceholder) {
+    try { 
+      await client.from('settings').upsert({ key, value }); 
+    } catch {}
+  }
 };

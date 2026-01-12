@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Category, Faction, GameItem, CLASSES_BY_FACTION, Gender, StaffApplication } from '../types';
-import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting, getStaffApplications, updateStaffApplicationStatus } from '../services/supabaseClient';
+import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting, getStaffApplications, updateStaffApplicationStatus, pushLocalItemsToCloud } from '../services/supabaseClient';
 
 const AdminPanel: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'items' | 'promos' | 'apps' | 'settings'>('items');
@@ -10,7 +10,6 @@ const AdminPanel: React.FC = () => {
   const [appsList, setAppsList] = useState<StaffApplication[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Estados de Configuración
   const [config, setConfig] = useState({
     webhookSupport: '',
     webhookApps: '',
@@ -30,7 +29,21 @@ const AdminPanel: React.FC = () => {
     faction: Faction.LIGHT, item_class: 'All', gender: Gender.BOTH, price: '', stats: ''
   });
 
-  const loadAll = async () => {
+  const loadData = async () => {
+    try {
+      if (activeSubTab === 'apps') {
+        const apps = await getStaffApplications();
+        setAppsList(apps);
+      } else if (activeSubTab === 'items' || activeSubTab === 'promos') {
+        const items = await getItemsFromDB();
+        setItemsList(items);
+      }
+    } catch (e) {
+      console.error("Error loading subtab data:", e);
+    }
+  };
+
+  const loadConfig = async () => {
     const loadedConfig = {
       webhookSupport: await getSetting('NOVA_WEBHOOK_URL') || '',
       webhookApps: await getSetting('NOVA_STAFF_APP_WEBHOOK') || '',
@@ -45,13 +58,26 @@ const AdminPanel: React.FC = () => {
       roleGm: await getSetting('ROLE_ID_GM') || ''
     };
     setConfig(loadedConfig);
-    
-    const dbItems = await getItemsFromDB();
-    setItemsList(dbItems);
-    setAppsList(await getStaffApplications());
   };
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    loadConfig();
+    loadData();
+  }, [activeSubTab]);
+
+  const handleCloudSync = async () => {
+    if (!window.confirm("¿Quieres subir todos los items locales a la nube para que sean visibles globalmente?")) return;
+    setIsSaving(true);
+    try {
+      const result = await pushLocalItemsToCloud();
+      alert(`¡Éxito! Se han sincronizado ${result.count} items con la nube.`);
+      loadData();
+    } catch (e: any) {
+      alert("Error de Sincronización: " + e.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleSaveSettings = async () => {
     setIsSaving(true);
@@ -85,7 +111,7 @@ const AdminPanel: React.FC = () => {
       else await addItemToDB(newItem);
       setNewItem({ name: '', category: Category.MOUNT, image: '', description: '', faction: Faction.LIGHT, item_class: 'All', gender: Gender.BOTH });
       setEditingId(null);
-      loadAll();
+      loadData();
     } catch { alert('Error.'); }
     finally { setIsSaving(false); }
   };
@@ -102,7 +128,6 @@ const AdminPanel: React.FC = () => {
     await updateStaffApplicationStatus(app.id, newStatus);
     
     if (newStatus === 'accepted') {
-      // 1. Enviar Bienvenida
       if (config.webhookWelcome) {
         await fetch(config.webhookWelcome, {
           method: 'POST',
@@ -118,7 +143,6 @@ const AdminPanel: React.FC = () => {
         });
       }
 
-      // 2. Auto-Rol (Requiere Bot Token)
       if (config.botToken && config.guildId && app.discord_user_id) {
         const roleId = app.position === 'Game Sage' ? config.roleGs : 
                        app.position === 'Lider Game Sage' ? config.roleLgs : config.roleGm;
@@ -133,15 +157,14 @@ const AdminPanel: React.FC = () => {
         }
       }
     }
-    loadAll();
+    loadData();
   };
 
   return (
     <div className="max-w-7xl mx-auto space-y-10 animate-fade-in pb-20">
-      {/* Tabs */}
       <div className="flex flex-wrap gap-4 justify-center">
         {['items', 'promos', 'apps', 'settings'].map(t => (
-          <button key={t} onClick={() => setActiveSubTab(t as any)} className={`px-8 py-3 rounded-xl font-black uppercase text-xs transition-all ${activeSubTab === t ? 'bg-[#d4af37] text-black shadow-lg' : 'bg-black/40 text-gray-500 border border-white/5'}`}>
+          <button key={t} onClick={() => setActiveSubTab(t as any)} className={`px-8 py-3 rounded-xl font-black uppercase text-xs transition-all ${activeSubTab === t ? 'bg-[#d4af37] text-black shadow-lg shadow-[#d4af37]/20' : 'bg-black/40 text-gray-500 border border-white/5'}`}>
             {t === 'items' ? 'Reliquias' : t === 'promos' ? 'Promos' : t === 'apps' ? 'Staff' : 'Ajustes'}
           </button>
         ))}
@@ -149,7 +172,12 @@ const AdminPanel: React.FC = () => {
 
       {activeSubTab === 'items' || activeSubTab === 'promos' ? (
         <div className="space-y-12">
-          <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/20 shadow-2xl">
+          <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/20 shadow-2xl relative overflow-hidden">
+             <div className="absolute top-4 right-4">
+                <button onClick={handleCloudSync} disabled={isSaving} className="px-4 py-2 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg text-[10px] font-black uppercase hover:bg-blue-600 hover:text-white transition-all">
+                  {isSaving ? 'Sincronizando...' : 'Sincronizar a la Nube'}
+                </button>
+             </div>
             <h2 className="text-3xl font-shaiya text-[#d4af37] mb-8 text-center uppercase tracking-widest">{editingId ? 'Reforjar' : 'Nueva Forja'}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <input placeholder="Nombre" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white outline-none focus:border-[#d4af37]" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
@@ -199,12 +227,13 @@ const AdminPanel: React.FC = () => {
                       <td className="p-4 text-[10px] text-gray-500">{item.category}</td>
                       <td className="p-4 text-right">
                         <button onClick={() => handleEdit(item)} className="p-2 text-[#d4af37] hover:bg-[#d4af37]/10 rounded-lg mr-2">✏️</button>
-                        <button onClick={() => { if(confirm('¿Eliminar?')) deleteItemFromDB(item.id).then(loadAll) }} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg">🗑️</button>
+                        <button onClick={() => { if(confirm('¿Eliminar?')) deleteItemFromDB(item.id).then(loadData) }} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg">🗑️</button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              {itemsList.length === 0 && <p className="text-center py-10 text-gray-600 font-shaiya">No hay reliquias en este archivo.</p>}
             </div>
           </div>
         </div>
@@ -215,35 +244,53 @@ const AdminPanel: React.FC = () => {
             <input placeholder="Webhook Soporte" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.webhookSupport} onChange={e => setConfig({...config, webhookSupport: e.target.value})} />
             <input placeholder="Webhook Postulaciones" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.webhookApps} onChange={e => setConfig({...config, webhookApps: e.target.value})} />
             <input placeholder="Webhook Bienvenida Staff" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.webhookWelcome} onChange={e => setConfig({...config, webhookWelcome: e.target.value})} />
-            <input placeholder="Discord Bot Token (Para Auto-Rol)" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.botToken} onChange={e => setConfig({...config, botToken: e.target.value})} />
-            <input placeholder="Discord Server ID (Guild ID)" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.guildId} onChange={e => setConfig({...config, guildId: e.target.value})} />
+            <input placeholder="Discord Bot Token" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.botToken} onChange={e => setConfig({...config, botToken: e.target.value})} />
+            <input placeholder="Discord Server ID" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.guildId} onChange={e => setConfig({...config, guildId: e.target.value})} />
             <input placeholder="ID Rol GS" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.roleGs} onChange={e => setConfig({...config, roleGs: e.target.value})} />
             <input placeholder="ID Rol Lider GS" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.roleLgs} onChange={e => setConfig({...config, roleLgs: e.target.value})} />
             <input placeholder="ID Rol GM" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.roleGm} onChange={e => setConfig({...config, roleGm: e.target.value})} />
+            <input placeholder="Supabase URL" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.supabaseUrl} onChange={e => setConfig({...config, supabaseUrl: e.target.value})} />
+            <input placeholder="Supabase Key" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.supabaseKey} onChange={e => setConfig({...config, supabaseKey: e.target.value})} />
           </div>
           <div className="flex gap-4">
-            <button onClick={handleSaveSettings} className="flex-grow bg-[#d4af37] text-black font-black py-4 rounded-2xl uppercase">Guardar</button>
+            <button onClick={handleSaveSettings} className="flex-grow bg-[#d4af37] text-black font-black py-4 rounded-2xl uppercase">Guardar Ajustes</button>
             <button onClick={generateMasterLink} className="flex-grow bg-white text-black font-black py-4 rounded-2xl uppercase">Link Maestro</button>
           </div>
         </div>
       ) : (
-        <div className="glass-panel p-10 rounded-[3rem] space-y-6">
-           {appsList.map(app => (
-             <div key={app.id} className="bg-black/40 p-6 rounded-2xl border border-white/10 flex justify-between items-center">
-               <div className="flex gap-4 items-center">
-                 <img src={app.avatar_url} className="w-12 h-12 rounded-full border border-[#d4af37]" />
-                 <div><p className="text-white font-shaiya">{app.username}</p><p className="text-[#d4af37] text-[10px] uppercase">{app.position}</p></div>
+        <div className="glass-panel p-10 rounded-[3rem] border border-white/10 min-h-[400px]">
+           <h2 className="text-3xl font-shaiya text-white mb-10 text-center uppercase tracking-widest">Candidatos al Staff</h2>
+           <div className="space-y-6">
+             {appsList.length === 0 && (
+               <div className="text-center py-20">
+                 <p className="text-gray-600 font-shaiya text-xl">No hay pergaminos de aplicación por ahora...</p>
+                 <button onClick={loadData} className="mt-4 text-[#d4af37] text-[10px] uppercase font-black">Refrescar Pergaminos</button>
                </div>
-               <div className="flex gap-3">
-                 {app.status === 'pending' ? (
-                   <>
-                    <button onClick={() => handleAppStatus(app, 'accepted')} className="bg-green-600 px-4 py-2 rounded-lg text-white font-black text-[10px] uppercase">Aceptar</button>
-                    <button onClick={() => handleAppStatus(app, 'rejected')} className="bg-red-600 px-4 py-2 rounded-lg text-white font-black text-[10px] uppercase">Rechazar</button>
-                   </>
-                 ) : <span className="text-gray-500 font-black uppercase text-[10px]">{app.status}</span>}
+             )}
+             {appsList.map(app => (
+               <div key={app.id} className="bg-black/40 p-8 rounded-3xl border border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 group hover:border-[#d4af37]/40 transition-all">
+                 <div className="flex gap-6 items-center">
+                   <img src={app.avatar_url} className="w-16 h-16 rounded-2xl border-2 border-[#d4af37] shadow-lg" />
+                   <div>
+                     <p className="text-white text-xl font-shaiya">{app.username}</p>
+                     <p className="text-[#d4af37] text-[10px] uppercase font-black tracking-widest">{app.position} • {app.discord_id}</p>
+                   </div>
+                 </div>
+                 <div className="flex gap-3 w-full md:w-auto">
+                   {app.status === 'pending' ? (
+                     <>
+                      <button onClick={() => handleAppStatus(app, 'accepted')} className="flex-grow md:flex-none bg-green-600/20 text-green-500 border border-green-500/30 px-6 py-3 rounded-xl font-black text-[10px] uppercase hover:bg-green-600 hover:text-white transition-all">Aceptar</button>
+                      <button onClick={() => handleAppStatus(app, 'rejected')} className="flex-grow md:flex-none bg-red-600/20 text-red-500 border border-red-500/30 px-6 py-3 rounded-xl font-black text-[10px] uppercase hover:bg-red-600 hover:text-white transition-all">Rechazar</button>
+                     </>
+                   ) : (
+                     <span className={`px-6 py-3 rounded-xl font-black uppercase text-[10px] border ${app.status === 'accepted' ? 'text-green-500 border-green-500/20 bg-green-500/5' : 'text-red-500 border-red-500/20 bg-red-500/5'}`}>
+                       {app.status === 'accepted' ? 'ACEPTADO' : 'RECHAZADO'}
+                     </span>
+                   )}
+                 </div>
                </div>
-             </div>
-           ))}
+             ))}
+           </div>
         </div>
       )}
     </div>

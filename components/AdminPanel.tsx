@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Category, Faction, GameItem, CLASSES_BY_FACTION, Gender } from '../types';
 import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting } from '../services/supabaseClient';
 
@@ -7,9 +7,10 @@ const AdminPanel: React.FC = () => {
   const [webhook, setWebhook] = useState('');
   const [clientId, setClientId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [masterLink, setMasterLink] = useState('');
   const [itemsList, setItemsList] = useState<GameItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [transferCode, setTransferCode] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [newItem, setNewItem] = useState<Partial<GameItem>>({
     name: '',
@@ -45,7 +46,51 @@ const AdminPanel: React.FC = () => {
     alert('Configuración Maestra guardada en este dispositivo.');
   };
 
-  const generateFullSyncLink = () => {
+  // Exportar a un archivo JSON (Evita errores de URL larga)
+  const exportToFile = () => {
+    const localItems = localStorage.getItem('nova_local_items') || '[]';
+    const config = {
+      items: JSON.parse(localItems),
+      webhook: webhook,
+      clientId: clientId,
+      exportedAt: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reino_nova_${new Date().getTime()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Importar desde un archivo JSON
+  const importFromFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        applyData(data);
+      } catch (err) {
+        alert("El pergamino de datos está corrupto o es inválido.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const applyData = (data: any) => {
+    if (data.items) localStorage.setItem('nova_local_items', JSON.stringify(data.items));
+    if (data.webhook) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', data.webhook);
+    if (data.clientId) localStorage.setItem('nova_setting_DISCORD_CLIENT_ID', data.clientId);
+    
+    alert("¡Datos del Reino sincronizados con éxito!");
+    window.location.reload();
+  };
+
+  const generateTransferCode = () => {
     const localItems = localStorage.getItem('nova_local_items') || '[]';
     const config = {
       items: JSON.parse(localItems),
@@ -53,10 +98,19 @@ const AdminPanel: React.FC = () => {
       clientId: clientId
     };
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(config))));
-    const url = `${window.location.origin}${window.location.pathname}?master=${encoded}`;
-    setMasterLink(url);
-    navigator.clipboard.writeText(url);
-    alert('¡Link de Sincronización Maestra copiado!');
+    setTransferCode(encoded);
+    navigator.clipboard.writeText(encoded);
+    alert('¡Código de Transferencia copiado al portapapeles!');
+  };
+
+  const handleManualImport = () => {
+    if (!transferCode) return;
+    try {
+      const decoded = JSON.parse(decodeURIComponent(escape(atob(transferCode))));
+      applyData(decoded);
+    } catch (e) {
+      alert("Código de transferencia inválido.");
+    }
   };
 
   const handleAddItem = async () => {
@@ -238,6 +292,43 @@ const AdminPanel: React.FC = () => {
         </div>
       </div>
 
+      {/* CÁMARA DE TRANSFERENCIA (SOLUCIÓN A URI_TOO_LONG) */}
+      <div className="glass-panel p-10 rounded-[2.5rem] border-2 border-amber-600/30 bg-gradient-to-br from-amber-900/20 to-transparent">
+        <h2 className="text-4xl font-shaiya text-amber-500 mb-8 uppercase tracking-[10px] text-center">Cámara de Transferencia</h2>
+        <p className="text-amber-100/60 text-center text-xs mb-8 uppercase tracking-widest">Utiliza archivos o códigos si tu reino es demasiado grande para un enlace.</p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+          <div className="space-y-4">
+            <h3 className="text-[#d4af37] text-sm font-black uppercase tracking-widest text-center">Exportar Pergamino</h3>
+            <button onClick={exportToFile} className="w-full bg-amber-700 hover:bg-amber-600 text-white font-black py-4 rounded-xl uppercase tracking-widest transition-all shadow-xl">
+              Descargar Archivo .json
+            </button>
+            <button onClick={generateTransferCode} className="w-full border border-amber-700/50 hover:bg-amber-900/20 text-amber-200 font-black py-4 rounded-xl uppercase tracking-widest transition-all">
+              Copiar Código de Reino
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="text-[#d4af37] text-sm font-black uppercase tracking-widest text-center">Restaurar Reino</h3>
+            <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white hover:bg-amber-100 text-black font-black py-4 rounded-xl uppercase tracking-widest transition-all">
+              Subir Archivo .json
+            </button>
+            <input type="file" ref={fileInputRef} onChange={importFromFile} accept=".json" className="hidden" />
+            
+            <div className="flex gap-2">
+              <input 
+                type="text" 
+                placeholder="Pega el código aquí..." 
+                className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white outline-none text-xs"
+                value={transferCode}
+                onChange={(e) => setTransferCode(e.target.value)}
+              />
+              <button onClick={handleManualImport} className="bg-amber-600 px-6 rounded-xl font-black uppercase text-[10px]">Importar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* AJUSTES DEL REINO */}
       <div className="glass-panel p-10 rounded-[2.5rem] border border-white/10 shadow-2xl">
         <h2 className="text-4xl font-shaiya text-[#d4af37] mb-8 uppercase tracking-[10px] text-center">Ajustes del Reino</h2>
@@ -270,17 +361,6 @@ const AdminPanel: React.FC = () => {
             Guardar Ajustes Locales
           </button>
         </div>
-      </div>
-
-      {/* EXPORTAR ESTADO */}
-      <div className="glass-panel p-10 rounded-[2.5rem] border-2 border-amber-600/30 bg-gradient-to-br from-amber-900/10 to-transparent">
-        <h2 className="text-3xl font-shaiya text-amber-500 mb-4 uppercase tracking-[8px] text-center">Exportar mi Reino</h2>
-        <button 
-          onClick={generateFullSyncLink}
-          className="w-full bg-amber-700 hover:bg-amber-600 text-white font-black py-5 rounded-2xl uppercase tracking-[4px] transition-all shadow-xl"
-        >
-          Generar Link Maestro
-        </button>
       </div>
     </div>
   );

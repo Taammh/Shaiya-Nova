@@ -96,6 +96,7 @@ const AdminPanel: React.FC = () => {
     localStorage.setItem('nova_setting_SUPABASE_ANON_KEY', config.supabaseKey);
     setIsSaving(false);
     alert('Configuración Nucleares Guardada.');
+    loadConfig(); // Recargar para asegurar que assignDiscordRole tenga lo último
   };
 
   const generateMasterLink = () => {
@@ -119,29 +120,56 @@ const AdminPanel: React.FC = () => {
   };
 
   const assignDiscordRole = async (userId: string, position: string) => {
-    if (!config.botToken || !config.guildId) {
-      console.warn("Faltan credenciales de Bot para auto-rol.");
+    // Obtenemos los valores más frescos directamente para evitar Stale State
+    const botTokenRaw = await getSetting('DISCORD_BOT_TOKEN') || '';
+    const guildId = (await getSetting('DISCORD_GUILD_ID') || '').trim();
+    const roleGs = (await getSetting('ROLE_ID_GS') || '').trim();
+    const roleLgs = (await getSetting('ROLE_ID_LGS') || '').trim();
+    const roleGm = (await getSetting('ROLE_ID_GM') || '').trim();
+
+    if (!botTokenRaw || !guildId) {
+      console.error("Faltan ajustes nucleares para Discord (Bot Token o Guild ID).");
       return false;
     }
 
-    let roleId = '';
-    if (position === 'Game Sage') roleId = config.roleGs;
-    else if (position === 'Lider Game Sage') roleId = config.roleLgs;
-    else if (position === 'GM') roleId = config.roleGm;
+    // Limpiar el token de prefijos duplicados y espacios
+    let cleanToken = botTokenRaw.trim();
+    if (cleanToken.startsWith('Bot ')) {
+      cleanToken = cleanToken.replace('Bot ', '');
+    }
 
-    if (!roleId) return false;
+    let roleId = '';
+    const pos = position.toLowerCase();
+    if (pos.includes('sage') && !pos.includes('lider')) roleId = roleGs;
+    else if (pos.includes('lider')) roleId = roleLgs;
+    else if (pos.includes('gm')) roleId = roleGm;
+
+    if (!roleId) {
+      console.error(`No se encontró un ID de rol configurado para la posición: ${position}`);
+      return false;
+    }
 
     try {
-      const response = await fetch(`https://discord.com/api/v10/guilds/${config.guildId}/members/${userId}/roles/${roleId}`, {
+      // Endpoint oficial Discord V10 para agregar rol a un miembro
+      const url = `https://discord.com/api/v10/guilds/${guildId}/members/${userId.trim()}/roles/${roleId}`;
+      
+      const response = await fetch(url, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bot ${config.botToken}`,
+          'Authorization': `Bot ${cleanToken}`,
           'Content-Type': 'application/json'
         }
       });
-      return response.ok;
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Discord API Error:", errorData);
+        return false;
+      }
+
+      return true;
     } catch (e) {
-      console.error("Error asignando rol:", e);
+      console.error("Error crítico en comunicación con Discord:", e);
       return false;
     }
   };
@@ -153,24 +181,27 @@ const AdminPanel: React.FC = () => {
       await updateStaffApplicationStatus(app.id, status);
       
       if (status === 'accepted') {
-        // Intentar auto-rol
+        // Intentar auto-rol con los nuevos mecanismos de limpieza
         const roleSuccess = await assignDiscordRole(app.discord_user_id, app.position);
         
         // Webhook de Bienvenida
-        if (config.webhookWelcome) {
-          await fetch(config.webhookWelcome, {
+        const webhookWelcome = await getSetting('NOVA_STAFF_WELCOME_WEBHOOK');
+        if (webhookWelcome) {
+          await fetch(webhookWelcome, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               embeds: [{
                 title: "🛡️ ¡Nuevo Guardián en NOVA! 🛡️",
-                description: `¡Bienvenido **${app.username}** como **${app.position}**!\n${roleSuccess ? '✅ Rol de Discord asignado automáticamente.' : '⚠️ No se pudo asignar el rol automáticamente.'}`,
-                color: 0x00ff00,
+                description: `¡Bienvenido **${app.username}** como **${app.position}**!\n\n${roleSuccess ? '✅ **Rol de Discord asignado automáticamente.**' : '⚠️ **Atención:** El rol no pudo ser asignado. Verifica la jerarquía del bot en Discord o el ID del Rol.'}`,
+                color: 0xd4af37,
                 thumbnail: { url: app.avatar_url },
                 fields: [
-                  { name: "Discord", value: `<@${app.discord_user_id}>`, inline: true },
-                  { name: "Rango", value: app.position, inline: true }
-                ]
+                  { name: "Candidato", value: `<@${app.discord_user_id}>`, inline: true },
+                  { name: "Rango", value: `\`${app.position}\``, inline: true }
+                ],
+                footer: { text: "Sistema de Auto-Gestión de NOVA" },
+                timestamp: new Date().toISOString()
               }]
             })
           });
@@ -178,7 +209,10 @@ const AdminPanel: React.FC = () => {
       }
       loadData();
       setViewingApp(null);
-    } catch { alert("Error al actualizar."); }
+    } catch (err) { 
+      console.error(err);
+      alert("Error al procesar el pergamino."); 
+    }
     finally { setIsSaving(false); }
   };
 
@@ -194,7 +228,6 @@ const AdminPanel: React.FC = () => {
 
       {activeSubTab === 'items' || activeSubTab === 'promos' ? (
         <div className="space-y-12">
-          {/* Formulario de Items omitido por brevedad pero se mantiene igual */}
           <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/20 shadow-2xl relative">
              <div className="absolute top-4 right-4">
                 <button onClick={handleCloudSync} disabled={isSaving} className="px-4 py-2 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg text-[10px] font-black uppercase hover:bg-blue-600 hover:text-white transition-all">

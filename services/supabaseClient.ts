@@ -1,39 +1,74 @@
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Intentar obtener de process.env de forma segura
-const getEnv = (key: string) => {
+let supabaseInstance: SupabaseClient | null = null;
+let isPlaceholder = false;
+
+/**
+ * Valida si una cadena es una URL de Supabase válida
+ */
+const isValidSupabaseUrl = (url: string) => {
   try {
-    return (process?.env && process.env[key]) || '';
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && parsed.hostname.endsWith('.supabase.co');
   } catch {
-    return '';
+    return false;
   }
 };
 
-const supabaseUrl = getEnv('SUPABASE_URL') || 'https://placeholder.supabase.co';
-const supabaseAnonKey = getEnv('SUPABASE_ANON_KEY') || 'placeholder';
+export const getSupabase = (): SupabaseClient => {
+  if (supabaseInstance) return supabaseInstance;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const url = (typeof process !== 'undefined' && process.env?.SUPABASE_URL) || '';
+  const key = (typeof process !== 'undefined' && process.env?.SUPABASE_ANON_KEY) || '';
+
+  // Verificamos si las credenciales existen y si la URL tiene el formato correcto de Supabase
+  if (!url || !key || !isValidSupabaseUrl(url) || url.includes('placeholder')) {
+    console.warn("Supabase: El Reino está operando en modo Offline (Datos Locales).");
+    isPlaceholder = true;
+    // Client placeholder para evitar errores de referencia, pero no se usará para peticiones reales
+    supabaseInstance = createClient('https://placeholder-project.supabase.co', 'no-key-provided');
+  } else {
+    isPlaceholder = false;
+    supabaseInstance = createClient(url, key);
+  }
+  
+  return supabaseInstance;
+};
 
 export const getItemsFromDB = async () => {
-  if (supabaseUrl.includes('placeholder')) return [];
+  // En modo placeholder no iniciamos ninguna petición de red
+  if (isPlaceholder) return [];
   
+  const client = getSupabase();
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('items')
       .select('*')
       .order('created_at', { ascending: false });
     
     if (error) throw error;
     return data || [];
-  } catch (err) {
-    console.error('Error Supabase:', err);
+  } catch (err: any) {
+    // Capturamos específicamente errores de red de forma silenciosa
+    const errorMessage = err?.message || String(err);
+    if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('Load failed')) {
+      console.warn('Supabase: Fallo de conexión (Verifica DNS/URL). Usando solo datos locales.');
+      return [];
+    }
+    
+    // Otros errores (como tablas inexistentes) se informan pero no bloquean la app
+    console.warn('Supabase: No se pudieron obtener datos remotos:', errorMessage);
     return [];
   }
 };
 
 export const addItemToDB = async (item: any) => {
-  const { data, error } = await supabase
+  if (isPlaceholder) {
+    throw new Error("Conexión con el Reino no establecida. Configura las variables de entorno.");
+  }
+  const client = getSupabase();
+  const { data, error } = await client
     .from('items')
     .insert([item]);
   
@@ -42,8 +77,10 @@ export const addItemToDB = async (item: any) => {
 };
 
 export const getSetting = async (key: string) => {
+  if (isPlaceholder) return null;
+  const client = getSupabase();
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('settings')
       .select('value')
       .eq('key', key)
@@ -57,7 +94,11 @@ export const getSetting = async (key: string) => {
 };
 
 export const saveSetting = async (key: string, value: string) => {
-  const { error } = await supabase
+  if (isPlaceholder) {
+    throw new Error("No se puede guardar configuración en modo offline.");
+  }
+  const client = getSupabase();
+  const { error } = await client
     .from('settings')
     .upsert({ key, value });
   

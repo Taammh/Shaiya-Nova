@@ -5,6 +5,7 @@ import ItemCard from './components/ItemCard';
 import BugReportForm from './components/BugReportForm';
 import AdminPanel from './components/AdminPanel';
 import { getItemsFromDB } from './services/supabaseClient';
+import { ITEMS as STATIC_ITEMS } from './constants';
 import { Category, Faction, CLASSES_BY_FACTION, GameItem } from './types';
 
 const App: React.FC = () => {
@@ -19,12 +20,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const fetchItems = async () => {
-      setIsLoading(true);
       try {
         const items = await getItemsFromDB();
         setCloudItems(items as GameItem[]);
       } catch (e) {
-        console.error("Fetch error:", e);
+        console.error("Failed to fetch cloud items, using static defaults only:", e);
       } finally {
         setIsLoading(false);
       }
@@ -32,8 +32,13 @@ const App: React.FC = () => {
     fetchItems();
   }, []);
 
+  // Combinamos los items estáticos de constants.ts con los de la base de datos
+  const allItems = useMemo(() => {
+    return [...STATIC_ITEMS, ...cloudItems];
+  }, [cloudItems]);
+
   const filteredItems = useMemo(() => {
-    return cloudItems.filter(item => {
+    return allItems.filter(item => {
       const matchesTab = 
         (activeTab === 'mounts' && item.category === Category.MOUNT) ||
         (activeTab === 'costumes' && item.category === Category.COSTUME) ||
@@ -43,7 +48,6 @@ const App: React.FC = () => {
 
       if (activeTab === 'costumes') {
         const matchesFaction = item.faction === selectedFaction;
-        // Cambiado itemClass por item_class para coincidir con DB
         const matchesClass = selectedClass === 'All' || 
           item.item_class === selectedClass || 
           (item.classes && item.classes.includes(selectedClass));
@@ -52,7 +56,7 @@ const App: React.FC = () => {
 
       return true;
     });
-  }, [activeTab, selectedFaction, selectedClass, cloudItems]);
+  }, [activeTab, selectedFaction, selectedClass, allItems]);
 
   const handleAdminAuth = (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,19 +127,19 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {isLoading ? (
+            {isLoading && cloudItems.length === 0 && STATIC_ITEMS.length === 0 ? (
               <div className="text-center py-20">
                 <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#d4af37]"></div>
                 <p className="mt-4 text-[#d4af37] font-shaiya tracking-widest">Invocando reliquias...</p>
               </div>
             ) : filteredItems.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10 animate-fade-in">
                 {filteredItems.map(item => (
                   <ItemCard key={item.id} item={item} />
                 ))}
               </div>
             ) : (
-              <div className="text-center py-32 glass-panel rounded-[40px] border border-dashed border-white/5">
+              <div className="text-center py-32 glass-panel rounded-[40px] border border-dashed border-white/5 animate-fade-in">
                 <p className="text-[#d4af37] font-shaiya text-3xl mb-4 opacity-70 uppercase tracking-widest">Reino Desolado</p>
                 <p className="text-gray-500 text-sm font-bold uppercase tracking-widest">Aún no se han descubierto reliquias en esta sección.</p>
               </div>

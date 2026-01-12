@@ -43,12 +43,11 @@ export const pushLocalItemsToCloud = async () => {
   
   if (isPlaceholder) throw new Error("Configura Supabase antes de sincronizar.");
 
-  // Insertamos o actualizamos todos los items locales en la nube
   const { error } = await client
     .from('items')
     .upsert(localItems.map((item: any) => ({
       ...item,
-      id: item.id.toString(), // Asegurar ID string
+      id: item.id.toString(),
       created_at: item.created_at || new Date().toISOString()
     })));
 
@@ -71,8 +70,11 @@ export const getItemsFromDB = async () => {
     
     if (error) throw error;
     
-    // Si hay datos en la nube, los usamos como fuente principal
-    return data || localItems;
+    // CORRECCIÓN: Si la nube devuelve un array vacío, mostramos lo local para no perder datos.
+    if (data && data.length > 0) {
+      return data;
+    }
+    return localItems;
   } catch (err) {
     console.error("Error al obtener datos de la nube:", err);
     return localItems;

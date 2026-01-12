@@ -95,11 +95,31 @@ const App: React.FC = () => {
       if (activeTab === 'costumes') {
         const matchesFaction = item.faction === selectedFaction;
         
-        // CORRECCIÓN: Si el item_class es 'All', debe mostrarse siempre en esa facción.
-        const matchesClass = selectedClass === 'All' || 
-          item.item_class === 'All' ||
-          item.item_class === selectedClass || 
-          (item.classes && item.classes.includes(selectedClass));
+        // CORRECCIÓN Y UNIFICACIÓN: 
+        // Si el item es 'All', se muestra siempre.
+        // Si se selecciona 'Oraculo/Pagano', buscamos tanto el nombre unificado como los nombres antiguos.
+        let matchesClass = selectedClass === 'All' || item.item_class === 'All';
+        
+        if (!matchesClass) {
+          if (selectedClass === 'Oraculo/Pagano') {
+            matchesClass = item.item_class === 'Oraculo/Pagano' || 
+                           item.item_class === 'Oraculo' || 
+                           item.item_class === 'Pagano';
+          } else {
+            matchesClass = item.item_class === selectedClass;
+          }
+        }
+
+        // También checkeo en el array de clases por si acaso
+        if (!matchesClass && item.classes) {
+          if (selectedClass === 'Oraculo/Pagano') {
+            matchesClass = item.classes.includes('Oraculo/Pagano') || 
+                           item.classes.includes('Oraculo') || 
+                           item.classes.includes('Pagano');
+          } else {
+            matchesClass = item.classes.includes(selectedClass);
+          }
+        }
         
         const matchesGender = selectedGender === 'All' || 
           item.gender === Gender.BOTH || 

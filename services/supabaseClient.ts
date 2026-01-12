@@ -22,7 +22,6 @@ export const getSupabase = (): SupabaseClient => {
 
   if (!url || !key || !isValidSupabaseUrl(url)) {
     isPlaceholder = true;
-    // URL dummy para evitar errores de inicialización
     supabaseInstance = createClient('https://xyz.supabase.co', 'dummy-key');
   } else {
     isPlaceholder = false;
@@ -33,7 +32,6 @@ export const getSupabase = (): SupabaseClient => {
 };
 
 export const getItemsFromDB = async () => {
-  // Siempre cargar ítems locales primero
   const localItemsRaw = localStorage.getItem('nova_local_items');
   const localItems = localItemsRaw ? JSON.parse(localItemsRaw) : [];
 
@@ -46,7 +44,12 @@ export const getItemsFromDB = async () => {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return [...localItems, ...(data || [])];
+    
+    // Evitar duplicados si el ítem local ya está en la DB
+    const dbIds = new Set((data || []).map(i => i.id));
+    const uniqueLocal = localItems.filter((i: any) => !dbIds.has(i.id));
+    
+    return [...uniqueLocal, ...(data || [])];
   } catch (err) {
     return localItems;
   }
@@ -59,7 +62,6 @@ export const addItemToDB = async (item: any) => {
     created_at: new Date().toISOString()
   };
 
-  // Guardar en local siempre
   const localItemsRaw = localStorage.getItem('nova_local_items');
   const localItems = localItemsRaw ? JSON.parse(localItemsRaw) : [];
   localStorage.setItem('nova_local_items', JSON.stringify([newItem, ...localItems]));
@@ -69,11 +71,46 @@ export const addItemToDB = async (item: any) => {
     try {
       await client.from('items').insert([newItem]);
     } catch (e) {
-      console.warn("No se pudo sincronizar con la nube, guardado solo localmente.");
+      console.warn("No se pudo sincronizar con la nube.");
     }
   }
   
   return newItem;
+};
+
+export const updateItemInDB = async (item: any) => {
+  const localItemsRaw = localStorage.getItem('nova_local_items');
+  let localItems = localItemsRaw ? JSON.parse(localItemsRaw) : [];
+  
+  localItems = localItems.map((i: any) => i.id === item.id ? item : i);
+  localStorage.setItem('nova_local_items', JSON.stringify(localItems));
+
+  if (!isPlaceholder) {
+    const client = getSupabase();
+    try {
+      await client.from('items').update(item).eq('id', item.id);
+    } catch (e) {
+      console.error("Error actualizando en la nube:", e);
+    }
+  }
+  return item;
+};
+
+export const deleteItemFromDB = async (id: string) => {
+  const localItemsRaw = localStorage.getItem('nova_local_items');
+  let localItems = localItemsRaw ? JSON.parse(localItemsRaw) : [];
+  
+  localItems = localItems.filter((i: any) => i.id !== id);
+  localStorage.setItem('nova_local_items', JSON.stringify(localItems));
+
+  if (!isPlaceholder) {
+    const client = getSupabase();
+    try {
+      await client.from('items').delete().eq('id', id);
+    } catch (e) {
+      console.error("Error eliminando en la nube:", e);
+    }
+  }
 };
 
 export const getSetting = async (key: string) => {

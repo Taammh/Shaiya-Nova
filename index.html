@@ -8,10 +8,32 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=MedievalSharp&display=swap" rel="stylesheet">
     <script>
-        // Aseguramos que process esté disponible globalmente antes de cargar los módulos
-        window.process = { env: {} };
-        // Algunos módulos esperan que 'process' sea una variable global directa
-        var process = window.process;
+        // Polyfill robusto para process.env
+        window.process = { 
+            env: { 
+                NODE_ENV: 'production',
+                SUPABASE_URL: '',
+                SUPABASE_ANON_KEY: '',
+                API_KEY: ''
+            } 
+        };
+        
+        // Capturador de errores catastróficos de carga de módulos
+        window.addEventListener('error', function(e) {
+            if (e.target.tagName === 'SCRIPT' || e.message.includes('import')) {
+                const root = document.getElementById('root');
+                if (root) {
+                    root.innerHTML = `
+                        <div style="height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#050507; color:#ff4444; font-family:sans-serif; text-align:center; padding:20px;">
+                            <h2 style="color:#d4af37; font-family:'MedievalSharp';">FALLO DE INVOCACIÓN</h2>
+                            <p style="margin:10px 0; color:#888;">No se pudo cargar el conocimiento antiguo (JavaScript).</p>
+                            <code style="background:#1a1a1c; padding:10px; border-radius:5px; font-size:12px; max-width:100%; overflow:auto;">${e.message || 'Error de red en módulos'}</code>
+                            <button onclick="window.location.reload()" style="margin-top:20px; background:#d4af37; color:black; border:none; padding:10px 20px; font-weight:bold; cursor:pointer;">REINTENTAR</button>
+                        </div>
+                    `;
+                }
+            }
+        }, true);
     </script>
 <script type="importmap">
 {
@@ -21,8 +43,8 @@
     "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
     "@google/genai": "https://esm.sh/@google/genai@1.3.0",
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.48.1",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/"
   }
 }
 </script>
@@ -37,5 +59,7 @@
             </style>
         </div>
     </div>
+    <!-- Carga explícita del punto de entrada -->
+    <script type="module" src="index.tsx"></script>
 </body>
 </html>

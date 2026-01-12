@@ -34,6 +34,25 @@ export const getSupabase = (): { client: SupabaseClient, isPlaceholder: boolean 
   return { client: supabaseInstance, isPlaceholder: false };
 };
 
+/**
+ * Mapea los datos locales al esquema exacto de la base de datos de Supabase.
+ */
+const mapItemForDB = (item: any) => {
+  return {
+    id: item.id.toString(),
+    name: item.name || '',
+    category: item.category || 'Montura',
+    image: item.image || '',
+    description: item.description || '',
+    hidden_history: item.hidden_history || '',
+    faction: item.faction || null,
+    item_class: item.item_class || 'All',
+    gender: item.gender || 'Ambos',
+    stats: item.stats || '',
+    created_at: item.created_at || new Date().toISOString()
+  };
+};
+
 export const pushLocalItemsToCloud = async () => {
   const localItemsRaw = localStorage.getItem('nova_local_items');
   if (!localItemsRaw) return { success: true, count: 0 };
@@ -43,15 +62,16 @@ export const pushLocalItemsToCloud = async () => {
   
   if (isPlaceholder) throw new Error("Configura Supabase antes de sincronizar.");
 
+  const itemsToUpload = localItems.map(mapItemForDB);
+
   const { error } = await client
     .from('items')
-    .upsert(localItems.map((item: any) => ({
-      ...item,
-      id: item.id.toString(),
-      created_at: item.created_at || new Date().toISOString()
-    })));
+    .upsert(itemsToUpload, { onConflict: 'id' });
 
-  if (error) throw error;
+  if (error) {
+    console.error("Error de sincronización:", error);
+    throw error;
+  }
   return { success: true, count: localItems.length };
 };
 
@@ -70,13 +90,12 @@ export const getItemsFromDB = async () => {
     
     if (error) throw error;
     
-    // CORRECCIÓN: Si la nube devuelve un array vacío, mostramos lo local para no perder datos.
+    // Si hay datos en la nube, los priorizamos y actualizamos el estado local
     if (data && data.length > 0) {
       return data;
     }
     return localItems;
   } catch (err) {
-    console.error("Error al obtener datos de la nube:", err);
     return localItems;
   }
 };
@@ -95,9 +114,9 @@ export const addItemToDB = async (item: any) => {
   const { client, isPlaceholder } = getSupabase();
   if (!isPlaceholder) {
     try {
-      await client.from('items').insert([newItem]);
+      await client.from('items').insert([mapItemForDB(newItem)]);
     } catch (e) {
-      console.warn("Error subiendo a la nube.");
+      console.warn("Error en inserción directa a nube.");
     }
   }
   return newItem;
@@ -111,7 +130,7 @@ export const updateItemInDB = async (item: any) => {
 
   const { client, isPlaceholder } = getSupabase();
   if (!isPlaceholder) {
-    await client.from('items').update(item).eq('id', item.id);
+    await client.from('items').update(mapItemForDB(item)).eq('id', item.id);
   }
   return item;
 };

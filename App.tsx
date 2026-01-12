@@ -30,7 +30,6 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    // 1. Sincronización Maestra (Webhook + Supabase Keys)
     const urlParams = new URLSearchParams(window.location.search);
     const syncData = urlParams.get('sync');
     
@@ -43,14 +42,13 @@ const App: React.FC = () => {
         if (decoded.sKey) localStorage.setItem('nova_setting_SUPABASE_ANON_KEY', decoded.sKey);
         
         window.history.replaceState({}, document.title, window.location.pathname);
-        alert("¡PORTAL SINCRONIZADO CON ÉXITO! Ahora verás el catálogo en tiempo real.");
+        alert("¡PORTAL SINCRONIZADO CON ÉXITO!");
         window.location.reload(); 
       } catch (e) {
         console.error("Fallo en la sincronización:", e);
       }
     }
 
-    // 2. Manejo de Retorno de Discord OAuth2
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const accessToken = hashParams.get('access_token');
     
@@ -77,7 +75,7 @@ const App: React.FC = () => {
     }
 
     fetchItems();
-    const interval = setInterval(fetchItems, 45000); // Refresco cada 45s
+    const interval = setInterval(fetchItems, 45000);
     return () => clearInterval(interval);
   }, []);
 
@@ -96,7 +94,10 @@ const App: React.FC = () => {
 
       if (activeTab === 'costumes') {
         const matchesFaction = item.faction === selectedFaction;
+        
+        // CORRECCIÓN: Si el item_class es 'All', debe mostrarse siempre en esa facción.
         const matchesClass = selectedClass === 'All' || 
+          item.item_class === 'All' ||
           item.item_class === selectedClass || 
           (item.classes && item.classes.includes(selectedClass));
         

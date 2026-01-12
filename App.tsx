@@ -24,7 +24,7 @@ const App: React.FC = () => {
         const items = await getItemsFromDB();
         setCloudItems(items as GameItem[]);
       } catch (e) {
-        console.error("Failed to fetch cloud items, using static defaults only:", e);
+        console.error("Failed to fetch cloud items:", e);
       } finally {
         setIsLoading(false);
       }
@@ -32,7 +32,6 @@ const App: React.FC = () => {
     fetchItems();
   }, []);
 
-  // Combinamos los items estáticos de constants.ts con los de la base de datos
   const allItems = useMemo(() => {
     return [...STATIC_ITEMS, ...cloudItems];
   }, [cloudItems]);
@@ -68,9 +67,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col relative bg-shaiya-nova">
-      <div className="fixed inset-0 bg-black/70 pointer-events-none"></div>
-
+    <div className="min-h-screen flex flex-col relative">
       <Navbar activeTab={activeTab} onTabChange={(tab) => {
         setActiveTab(tab);
         setSelectedClass('All');

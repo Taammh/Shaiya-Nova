@@ -4,7 +4,7 @@ import Navbar from './components/Navbar';
 import ItemCard from './components/ItemCard';
 import BugReportForm from './components/BugReportForm';
 import AdminPanel from './components/AdminPanel';
-import { getItemsFromDB } from './services/supabaseClient';
+import { getItemsFromDB, getSetting } from './services/supabaseClient';
 import { ITEMS as STATIC_ITEMS } from './constants';
 import { Category, Faction, CLASSES_BY_FACTION, GameItem } from './types';
 
@@ -19,23 +19,47 @@ const App: React.FC = () => {
   const [adminPassword, setAdminPassword] = useState('');
 
   useEffect(() => {
-    // Verificar si hay un Link Maestro para importar
     const urlParams = new URLSearchParams(window.location.search);
-    const masterConfig = urlParams.get('master');
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
     
+    // 1. Manejo de Sincronización (Link Maestro)
+    const masterConfig = urlParams.get('master');
     if (masterConfig) {
       try {
         const decoded = JSON.parse(decodeURIComponent(escape(atob(masterConfig))));
-        if (confirm('¡Se ha detectado una Configuración Maestra de NOVA! ¿Deseas importar el Webhook y los Objetos de este reino?')) {
-          if (decoded.items) localStorage.setItem('nova_local_items', JSON.stringify(decoded.items));
-          if (decoded.webhook) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', decoded.webhook);
-          alert('Reino sincronizado con éxito.');
-          // Limpiar URL
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
+        // Sincronización forzada
+        if (decoded.items) localStorage.setItem('nova_local_items', JSON.stringify(decoded.items));
+        if (decoded.webhook) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', decoded.webhook);
+        if (decoded.clientId) localStorage.setItem('nova_setting_DISCORD_CLIENT_ID', decoded.clientId);
+        
+        // Limpiar URL y recargar para aplicar cambios
+        window.history.replaceState({}, document.title, window.location.pathname);
+        window.location.reload();
       } catch (e) {
-        console.error("Error al importar configuración maestra:", e);
+        console.error("Error en sincronización maestra:", e);
       }
+    }
+
+    // 2. Manejo de Retorno de Discord (OAuth2 Real)
+    const accessToken = hashParams.get('access_token');
+    if (accessToken) {
+      fetch('https://discord.com/api/users/@me', {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      })
+      .then(res => res.json())
+      .then(user => {
+        const userData = {
+          name: `${user.username}${user.discriminator !== '0' ? `#${user.discriminator}` : ''}`,
+          id: user.id,
+          avatar: user.avatar 
+            ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+            : `https://cdn.discordapp.com/embed/avatars/${parseInt(user.id) % 5}.png`
+        };
+        localStorage.setItem('nova_session', JSON.stringify(userData));
+        window.location.hash = ''; // Limpiar token de la URL
+        setActiveTab('report'); // Ir a soporte tras loguear
+      })
+      .catch(err => console.error("Error al obtener usuario de Discord:", err));
     }
 
     const fetchItems = async () => {
@@ -81,7 +105,7 @@ const App: React.FC = () => {
     if (adminPassword === 'Nova2296') {
       setIsAdminAuthenticated(true);
     } else {
-      alert('Contraseña incorrecta, forastero.');
+      alert('Acceso denegado, forastero.');
     }
   };
 
@@ -97,7 +121,7 @@ const App: React.FC = () => {
         {activeTab !== 'report' && activeTab !== 'admin' && (
           <>
             <header className="text-center mb-16 animate-fade-in">
-              <h1 className="text-6xl md:text-8xl font-shaiya text-white mb-2 tracking-tighter drop-shadow-[0_0_20px_rgba(212,175,55,0.6)]">
+              <h1 className="text-6xl md:text-8xl font-shaiya text-white mb-2 tracking-tighter drop-shadow-[0_0_30px_rgba(212,175,55,0.4)]">
                 {activeTab === 'mounts' ? 'LEGENDARIAS' : activeTab === 'costumes' ? 'VESTIMENTAS' : 'ESENCIAS'} <span className="text-[#d4af37]">NOVA</span>
               </h1>
               <p className="text-[#d4af37] max-w-2xl mx-auto uppercase tracking-[6px] text-xs font-bold opacity-80">
@@ -113,13 +137,13 @@ const App: React.FC = () => {
                     <div className="flex gap-4">
                       <button 
                         onClick={() => {setSelectedFaction(Faction.LIGHT); setSelectedClass('All');}}
-                        className={`px-8 py-3 rounded-xl font-bold uppercase tracking-widest transition-all ${selectedFaction === Faction.LIGHT ? 'bg-blue-600/30 border border-blue-400 text-blue-100 shadow-[0_0_15px_rgba(37,99,235,0.4)]' : 'bg-black/40 border border-white/5 text-gray-500'}`}
+                        className={`px-8 py-3 rounded-xl font-bold uppercase tracking-widest transition-all ${selectedFaction === Faction.LIGHT ? 'bg-blue-600/30 border border-blue-400 text-blue-100' : 'bg-black/40 border border-white/5 text-gray-500'}`}
                       >
                         Luz
                       </button>
                       <button 
                         onClick={() => {setSelectedFaction(Faction.FURY); setSelectedClass('All');}}
-                        className={`px-8 py-3 rounded-xl font-bold uppercase tracking-widest transition-all ${selectedFaction === Faction.FURY ? 'bg-red-600/30 border border-red-400 text-red-100 shadow-[0_0_15px_rgba(220,38,38,0.4)]' : 'bg-black/40 border border-white/5 text-gray-500'}`}
+                        className={`px-8 py-3 rounded-xl font-bold uppercase tracking-widest transition-all ${selectedFaction === Faction.FURY ? 'bg-red-600/30 border border-red-400 text-red-100' : 'bg-black/40 border border-white/5 text-gray-500'}`}
                       >
                         Furia
                       </button>
@@ -127,9 +151,9 @@ const App: React.FC = () => {
                   </div>
                   <div className="w-px h-12 bg-white/10 hidden md:block"></div>
                   <div className="flex flex-col items-center">
-                    <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Especialización (Clase)</span>
+                    <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Especialización</span>
                     <select 
-                      className="bg-black/60 border border-white/10 text-gray-200 p-3 rounded-xl outline-none cursor-pointer hover:border-[#d4af37] transition-all min-w-[220px] font-bold uppercase tracking-widest text-center"
+                      className="bg-black/60 border border-white/10 text-gray-200 p-3 rounded-xl outline-none min-w-[220px] font-bold uppercase tracking-widest text-center"
                       value={selectedClass}
                       onChange={(e) => setSelectedClass(e.target.value)}
                     >
@@ -143,43 +167,36 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {isLoading && cloudItems.length === 0 && STATIC_ITEMS.length === 0 ? (
+            {isLoading ? (
               <div className="text-center py-20">
                 <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#d4af37]"></div>
-                <p className="mt-4 text-[#d4af37] font-shaiya tracking-widest">Invocando reliquias...</p>
               </div>
-            ) : filteredItems.length > 0 ? (
+            ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10 animate-fade-in">
                 {filteredItems.map(item => (
                   <ItemCard key={item.id} item={item} />
                 ))}
-              </div>
-            ) : (
-              <div className="text-center py-32 glass-panel rounded-[40px] border border-dashed border-white/5 animate-fade-in">
-                <p className="text-[#d4af37] font-shaiya text-3xl mb-4 opacity-70 uppercase tracking-widest">Reino Desolado</p>
-                <p className="text-gray-500 text-sm font-bold uppercase tracking-widest">Aún no se han descubierto reliquias en esta sección.</p>
               </div>
             )}
           </>
         )}
 
         {activeTab === 'report' && <BugReportForm />}
-
         {activeTab === 'admin' && (
           <div className="py-10">
             {!isAdminAuthenticated ? (
-              <div className="max-w-md mx-auto glass-panel p-10 rounded-3xl border border-[#d4af37]/40 shadow-2xl shadow-[#d4af37]/10 animate-fade-in text-center">
+              <div className="max-w-md mx-auto glass-panel p-10 rounded-3xl border border-[#d4af37]/40 shadow-2xl animate-fade-in text-center">
                 <div className="text-[#d4af37] text-4xl mb-6">🔒</div>
-                <h2 className="text-2xl font-shaiya text-white mb-8">Cámara del Administrador</h2>
+                <h2 className="text-2xl font-shaiya text-white mb-8 uppercase tracking-widest">Cámara de Control</h2>
                 <form onSubmit={handleAdminAuth} className="space-y-6">
                   <input 
                     type="password"
-                    placeholder="Contraseña Maestra"
-                    className="w-full bg-black/80 border border-white/10 p-4 rounded-xl text-white outline-none focus:border-[#d4af37] text-center text-xl tracking-widest"
+                    placeholder="Contraseña"
+                    className="w-full bg-black/80 border border-white/10 p-4 rounded-xl text-white outline-none focus:border-[#d4af37] text-center"
                     value={adminPassword}
                     onChange={e => setAdminPassword(e.target.value)}
                   />
-                  <button className="w-full bg-[#d4af37] text-black font-black py-4 rounded-xl uppercase tracking-[4px] hover:bg-white transition-all">
+                  <button className="w-full bg-[#d4af37] text-black font-black py-4 rounded-xl uppercase tracking-[4px]">
                     Acceder
                   </button>
                 </form>
@@ -193,8 +210,8 @@ const App: React.FC = () => {
 
       <footer className="bg-black/95 py-12 border-t border-[#d4af37]/30 mt-20 relative z-20">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-[#d4af37] font-shaiya text-3xl mb-4 tracking-widest drop-shadow-md">SHAIYA NOVA</p>
-          <p className="text-gray-500 text-[10px] uppercase tracking-[6px]">© 2026 Shaiya NOVA Team - Forging Legends</p>
+          <p className="text-[#d4af37] font-shaiya text-3xl mb-4 tracking-widest">SHAIYA NOVA</p>
+          <p className="text-gray-500 text-[10px] uppercase tracking-[6px]">Sincronización Maestra Activa</p>
         </div>
       </footer>
     </div>

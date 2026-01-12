@@ -38,7 +38,6 @@ const App: React.FC = () => {
       try {
         const decoded = JSON.parse(decodeURIComponent(escape(atob(syncData))));
         
-        // Mapeo exhaustivo de los 11 campos del Link Maestro
         if (decoded.webhookSupport) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', decoded.webhookSupport);
         if (decoded.webhookApps) localStorage.setItem('nova_setting_NOVA_STAFF_APP_WEBHOOK', decoded.webhookApps);
         if (decoded.webhookWelcome) localStorage.setItem('nova_setting_NOVA_STAFF_WELCOME_WEBHOOK', decoded.webhookWelcome);
@@ -147,12 +146,22 @@ const App: React.FC = () => {
                     <button onClick={() => setSelectedFaction(Faction.FURY)} className={`px-6 py-2 rounded-lg font-bold uppercase text-xs transition-all ${selectedFaction === Faction.FURY ? 'bg-red-600/40 border border-red-400 text-red-100' : 'bg-black/40 text-gray-500'}`}>Furia</button>
                   </div>
                 </div>
+                
                 <div className="flex flex-col items-center">
                   <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Clase</span>
-                  <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="bg-black/60 border border-white/10 text-gray-200 p-2 rounded-lg outline-none font-bold uppercase text-[10px] w-48">
+                  <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="bg-black/60 border border-white/10 text-gray-200 p-2 rounded-lg outline-none font-bold uppercase text-[10px] w-48 h-10">
                     <option value="All">Todas</option>
                     {CLASSES_BY_FACTION[selectedFaction].map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
+                </div>
+
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Sexo</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => setSelectedGender('All')} className={`px-4 py-2 rounded-lg font-bold uppercase text-[10px] transition-all border ${selectedGender === 'All' ? 'border-[#d4af37] bg-[#d4af37]/20 text-white' : 'border-white/5 bg-black/40 text-gray-500'}`}>Todos</button>
+                    <button onClick={() => setSelectedGender(Gender.MALE)} className={`px-4 py-2 rounded-lg font-bold uppercase text-[10px] transition-all border ${selectedGender === Gender.MALE ? 'border-[#d4af37] bg-[#d4af37]/20 text-white' : 'border-white/5 bg-black/40 text-gray-500'}`}>Masculino</button>
+                    <button onClick={() => setSelectedGender(Gender.FEMALE)} className={`px-4 py-2 rounded-lg font-bold uppercase text-[10px] transition-all border ${selectedGender === Gender.FEMALE ? 'border-[#d4af37] bg-[#d4af37]/20 text-white' : 'border-white/5 bg-black/40 text-gray-500'}`}>Femenino</button>
+                  </div>
                 </div>
               </div>
             )}

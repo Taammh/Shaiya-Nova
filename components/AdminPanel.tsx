@@ -144,24 +144,22 @@ const AdminPanel: React.FC = () => {
     try {
       const url = `https://discord.com/api/v10/guilds/${guildId}/members/${userId.trim()}/roles/${roleId}`;
       
-      // Enviamos un cuerpo vacío y cabeceras de seguridad para evitar 403 por falta de contenido
       const response = await fetch(url, {
         method: 'PUT',
         headers: {
           'Authorization': `Bot ${cleanToken}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({}) // Algunos proxies de Discord requieren un body aunque sea vacío
+        body: JSON.stringify({})
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.group("🛡️ Error de Discord 403 Detectado");
-        console.error("Causa técnica:", errorData);
-        console.warn("SOLUCIÓN 1: Asegúrate de que no estás intentando dar rol al DUEÑO del servidor (inmune).");
-        console.warn("SOLUCIÓN 2: Verifica que el ROL DE INTEGRACIÓN del bot (no uno manual) esté arriba de todos.");
-        console.warn("SOLUCIÓN 3: El bot debe haber sido invitado con permisos de 'Administrador' o 'Gestionar Roles'.");
+        console.group("🛡️ Error de Discord 403 - Diagnóstico NOVA");
+        console.error("Respuesta de Discord:", errorData);
+        console.warn("IMPORTANTE: Si estás probando con tu propia cuenta y eres DUEÑO (Owner) del servidor, Discord BLOQUEA la asignación por bot.");
+        console.warn("SOLUCIÓN: Prueba con una cuenta secundaria o un miembro común.");
+        console.warn("VERIFICACIÓN: El rol de integración del Bot debe estar FÍSICAMENTE arriba de los roles que intenta dar en la lista de roles del servidor.");
         console.groupEnd();
         return false;
       }
@@ -190,7 +188,7 @@ const AdminPanel: React.FC = () => {
             body: JSON.stringify({
               embeds: [{
                 title: "🛡️ ¡Nuevo Guardián en NOVA! 🛡️",
-                description: `¡Bienvenido **${app.username}** como **${app.position}**!\n\n${roleSuccess ? '✅ **Rol de Discord asignado automáticamente.**' : '⚠️ **Error 403:** El rol no pudo ser asignado. **Si el bot es Admin**, lo más probable es que el candidato sea el **Dueño del Servidor** o el rol del Bot no sea el de Integración.'}`,
+                description: `¡Bienvenido **${app.username}** como **${app.position}**!\n\n${roleSuccess ? '✅ **Rol de Discord asignado automáticamente.**' : '⚠️ **Error de Jerarquía/Owner:** El rol no pudo ser asignado. **Si el bot es Admin**, esto ocurre porque el candidato es el **Dueño del Servidor** o el rol del Bot no es el de Integración (Tool icon).'}`,
                 color: 0xd4af37,
                 thumbnail: { url: app.avatar_url },
                 fields: [

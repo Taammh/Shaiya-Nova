@@ -30,9 +30,7 @@ const AdminPanel: React.FC = () => {
     faction: Faction.LIGHT, item_class: 'All', gender: Gender.BOTH, price: '', stats: ''
   });
 
-  const sqlSchema = `-- EJECUTAR ESTO EN EL SQL EDITOR DE SUPABASE PARA ARREGLAR TODO:
-
--- 1. Tabla de Items (Reliquias y Promociones)
+  const sqlSchema = `-- EJECUTAR ESTO EN EL SQL EDITOR DE SUPABASE:
 CREATE TABLE IF NOT EXISTS items (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -44,11 +42,10 @@ CREATE TABLE IF NOT EXISTS items (
   item_class TEXT,
   gender TEXT,
   stats TEXT,
-  price TEXT, -- EL CAMPO QUE FALTABA
+  price TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Tabla de Staff Applications
 CREATE TABLE IF NOT EXISTS staff_applications (
   id TEXT PRIMARY KEY,
   username TEXT NOT NULL,
@@ -61,7 +58,6 @@ CREATE TABLE IF NOT EXISTS staff_applications (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Tabla de Ajustes
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT
@@ -131,7 +127,7 @@ CREATE TABLE IF NOT EXISTS settings (
     localStorage.setItem('nova_setting_SUPABASE_URL', config.supabaseUrl);
     localStorage.setItem('nova_setting_SUPABASE_ANON_KEY', config.supabaseKey);
     setIsSaving(false);
-    alert('Configuración Guardada.');
+    alert('Configuración Nucleares Guardada.');
   };
 
   const generateMasterLink = () => {
@@ -154,39 +150,28 @@ CREATE TABLE IF NOT EXISTS settings (
     finally { setIsSaving(false); }
   };
 
-  // Fix: Implemented handleAppStatus to manage staff acceptance/rejection
   const handleAppStatus = async (app: StaffApplication, status: 'accepted' | 'rejected') => {
     if (!window.confirm(`¿Deseas ${status === 'accepted' ? 'ACEPTAR' : 'RECHAZAR'} a ${app.username}?`)) return;
     setIsSaving(true);
     try {
       await updateStaffApplicationStatus(app.id, status);
-      
-      // Notify via Discord when a staff member is accepted
-      if (status === 'accepted') {
-        const welcomeWebhook = await getSetting('NOVA_STAFF_WELCOME_WEBHOOK');
-        if (welcomeWebhook) {
-          await fetch(welcomeWebhook, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              embeds: [{
-                title: "🛡️ ¡Nuevo Guardián en NOVA! 🛡️",
-                description: `El Reino celebra la llegada de **${app.username}** al equipo de Staff.\n\n**Puesto:** ${app.position}\n**Discord:** ${app.discord_id}`,
-                color: 0x00ff00,
-                thumbnail: { url: app.avatar_url }
-              }]
-            })
-          });
-        }
+      if (status === 'accepted' && config.webhookWelcome) {
+        await fetch(config.webhookWelcome, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            embeds: [{
+              title: "🛡️ ¡Nuevo Guardián en NOVA! 🛡️",
+              description: `¡Bienvenido **${app.username}** como **${app.position}**!`,
+              color: 0x00ff00,
+              thumbnail: { url: app.avatar_url }
+            }]
+          })
+        });
       }
-      
       loadData();
-    } catch (e) {
-      console.error("Error updating status:", e);
-      alert("Error al actualizar el estado del candidato.");
-    } finally {
-      setIsSaving(false);
-    }
+    } catch { alert("Error al actualizar."); }
+    finally { setIsSaving(false); }
   };
 
   return (
@@ -207,15 +192,37 @@ CREATE TABLE IF NOT EXISTS settings (
                   {isSaving ? 'Sincronizando...' : 'Subir a la Nube'}
                 </button>
              </div>
-            <h2 className="text-3xl font-shaiya text-[#d4af37] mb-8 text-center uppercase">{editingId ? 'Reforjar' : 'Nueva Forja'}</h2>
+            <h2 className="text-3xl font-shaiya text-[#d4af37] mb-8 text-center uppercase tracking-widest">{editingId ? 'Reforjar' : 'Nueva Forja'}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <input placeholder="Nombre" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white outline-none" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
+              <input placeholder="Nombre" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white outline-none focus:border-[#d4af37]" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
               <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value as any})}>
                 {Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <input placeholder="Precio AP" className="bg-green-900/10 border border-green-500/20 p-4 rounded-xl text-white" value={newItem.price} onChange={e => setNewItem({...newItem, price: e.target.value})} />
+
+              {newItem.category === Category.PROMOTION && (
+                <input placeholder="Precio AP" className="bg-green-900/10 border border-green-500/20 p-4 rounded-xl text-white md:col-span-2" value={newItem.price} onChange={e => setNewItem({...newItem, price: e.target.value})} />
+              )}
+
+              {newItem.category === Category.COSTUME && (
+                <>
+                  <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newItem.faction} onChange={e => setNewItem({...newItem, faction: e.target.value as any})}>
+                    <option value={Faction.LIGHT}>Facción Luz</option>
+                    <option value={Faction.FURY}>Facción Furia</option>
+                  </select>
+                  <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newItem.item_class} onChange={e => setNewItem({...newItem, item_class: e.target.value})}>
+                    <option value="All">Todas las Clases</option>
+                    {newItem.faction && CLASSES_BY_FACTION[newItem.faction as Faction].map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white md:col-span-2" value={newItem.gender} onChange={e => setNewItem({...newItem, gender: e.target.value as any})}>
+                    <option value={Gender.BOTH}>Ambos Sexos</option>
+                    <option value={Gender.MALE}>Masculino</option>
+                    <option value={Gender.FEMALE}>Femenino</option>
+                  </select>
+                </>
+              )}
+
               <input placeholder="Imagen URL" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newItem.image} onChange={e => setNewItem({...newItem, image: e.target.value})} />
-              <input placeholder="Stats" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white md:col-span-2" value={newItem.stats} onChange={e => setNewItem({...newItem, stats: e.target.value})} />
+              <input placeholder="Stats (Ej: +15 Str)" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newItem.stats} onChange={e => setNewItem({...newItem, stats: e.target.value})} />
               <textarea placeholder="Descripción" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white md:col-span-2 h-24" value={newItem.description} onChange={e => setNewItem({...newItem, description: e.target.value})} />
             </div>
             <button onClick={handleAddItem} className="w-full mt-8 bg-white text-black font-black py-4 rounded-2xl uppercase hover:bg-[#d4af37] transition-all">
@@ -247,8 +254,8 @@ CREATE TABLE IF NOT EXISTS settings (
           </div>
         </div>
       ) : activeSubTab === 'settings' ? (
-        <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/20 space-y-8">
-          <h2 className="text-3xl font-shaiya text-[#d4af37] text-center uppercase">Ajustes Nucleares</h2>
+        <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/20 space-y-8 shadow-2xl">
+          <h2 className="text-3xl font-shaiya text-[#d4af37] text-center uppercase tracking-widest">Ajustes Nucleares</h2>
           
           <div className="bg-yellow-600/10 border border-yellow-500/30 p-6 rounded-2xl">
             <h3 className="text-[#d4af37] font-black text-xs uppercase mb-4 flex justify-between items-center">
@@ -257,47 +264,67 @@ CREATE TABLE IF NOT EXISTS settings (
             </h3>
             {showSqlHelp && (
               <div className="space-y-4 animate-fade-in">
-                <p className="text-gray-400 text-[10px] uppercase">Copia este código y pégalo en el "SQL Editor" de tu Supabase para crear las columnas necesarias (incluida la de 'price'):</p>
                 <textarea readOnly className="w-full bg-black/80 text-green-500 font-mono text-[10px] p-4 rounded-lg h-48 border border-white/10" value={sqlSchema}></textarea>
-                <button onClick={() => { navigator.clipboard.writeText(sqlSchema); alert("SQL Copiado."); }} className="bg-white/10 text-white px-4 py-2 rounded text-[9px] font-black uppercase">Copiar SQL al Portapapeles</button>
+                <button onClick={() => { navigator.clipboard.writeText(sqlSchema); alert("SQL Copiado."); }} className="bg-white/10 text-white px-4 py-2 rounded text-[9px] font-black uppercase">Copiar SQL</button>
               </div>
             )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <input placeholder="Webhook Soporte" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.webhookSupport} onChange={e => setConfig({...config, webhookSupport: e.target.value})} />
-            <input placeholder="Webhook Postulaciones" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.webhookApps} onChange={e => setConfig({...config, webhookApps: e.target.value})} />
-            <input placeholder="Discord Bot Token" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.botToken} onChange={e => setConfig({...config, botToken: e.target.value})} />
-            <input placeholder="Discord Server ID" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.guildId} onChange={e => setConfig({...config, guildId: e.target.value})} />
-            <input placeholder="Supabase URL" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.supabaseUrl} onChange={e => setConfig({...config, supabaseUrl: e.target.value})} />
-            <input placeholder="Supabase Key" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.supabaseKey} onChange={e => setConfig({...config, supabaseKey: e.target.value})} />
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-gray-500 uppercase ml-2">Webhooks de Discord</label>
+              <input placeholder="Webhook Soporte" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.webhookSupport} onChange={e => setConfig({...config, webhookSupport: e.target.value})} />
+              <input placeholder="Webhook Postulaciones" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.webhookApps} onChange={e => setConfig({...config, webhookApps: e.target.value})} />
+              <input placeholder="Webhook Bienvenida Staff" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.webhookWelcome} onChange={e => setConfig({...config, webhookWelcome: e.target.value})} />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-gray-500 uppercase ml-2">Credenciales de Aplicación</label>
+              <input placeholder="Discord Client ID" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.clientId} onChange={e => setConfig({...config, clientId: e.target.value})} />
+              <input placeholder="Discord Bot Token" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.botToken} onChange={e => setConfig({...config, botToken: e.target.value})} />
+              <input placeholder="Discord Server (Guild) ID" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.guildId} onChange={e => setConfig({...config, guildId: e.target.value})} />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-gray-500 uppercase ml-2">IDs de Roles Staff</label>
+              <input placeholder="ID Rol Game Sage (GS)" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.roleGs} onChange={e => setConfig({...config, roleGs: e.target.value})} />
+              <input placeholder="ID Rol Líder GS" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.roleLgs} onChange={e => setConfig({...config, roleLgs: e.target.value})} />
+              <input placeholder="ID Rol GM" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.roleGm} onChange={e => setConfig({...config, roleGm: e.target.value})} />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-gray-500 uppercase ml-2">Base de Datos (Supabase)</label>
+              <input placeholder="Supabase URL" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.supabaseUrl} onChange={e => setConfig({...config, supabaseUrl: e.target.value})} />
+              <input placeholder="Supabase Key (Anon Key)" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.supabaseKey} onChange={e => setConfig({...config, supabaseKey: e.target.value})} />
+            </div>
           </div>
-          <div className="flex gap-4">
-            <button onClick={handleSaveSettings} className="flex-grow bg-[#d4af37] text-black font-black py-4 rounded-2xl uppercase">Guardar</button>
-            <button onClick={generateMasterLink} className="flex-grow bg-white text-black font-black py-4 rounded-2xl uppercase">Link Maestro</button>
+
+          <div className="flex gap-4 pt-4">
+            <button onClick={handleSaveSettings} className="flex-grow bg-[#d4af37] text-black font-black py-4 rounded-2xl uppercase tracking-widest shadow-xl hover:bg-white transition-all">Guardar Cambios</button>
+            <button onClick={generateMasterLink} className="flex-grow bg-white text-black font-black py-4 rounded-2xl uppercase tracking-widest shadow-xl hover:bg-[#d4af37] transition-all">Link Maestro</button>
           </div>
         </div>
       ) : (
-        <div className="glass-panel p-10 rounded-[3rem] min-h-[400px]">
-           <h2 className="text-3xl font-shaiya text-white mb-10 text-center uppercase">Candidatos Staff</h2>
+        <div className="glass-panel p-10 rounded-[3rem] min-h-[400px] border border-white/10">
+           <h2 className="text-3xl font-shaiya text-white mb-10 text-center uppercase tracking-widest">Candidatos al Staff</h2>
            <div className="space-y-6">
              {appsList.length === 0 && <p className="text-center py-20 text-gray-600 font-shaiya">No hay pergaminos por ahora...</p>}
              {appsList.map(app => (
-               <div key={app.id} className="bg-black/40 p-8 rounded-3xl border border-white/10 flex justify-between items-center group">
+               <div key={app.id} className="bg-black/40 p-8 rounded-3xl border border-white/10 flex justify-between items-center group hover:border-[#d4af37]/40 transition-all">
                  <div className="flex gap-6 items-center">
-                   <img src={app.avatar_url} className="w-16 h-16 rounded-2xl border-2 border-[#d4af37]" />
+                   <img src={app.avatar_url} className="w-16 h-16 rounded-2xl border-2 border-[#d4af37] shadow-lg" />
                    <div>
                      <p className="text-white text-xl font-shaiya">{app.username}</p>
-                     <p className="text-[#d4af37] text-[10px] uppercase font-black">{app.position} • {app.discord_id}</p>
+                     <p className="text-[#d4af37] text-[10px] uppercase font-black tracking-widest">{app.position} • {app.discord_id}</p>
                    </div>
                  </div>
                  <div className="flex gap-3">
                    {app.status === 'pending' ? (
                      <>
-                      <button onClick={() => handleAppStatus(app, 'accepted')} className="bg-green-600 px-6 py-2 rounded-xl text-white font-black text-[10px] uppercase">Aceptar</button>
-                      <button onClick={() => handleAppStatus(app, 'rejected')} className="bg-red-600 px-6 py-2 rounded-xl text-white font-black text-[10px] uppercase">Rechazar</button>
+                      <button onClick={() => handleAppStatus(app, 'accepted')} className="bg-green-600/20 text-green-500 border border-green-500/30 px-6 py-2 rounded-xl font-black text-[10px] uppercase hover:bg-green-600 hover:text-white transition-all">Aceptar</button>
+                      <button onClick={() => handleAppStatus(app, 'rejected')} className="bg-red-600/20 text-red-500 border border-red-500/30 px-6 py-2 rounded-xl font-black text-[10px] uppercase hover:bg-red-600 hover:text-white transition-all">Rechazar</button>
                      </>
-                   ) : <span className="text-gray-500 font-black uppercase text-[10px]">{app.status}</span>}
+                   ) : <span className={`px-6 py-2 rounded-xl font-black uppercase text-[10px] border ${app.status === 'accepted' ? 'text-green-500 border-green-500/20 bg-green-500/5' : 'text-red-500 border-red-500/20 bg-red-500/5'}`}>{app.status}</span>}
                  </div>
                </div>
              ))}

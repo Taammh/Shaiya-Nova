@@ -35,24 +35,20 @@ export const getSupabase = (): { client: SupabaseClient, isPlaceholder: boolean 
 };
 
 const mapItemForDB = (item: any) => {
-  const mapped: any = {
+  return {
     id: item.id?.toString() || `item-${Date.now()}`,
     name: item.name || '',
     category: item.category || 'Montura',
     image: item.image || '',
     description: item.description || '',
+    hidden_history: item.hidden_history || '',
+    faction: item.faction || null,
+    item_class: item.item_class || 'All',
+    gender: item.gender || 'Ambos',
+    stats: item.stats || '',
+    price: item.price || '',
     created_at: item.created_at || new Date().toISOString()
   };
-  
-  // Solo incluimos campos opcionales si tienen valor para evitar errores de columnas faltantes en lo posible
-  if (item.hidden_history) mapped.hidden_history = item.hidden_history;
-  if (item.faction) mapped.faction = item.faction;
-  if (item.item_class) mapped.item_class = item.item_class;
-  if (item.gender) mapped.gender = item.gender;
-  if (item.stats) mapped.stats = item.stats;
-  if (item.price) mapped.price = item.price;
-  
-  return mapped;
 };
 
 export const pushLocalItemsToCloud = async () => {
@@ -68,7 +64,7 @@ export const pushLocalItemsToCloud = async () => {
   const { error } = await client.from('items').upsert(itemsToUpload, { onConflict: 'id' });
   if (error) {
     if (error.message.includes('column "price"')) {
-      throw new Error("Falta la columna 'price' en tu tabla de Supabase. Ejecuta el SQL de Ajustes.");
+      throw new Error("Falta la columna 'price' en Supabase. Ejecuta el SQL de Ajustes.");
     }
     throw error;
   }

@@ -2,10 +2,10 @@
 export enum Category {
   MOUNT = 'Montura',
   COSTUME = 'Traje',
-  TRANSFORMATION = 'Transformación'
+  TRANSFORMATION = 'Transformación',
+  PROMOTION = 'Promoción'
 }
 
-// Fix: Changed 'middle' to 'enum' to correctly define the Faction enumeration and resolve export errors
 export enum Faction {
   LIGHT = 'Luz',
   FURY = 'Furia',
@@ -50,6 +50,24 @@ export interface GameItem {
   item_class?: string;
   classes?: string[];
   gender?: Gender;
+  price?: string;
+}
+
+export interface StaffApplication {
+  id: string;
+  username: string;
+  discord_id: string;
+  position: 'Game Sage' | 'Lider Game Sage' | 'GM';
+  answers: {
+    experience: string;
+    motivation: string;
+    conflict: string;
+    availability: string;
+    contribution: string;
+  };
+  status: 'pending' | 'accepted' | 'rejected';
+  avatar_url: string;
+  created_at: string;
 }
 
 export interface SupportRequest {

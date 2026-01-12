@@ -8,10 +8,12 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ onTabChange, activeTab }) => {
   const tabs = [
+    { id: 'promotions', label: 'Promociones' },
     { id: 'mounts', label: 'Monturas' },
     { id: 'costumes', label: 'Trajes' },
     { id: 'transformations', label: 'Transformaciones' },
     { id: 'report', label: 'Soporte' },
+    { id: 'staff_app', label: 'Postulación' },
     { id: 'admin', label: 'Administración' }
   ];
 
@@ -31,12 +33,12 @@ const Navbar: React.FC<NavbarProps> = ({ onTabChange, activeTab }) => {
               SHAIYA <span className="text-white">NOVA</span>
             </span>
           </div>
-          <div className="flex items-center space-x-2 sm:space-x-8">
+          <div className="flex items-center space-x-1 sm:space-x-4">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                className={`px-2 sm:px-4 py-2 text-[10px] sm:text-xs font-bold transition-all duration-300 hover:text-[#d4af37] uppercase tracking-widest border-b-2 ${
+                className={`px-1 sm:px-3 py-2 text-[8px] sm:text-[10px] md:text-xs font-bold transition-all duration-300 hover:text-[#d4af37] uppercase tracking-widest border-b-2 ${
                   activeTab === tab.id ? 'text-[#d4af37] border-[#d4af37]' : 'text-gray-400 border-transparent'
                 }`}
               >

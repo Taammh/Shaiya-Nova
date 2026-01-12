@@ -18,30 +18,37 @@ const App: React.FC = () => {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
 
+  const fetchItems = async () => {
+    try {
+      const items = await getItemsFromDB();
+      setCloudItems(items as GameItem[]);
+    } catch (e) {
+      console.error("Error cargando reliquias:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    // 1. Lógica de Sincronización Maestra (Importación de Reino)
+    // 1. Lógica de Sincronización de Portal (Solo Configuración)
     const urlParams = new URLSearchParams(window.location.search);
-    const masterData = urlParams.get('master');
+    const syncData = urlParams.get('sync');
     
-    if (masterData) {
+    if (syncData) {
       try {
-        // Descomprimimos y cargamos el estado del reino compartido
-        const decoded = JSON.parse(decodeURIComponent(escape(atob(masterData))));
-        
-        if (decoded.items) localStorage.setItem('nova_local_items', JSON.stringify(decoded.items));
+        const decoded = JSON.parse(decodeURIComponent(escape(atob(syncData))));
         if (decoded.webhook) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', decoded.webhook);
         if (decoded.clientId) localStorage.setItem('nova_setting_DISCORD_CLIENT_ID', decoded.clientId);
         
-        // Limpiamos la URL para que el usuario no esté recargando los datos constantemente
         window.history.replaceState({}, document.title, window.location.pathname);
-        alert("¡Sincronización con el Reino NOVA completada! Has importado todos los objetos y configuraciones.");
+        alert("¡Reino Sincronizado! Ahora verás los datos oficiales del portal en tiempo real.");
         window.location.reload(); 
       } catch (e) {
-        console.error("Fallo en la sincronización maestra:", e);
+        console.error("Fallo en la sincronización:", e);
       }
     }
 
-    // 2. Manejo de Retorno de Discord OAuth2 (Real)
+    // 2. Manejo de Retorno de Discord OAuth2
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const accessToken = hashParams.get('access_token');
     
@@ -60,24 +67,17 @@ const App: React.FC = () => {
             : `https://cdn.discordapp.com/embed/avatars/${parseInt(user.id) % 5}.png`
         };
         localStorage.setItem('nova_session', JSON.stringify(userData));
-        window.location.hash = ''; // Limpiamos el token de la URL
+        window.location.hash = ''; 
         setActiveTab('report');
       })
       .catch(err => console.error("Error en login real de Discord:", err))
       .finally(() => setIsLoading(false));
     }
 
-    const fetchItems = async () => {
-      try {
-        const items = await getItemsFromDB();
-        setCloudItems(items as GameItem[]);
-      } catch (e) {
-        console.error("Error cargando reliquias:", e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchItems();
+    // Refresco automático de objetos cada minuto para usuarios
+    const interval = setInterval(fetchItems, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   const allItems = useMemo(() => {
@@ -99,10 +99,6 @@ const App: React.FC = () => {
           item.item_class === selectedClass || 
           (item.classes && item.classes.includes(selectedClass));
         
-        // El filtro de género:
-        // Si es 'All', pasa cualquiera.
-        // Si el ítem es 'Ambos', pasa cualquier filtro de género específico.
-        // Si el ítem es específico, debe coincidir.
         const matchesGender = selectedGender === 'All' || 
           item.gender === Gender.BOTH || 
           item.gender === selectedGender;
@@ -196,7 +192,7 @@ const App: React.FC = () => {
       <footer className="bg-black/95 py-12 border-t border-[#d4af37]/30 mt-20 relative z-20">
         <div className="container mx-auto px-4 text-center">
           <p className="text-[#d4af37] font-shaiya text-2xl mb-2 tracking-widest">SHAIYA NOVA DATABASE</p>
-          <p className="text-gray-600 text-[10px] uppercase tracking-[5px]">Portal de Sincronización Maestra v2.0</p>
+          <p className="text-gray-600 text-[10px] uppercase tracking-[5px]">Portal de Sincronización Real v2.5</p>
         </div>
       </footer>
     </div>

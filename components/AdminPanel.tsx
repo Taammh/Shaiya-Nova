@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Category, Faction, GameItem, CLASSES_BY_FACTION, Gender } from '../types';
 import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting } from '../services/supabaseClient';
 
@@ -9,8 +9,6 @@ const AdminPanel: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [itemsList, setItemsList] = useState<GameItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [transferCode, setTransferCode] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [newItem, setNewItem] = useState<Partial<GameItem>>({
     name: '',
@@ -36,6 +34,9 @@ const AdminPanel: React.FC = () => {
 
   useEffect(() => {
     loadAll();
+    // Refresco automático cada 30 segundos en el panel de admin
+    const interval = setInterval(loadAll, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleSaveSettings = async () => {
@@ -43,74 +44,20 @@ const AdminPanel: React.FC = () => {
     await saveSetting('NOVA_WEBHOOK_URL', webhook);
     await saveSetting('DISCORD_CLIENT_ID', clientId);
     setIsSaving(false);
-    alert('Configuración Maestra guardada en este dispositivo.');
+    alert('Configuración guardada. El reino está sincronizado.');
   };
 
-  // Exportar a un archivo JSON (Evita errores de URL larga)
-  const exportToFile = () => {
-    const localItems = localStorage.getItem('nova_local_items') || '[]';
+  // El Enlace Maestro ahora solo sincroniza la CONFIGURACIÓN (Webhook e ID de Discord)
+  // Los objetos ya están en la DB y se ven en tiempo real.
+  const generateSyncLink = () => {
     const config = {
-      items: JSON.parse(localItems),
-      webhook: webhook,
-      clientId: clientId,
-      exportedAt: new Date().toISOString()
-    };
-    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `reino_nova_${new Date().getTime()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Importar desde un archivo JSON
-  const importFromFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = JSON.parse(event.target?.result as string);
-        applyData(data);
-      } catch (err) {
-        alert("El pergamino de datos está corrupto o es inválido.");
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const applyData = (data: any) => {
-    if (data.items) localStorage.setItem('nova_local_items', JSON.stringify(data.items));
-    if (data.webhook) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', data.webhook);
-    if (data.clientId) localStorage.setItem('nova_setting_DISCORD_CLIENT_ID', data.clientId);
-    
-    alert("¡Datos del Reino sincronizados con éxito!");
-    window.location.reload();
-  };
-
-  const generateTransferCode = () => {
-    const localItems = localStorage.getItem('nova_local_items') || '[]';
-    const config = {
-      items: JSON.parse(localItems),
       webhook: webhook,
       clientId: clientId
     };
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(config))));
-    setTransferCode(encoded);
-    navigator.clipboard.writeText(encoded);
-    alert('¡Código de Transferencia copiado al portapapeles!');
-  };
-
-  const handleManualImport = () => {
-    if (!transferCode) return;
-    try {
-      const decoded = JSON.parse(decodeURIComponent(escape(atob(transferCode))));
-      applyData(decoded);
-    } catch (e) {
-      alert("Código de transferencia inválido.");
-    }
+    const url = `${window.location.origin}${window.location.pathname}?sync=${encoded}`;
+    navigator.clipboard.writeText(url);
+    alert('¡Enlace de Sincronización de Portal copiado! Envía este link para que otros vean tu configuración y los objetos en tiempo real.');
   };
 
   const handleAddItem = async () => {
@@ -130,10 +77,10 @@ const AdminPanel: React.FC = () => {
 
       if (editingId) {
         await updateItemInDB({ ...itemToSave, id: editingId });
-        alert('¡Reliquia actualizada!');
+        alert('¡Reliquia actualizada en las crónicas!');
       } else {
         await addItemToDB(itemToSave);
-        alert('¡Reliquia forjada!');
+        alert('¡Reliquia forjada y visible para todos!');
       }
       
       resetForm();
@@ -173,7 +120,7 @@ const AdminPanel: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('¿Estás seguro de querer destruir esta reliquia para siempre?')) {
+    if (window.confirm('¿Estás seguro de querer destruir esta reliquia? Se borrará para TODOS en tiempo real.')) {
       await deleteItemFromDB(id);
       loadAll();
     }
@@ -182,6 +129,23 @@ const AdminPanel: React.FC = () => {
   return (
     <div className="max-w-5xl mx-auto space-y-12 animate-fade-in pb-20">
       
+      {/* ESTADO DE CONEXIÓN */}
+      <div className="glass-panel p-6 rounded-2xl border border-[#d4af37]/30 flex items-center justify-between bg-gradient-to-r from-[#d4af37]/10 to-transparent">
+        <div className="flex items-center gap-4">
+          <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_#22c55e]"></div>
+          <div>
+            <p className="text-white font-shaiya text-lg tracking-widest uppercase">Portal Sincronizado</p>
+            <p className="text-[#d4af37] text-[9px] uppercase tracking-widest">Los cambios se aplican en tiempo real a todos los usuarios</p>
+          </div>
+        </div>
+        <button 
+          onClick={generateSyncLink}
+          className="px-6 py-2 bg-[#d4af37] text-black font-black text-[10px] uppercase tracking-widest rounded-lg hover:bg-white transition-all shadow-lg"
+        >
+          Compartir Acceso al Reino
+        </button>
+      </div>
+
       {/* FORJAR / EDITAR OBJETOS */}
       <div className="glass-panel p-10 rounded-[2.5rem] shadow-2xl border border-white/10 relative overflow-hidden">
         <h2 className="text-4xl font-shaiya text-[#d4af37] mb-10 uppercase tracking-[10px] text-center">
@@ -284,48 +248,11 @@ const AdminPanel: React.FC = () => {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => handleEdit(item)} className="px-4 py-2 bg-[#d4af37]/10 text-[#d4af37] border border-[#d4af37]/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#d4af37] hover:text-black transition-all">Editar</button>
-                  <button onClick={() => handleDelete(item.id)} className="px-4 py-2 bg-red-900/10 text-red-500 border border-red-900/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Destruir</button>
+                  <button onClick={() => handleDelete(item.id)} className="px-4 py-2 bg-red-900/10 text-red-500 border border-red-900/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Borrar</button>
                 </div>
               </div>
             ))
           )}
-        </div>
-      </div>
-
-      {/* CÁMARA DE TRANSFERENCIA (SOLUCIÓN A URI_TOO_LONG) */}
-      <div className="glass-panel p-10 rounded-[2.5rem] border-2 border-amber-600/30 bg-gradient-to-br from-amber-900/20 to-transparent">
-        <h2 className="text-4xl font-shaiya text-amber-500 mb-8 uppercase tracking-[10px] text-center">Cámara de Transferencia</h2>
-        <p className="text-amber-100/60 text-center text-xs mb-8 uppercase tracking-widest">Utiliza archivos o códigos si tu reino es demasiado grande para un enlace.</p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          <div className="space-y-4">
-            <h3 className="text-[#d4af37] text-sm font-black uppercase tracking-widest text-center">Exportar Pergamino</h3>
-            <button onClick={exportToFile} className="w-full bg-amber-700 hover:bg-amber-600 text-white font-black py-4 rounded-xl uppercase tracking-widest transition-all shadow-xl">
-              Descargar Archivo .json
-            </button>
-            <button onClick={generateTransferCode} className="w-full border border-amber-700/50 hover:bg-amber-900/20 text-amber-200 font-black py-4 rounded-xl uppercase tracking-widest transition-all">
-              Copiar Código de Reino
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            <h3 className="text-[#d4af37] text-sm font-black uppercase tracking-widest text-center">Restaurar Reino</h3>
-            <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white hover:bg-amber-100 text-black font-black py-4 rounded-xl uppercase tracking-widest transition-all">
-              Subir Archivo .json
-            </button>
-            <input type="file" ref={fileInputRef} onChange={importFromFile} accept=".json" className="hidden" />
-            
-            <div className="flex gap-2">
-              <input 
-                type="text" 
-                placeholder="Pega el código aquí..." 
-                className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white outline-none text-xs"
-                value={transferCode}
-                onChange={(e) => setTransferCode(e.target.value)}
-              />
-              <button onClick={handleManualImport} className="bg-amber-600 px-6 rounded-xl font-black uppercase text-[10px]">Importar</button>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -358,7 +285,7 @@ const AdminPanel: React.FC = () => {
             disabled={isSaving}
             className="w-full bg-[#d4af37] text-black font-black py-5 rounded-2xl hover:bg-white transition-all uppercase tracking-widest"
           >
-            Guardar Ajustes Locales
+            Guardar y Sincronizar
           </button>
         </div>
       </div>

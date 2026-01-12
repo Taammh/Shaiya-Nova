@@ -37,14 +37,26 @@ const App: React.FC = () => {
     if (syncData) {
       try {
         const decoded = JSON.parse(decodeURIComponent(escape(atob(syncData))));
-        if (decoded.webhook) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', decoded.webhook);
+        
+        // Mapeo exhaustivo de los 11 campos del Link Maestro
+        if (decoded.webhookSupport) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', decoded.webhookSupport);
+        if (decoded.webhookApps) localStorage.setItem('nova_setting_NOVA_STAFF_APP_WEBHOOK', decoded.webhookApps);
+        if (decoded.webhookWelcome) localStorage.setItem('nova_setting_NOVA_STAFF_WELCOME_WEBHOOK', decoded.webhookWelcome);
         if (decoded.clientId) localStorage.setItem('nova_setting_DISCORD_CLIENT_ID', decoded.clientId);
-        if (decoded.sUrl) localStorage.setItem('nova_setting_SUPABASE_URL', decoded.sUrl);
-        if (decoded.sKey) localStorage.setItem('nova_setting_SUPABASE_ANON_KEY', decoded.sKey);
+        if (decoded.botToken) localStorage.setItem('nova_setting_DISCORD_BOT_TOKEN', decoded.botToken);
+        if (decoded.guildId) localStorage.setItem('nova_setting_DISCORD_GUILD_ID', decoded.guildId);
+        if (decoded.roleGs) localStorage.setItem('nova_setting_ROLE_ID_GS', decoded.roleGs);
+        if (decoded.roleLgs) localStorage.setItem('nova_setting_ROLE_ID_LGS', decoded.roleLgs);
+        if (decoded.roleGm) localStorage.setItem('nova_setting_ROLE_ID_GM', decoded.roleGm);
+        if (decoded.supabaseUrl) localStorage.setItem('nova_setting_SUPABASE_URL', decoded.supabaseUrl);
+        if (decoded.supabaseKey) localStorage.setItem('nova_setting_SUPABASE_ANON_KEY', decoded.supabaseKey);
+
         window.history.replaceState({}, document.title, window.location.pathname);
-        alert("¡PORTAL SINCRONIZADO!");
+        alert("¡PORTAL SINCRONIZADO! Los 11 ajustes nucleares han sido restaurados.");
         window.location.reload(); 
-      } catch (e) {}
+      } catch (e) {
+        console.error("Error en sincronización:", e);
+      }
     }
 
     const hashParams = new URLSearchParams(window.location.hash.substring(1));

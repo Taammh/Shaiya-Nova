@@ -42,7 +42,7 @@ const StaffApplicationForm: React.FC = () => {
       id: `app-${Date.now()}`,
       username: formData.username,
       discord_id: discordUser.name,
-      discord_user_id: discordUser.id, // ID numérico capturado de la sesión
+      discord_user_id: discordUser.id, 
       position: formData.position,
       answers: {
         experience: formData.experience,
@@ -57,8 +57,15 @@ const StaffApplicationForm: React.FC = () => {
     };
 
     try {
-      await submitStaffApplication(application);
+      // Intentar guardar en Supabase primero
+      const { error } = await submitStaffApplication(application);
       
+      if (error) {
+        console.error("Supabase error:", error);
+        throw new Error(error.message);
+      }
+
+      // Si Supabase tuvo éxito, enviar a Discord
       const webhookUrl = await getSetting('NOVA_STAFF_APP_WEBHOOK');
       if (webhookUrl) {
         await fetch(webhookUrl, {
@@ -79,14 +86,22 @@ const StaffApplicationForm: React.FC = () => {
         });
       }
       setStatus('success');
-    } catch { setStatus('error'); }
+      setFormData({
+        username: '', position: 'Game Sage', experience: '', motivation: '', conflict: '', availability: '', contribution: ''
+      });
+    } catch (err: any) { 
+      console.error("Error completo:", err);
+      setStatus('error');
+      alert(`Error al enviar: ${err.message || 'La base de datos no respondió.'}`);
+    }
   };
 
   if (!isLoggedIn) {
     return (
       <div className="max-w-xl mx-auto glass-panel p-16 rounded-[3rem] text-center border-[#d4af37]/30 shadow-2xl">
         <h2 className="text-4xl font-shaiya text-white mb-6 uppercase">Academia de Etain</h2>
-        <button onClick={handleLogin} className="w-full bg-[#5865F2] hover:bg-white hover:text-[#5865F2] text-white font-black py-5 rounded-2xl transition-all uppercase">Identifícate con Discord</button>
+        <p className="text-gray-400 text-xs uppercase mb-10">Debes identificarte para entregar tu pergamino al consejo</p>
+        <button onClick={handleLogin} className="w-full bg-[#5865F2] hover:bg-white hover:text-[#5865F2] text-white font-black py-5 rounded-2xl transition-all uppercase tracking-widest shadow-lg">Identifícate con Discord</button>
       </div>
     );
   }
@@ -96,22 +111,23 @@ const StaffApplicationForm: React.FC = () => {
       <h2 className="text-5xl font-shaiya text-[#d4af37] mb-12 text-center uppercase tracking-widest">Aplicación de Staff</h2>
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <input required placeholder="Nombre Personaje" className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} />
-          <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white" value={formData.position} onChange={e => setFormData({...formData, position: e.target.value as any})}>
+          <input required placeholder="Nombre Personaje" className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none focus:border-[#d4af37]" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} />
+          <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none cursor-pointer focus:border-[#d4af37]" value={formData.position} onChange={e => setFormData({...formData, position: e.target.value as any})}>
             <option value="Game Sage">Game Sage (GS)</option>
             <option value="Lider Game Sage">Líder Game Sage</option>
             <option value="GM">Game Master (GM)</option>
           </select>
         </div>
-        <textarea required placeholder="Experiencia en Shaiya..." className="w-full bg-black/40 border border-white/10 p-5 rounded-2xl text-white min-h-[100px]" value={formData.experience} onChange={e => setFormData({...formData, experience: e.target.value})} />
-        <textarea required placeholder="¿Por qué NOVA?..." className="w-full bg-black/40 border border-white/10 p-5 rounded-2xl text-white min-h-[100px]" value={formData.motivation} onChange={e => setFormData({...formData, motivation: e.target.value})} />
-        <textarea required placeholder="Resolución de conflictos..." className="w-full bg-black/40 border border-white/10 p-5 rounded-2xl text-white min-h-[100px]" value={formData.conflict} onChange={e => setFormData({...formData, conflict: e.target.value})} />
-        <input required placeholder="Disponibilidad Horaria" className="w-full bg-black/40 border border-white/10 p-5 rounded-2xl text-white" value={formData.availability} onChange={e => setFormData({...formData, availability: e.target.value})} />
-        <textarea required placeholder="Tu aporte único..." className="w-full bg-black/40 border border-white/10 p-5 rounded-2xl text-white min-h-[100px]" value={formData.contribution} onChange={e => setFormData({...formData, contribution: e.target.value})} />
-        <button disabled={status === 'sending'} className="w-full bg-[#d4af37] text-black font-black py-6 rounded-[2rem] uppercase tracking-widest hover:bg-white transition-all">
-          {status === 'sending' ? 'Enviando...' : 'Enviar Postulación'}
+        <textarea required placeholder="Experiencia en Shaiya..." className="w-full bg-black/40 border border-white/10 p-5 rounded-2xl text-white min-h-[100px] outline-none focus:border-[#d4af37]" value={formData.experience} onChange={e => setFormData({...formData, experience: e.target.value})} />
+        <textarea required placeholder="¿Por qué NOVA?..." className="w-full bg-black/40 border border-white/10 p-5 rounded-2xl text-white min-h-[100px] outline-none focus:border-[#d4af37]" value={formData.motivation} onChange={e => setFormData({...formData, motivation: e.target.value})} />
+        <textarea required placeholder="Resolución de conflictos..." className="w-full bg-black/40 border border-white/10 p-5 rounded-2xl text-white min-h-[100px] outline-none focus:border-[#d4af37]" value={formData.conflict} onChange={e => setFormData({...formData, conflict: e.target.value})} />
+        <input required placeholder="Disponibilidad Horaria (Ej: 18:00 a 22:00 GMT-3)" className="w-full bg-black/40 border border-white/10 p-5 rounded-2xl text-white outline-none focus:border-[#d4af37]" value={formData.availability} onChange={e => setFormData({...formData, availability: e.target.value})} />
+        <textarea required placeholder="Tu aporte único al reino..." className="w-full bg-black/40 border border-white/10 p-5 rounded-2xl text-white min-h-[100px] outline-none focus:border-[#d4af37]" value={formData.contribution} onChange={e => setFormData({...formData, contribution: e.target.value})} />
+        <button disabled={status === 'sending'} className="w-full bg-[#d4af37] text-black font-black py-6 rounded-[2rem] uppercase tracking-[8px] hover:bg-white transition-all shadow-xl disabled:opacity-50">
+          {status === 'sending' ? 'Enviando Pergamino...' : 'Entregar Postulación'}
         </button>
-        {status === 'success' && <p className="text-green-500 text-center font-black uppercase">¡Entregado con éxito!</p>}
+        {status === 'success' && <p className="text-green-500 text-center font-black uppercase animate-bounce">¡Tu pergamino ha sido entregado con éxito!</p>}
+        {status === 'error' && <p className="text-red-500 text-center font-black uppercase text-[10px]">Error al guardar en el archivo real. Revisa la consola.</p>}
       </form>
     </div>
   );

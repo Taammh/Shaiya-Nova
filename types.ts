@@ -48,8 +48,9 @@ export interface GameItem {
   faction?: Faction;
   image: string;
   description: string;
+  hidden_history?: string; // Nuevo campo para la historia secreta
   stats?: string;
-  item_class?: string; // Alineado con la base de datos SQL
+  item_class?: string;
   classes?: string[];
   gender?: Gender;
 }

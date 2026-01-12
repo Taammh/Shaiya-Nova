@@ -13,6 +13,14 @@ const ItemCard: React.FC<ItemCardProps> = ({ item }) => {
 
   const handleRevealLore = async () => {
     if (lore) return;
+
+    // Si hay una historia oculta definida manualmente por el Admin, la usamos
+    if (item.hidden_history) {
+      setLore(item.hidden_history);
+      return;
+    }
+
+    // Si no hay historia manual, invocamos a la IA (Gemini) como respaldo mágico
     setIsLoadingLore(true);
     const text = await getLoreForItem(item.name, item.category);
     setLore(text);
@@ -40,7 +48,6 @@ const ItemCard: React.FC<ItemCardProps> = ({ item }) => {
           <h3 className="text-2xl font-shaiya text-white group-hover:text-[#d4af37] transition-colors drop-shadow-md">
             {item.name}
           </h3>
-          {/* Solo mostrar facción si es un Traje */}
           {item.category === Category.COSTUME && item.faction && (
             <span className={`text-[10px] font-bold uppercase tracking-tighter px-2 py-0.5 border rounded ${factionColor} bg-black/40`}>
               {item.faction}
@@ -48,7 +55,7 @@ const ItemCard: React.FC<ItemCardProps> = ({ item }) => {
           )}
         </div>
         
-        <p className="text-gray-300 text-sm leading-relaxed italic opacity-80 group-hover:opacity-100 transition-opacity line-clamp-2">
+        <p className="text-gray-300 text-sm leading-relaxed italic opacity-80 group-hover:opacity-100 transition-opacity line-clamp-3">
           {item.description}
         </p>
 

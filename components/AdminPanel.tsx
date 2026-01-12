@@ -16,6 +16,7 @@ const AdminPanel: React.FC = () => {
     category: Category.MOUNT,
     image: '',
     description: '',
+    hidden_history: '',
     faction: Faction.LIGHT,
     item_class: 'All',
     stats: ''
@@ -59,14 +60,13 @@ const AdminPanel: React.FC = () => {
 
   const handleAddItem = async () => {
     if (!newItem.name || !newItem.image || !newItem.description) {
-      alert('Debes completar el nombre, la imagen y la descripción.');
+      alert('Debes completar el nombre, la imagen y la descripción mínima.');
       return;
     }
 
     setIsSaving(true);
     try {
       const itemToSave = { ...newItem };
-      // Limpiar facción y clase si no es un traje para mantener la DB limpia
       if (itemToSave.category !== Category.COSTUME) {
         delete itemToSave.faction;
         delete itemToSave.item_class;
@@ -95,6 +95,7 @@ const AdminPanel: React.FC = () => {
       category: Category.MOUNT,
       image: '',
       description: '',
+      hidden_history: '',
       faction: Faction.LIGHT,
       item_class: 'All',
       stats: ''
@@ -106,7 +107,8 @@ const AdminPanel: React.FC = () => {
     setNewItem({
       ...item,
       faction: item.faction || Faction.LIGHT,
-      item_class: item.item_class || 'All'
+      item_class: item.item_class || 'All',
+      hidden_history: item.hidden_history || ''
     });
     setEditingId(item.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -120,14 +122,14 @@ const AdminPanel: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-12 animate-fade-in pb-20">
+    <div className="max-w-5xl mx-auto space-y-12 animate-fade-in pb-20">
       
       {/* FORJAR / EDITAR OBJETOS */}
       <div className="glass-panel p-10 rounded-[2.5rem] shadow-2xl border border-white/10 relative overflow-hidden">
         <h2 className="text-4xl font-shaiya text-[#d4af37] mb-10 uppercase tracking-[10px] text-center">
           {editingId ? 'Editar Reliquia' : 'Forjar Nueva Reliquia'}
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
           <div className="space-y-6">
             <div>
               <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[4px] mb-2">Nombre</label>
@@ -168,9 +170,15 @@ const AdminPanel: React.FC = () => {
             </div>
           </div>
 
-          <div>
-            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[4px] mb-2">Lore / Descripción</label>
-            <textarea placeholder="Narra la historia de esta reliquia..." className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none resize-none min-h-[300px] focus:border-[#d4af37]" value={newItem.description} onChange={e => setNewItem({...newItem, description: e.target.value})} />
+          <div className="space-y-6">
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[4px] mb-2">Descripción Pública</label>
+              <textarea placeholder="Descripción visible para todos los héroes..." className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none resize-none min-h-[150px] focus:border-[#d4af37]" value={newItem.description} onChange={e => setNewItem({...newItem, description: e.target.value})} />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-[#d4af37] uppercase tracking-[4px] mb-2">Historia Oculta (Secreta)</label>
+              <textarea placeholder="Esta historia solo se revelará al pulsar el botón mágico. Si se deja vacío, la IA generará una historia." className="w-full bg-black/60 border border-[#d4af37]/20 p-5 rounded-2xl text-amber-100 outline-none resize-none min-h-[150px] focus:border-[#d4af37]" value={newItem.hidden_history} onChange={e => setNewItem({...newItem, hidden_history: e.target.value})} />
+            </div>
           </div>
         </div>
 

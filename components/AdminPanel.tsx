@@ -93,7 +93,7 @@ const AdminPanel: React.FC = () => {
       } else if (type === 'bg') {
         setConfig(prev => ({ ...prev, siteBg: publicUrl }));
       }
-      alert("¡Imagen cargada exitosamente!");
+      // Alerta eliminada para flujo rápido
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -110,7 +110,7 @@ const AdminPanel: React.FC = () => {
       const publicUrl = await uploadFile(file, 'items');
       const updatedItem = { ...item, image: publicUrl };
       await updateItemInDB(updatedItem);
-      alert(`¡Imagen de "${item.name}" actualizada!`);
+      // Alerta eliminada para flujo rápido
       loadData();
     } catch (err: any) {
       alert(err.message);
@@ -335,7 +335,6 @@ const AdminPanel: React.FC = () => {
                         <div className="flex items-center gap-3">
                           <div className="relative group/img cursor-pointer w-12 h-12 rounded-lg overflow-hidden border border-white/10 hover:border-[#d4af37] transition-all"
                                onClick={() => {
-                                 // Activamos el input de archivo oculto pasándole el item actual
                                  const input = document.getElementById(`list-upload-${item.id}`) as HTMLInputElement;
                                  input?.click();
                                }}>

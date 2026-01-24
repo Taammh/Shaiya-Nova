@@ -5,7 +5,7 @@ import ItemCard from './components/ItemCard';
 import BugReportForm from './components/BugReportForm';
 import StaffApplicationForm from './components/StaffApplicationForm';
 import AdminPanel from './components/AdminPanel';
-import { getItemsFromDB } from './services/supabaseClient';
+import { getItemsFromDB, getSetting } from './services/supabaseClient';
 import { ITEMS as STATIC_ITEMS } from './constants';
 import { Category, Faction, CLASSES_BY_FACTION, GameItem, Gender } from './types';
 
@@ -18,6 +18,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
+  const [siteBg, setSiteBg] = useState<string | null>(null);
 
   const fetchItems = async () => {
     try {
@@ -30,6 +31,11 @@ const App: React.FC = () => {
     }
   };
 
+  const fetchBranding = async () => {
+    const bg = await getSetting('SITE_BG_URL');
+    if (bg) setSiteBg(bg);
+  };
+
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const syncData = urlParams.get('sync');
@@ -38,6 +44,7 @@ const App: React.FC = () => {
       try {
         const decoded = JSON.parse(decodeURIComponent(escape(atob(syncData))));
         
+        // Sincronización de los 13 Ajustes Nucleares (Aumentado para incluir siteBg)
         if (decoded.webhookSupport) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', decoded.webhookSupport);
         if (decoded.webhookApps) localStorage.setItem('nova_setting_NOVA_STAFF_APP_WEBHOOK', decoded.webhookApps);
         if (decoded.webhookWelcome) localStorage.setItem('nova_setting_NOVA_STAFF_WELCOME_WEBHOOK', decoded.webhookWelcome);
@@ -49,9 +56,11 @@ const App: React.FC = () => {
         if (decoded.roleGm) localStorage.setItem('nova_setting_ROLE_ID_GM', decoded.roleGm);
         if (decoded.supabaseUrl) localStorage.setItem('nova_setting_SUPABASE_URL', decoded.supabaseUrl);
         if (decoded.supabaseKey) localStorage.setItem('nova_setting_SUPABASE_ANON_KEY', decoded.supabaseKey);
+        if (decoded.siteLogo) localStorage.setItem('nova_setting_SITE_LOGO_URL', decoded.siteLogo);
+        if (decoded.siteBg) localStorage.setItem('nova_setting_SITE_BG_URL', decoded.siteBg);
 
         window.history.replaceState({}, document.title, window.location.pathname);
-        alert("¡PORTAL SINCRONIZADO! Los 11 ajustes nucleares han sido restaurados.");
+        alert("¡REINO SINCRONIZADO! Los 13 ajustes (Logo, Fondo y Configuración) han sido restaurados.");
         window.location.reload(); 
       } catch (e) {
         console.error("Error en sincronización:", e);
@@ -83,7 +92,11 @@ const App: React.FC = () => {
     }
 
     fetchItems();
-    const interval = setInterval(fetchItems, 60000);
+    fetchBranding();
+    const interval = setInterval(() => {
+      fetchItems();
+      fetchBranding();
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -122,8 +135,17 @@ const App: React.FC = () => {
     else alert('Contraseña incorrecta.');
   };
 
+  // Estilo dinámico para el fondo adaptado
+  const dynamicBgStyle = siteBg ? {
+    backgroundImage: `linear-gradient(to bottom, rgba(5, 5, 7, 0.8), rgba(5, 5, 7, 0.6)), url('${siteBg}')`,
+    backgroundAttachment: 'fixed' as const,
+    backgroundSize: 'cover' as const,
+    backgroundPosition: 'center' as const,
+    minHeight: '100vh'
+  } : {};
+
   return (
-    <div className="min-h-screen flex flex-col relative">
+    <div className={`min-h-screen flex flex-col relative transition-all duration-1000 ${siteBg ? '' : 'bg-shaiya-epic'}`} style={dynamicBgStyle}>
       <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
       <main className="flex-grow container mx-auto px-4 py-12 relative z-10">
         {activeTab !== 'report' && activeTab !== 'admin' && activeTab !== 'staff_app' && (
@@ -195,7 +217,7 @@ const App: React.FC = () => {
       <footer className="bg-black/95 py-12 border-t border-[#d4af37]/30 mt-20 relative z-20">
         <div className="container mx-auto px-4 text-center">
           <p className="text-[#d4af37] font-shaiya text-2xl mb-2 tracking-widest">SHAIYA NOVA DATABASE</p>
-          <p className="text-gray-600 text-[10px] uppercase tracking-[5px]">Portal de Sincronización Real v4.0</p>
+          <p className="text-gray-600 text-[10px] uppercase tracking-[5px]">Portal de Sincronización Real v4.6</p>
         </div>
       </footer>
     </div>

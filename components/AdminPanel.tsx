@@ -10,11 +10,11 @@ const AdminPanel: React.FC = () => {
   const [itemsList, setItemsList] = useState<GameItem[]>([]);
   const [appsList, setAppsList] = useState<StaffApplication[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [showSqlHelp, setShowSqlHelp] = useState(false);
   const [viewingApp, setViewingApp] = useState<StaffApplication | null>(null);
   
   const itemFileRef = useRef<HTMLInputElement>(null);
   const logoFileRef = useRef<HTMLInputElement>(null);
+  const bgFileRef = useRef<HTMLInputElement>(null);
 
   const [config, setConfig] = useState({
     webhookSupport: '',
@@ -28,7 +28,8 @@ const AdminPanel: React.FC = () => {
     roleGs: '',
     roleLgs: '',
     roleGm: '',
-    siteLogo: ''
+    siteLogo: '',
+    siteBg: ''
   });
 
   const [newItem, setNewItem] = useState<Partial<GameItem>>({
@@ -63,7 +64,8 @@ const AdminPanel: React.FC = () => {
       roleGs: await getSetting('ROLE_ID_GS') || '',
       roleLgs: await getSetting('ROLE_ID_LGS') || '',
       roleGm: await getSetting('ROLE_ID_GM') || '',
-      siteLogo: await getSetting('SITE_LOGO_URL') || ''
+      siteLogo: await getSetting('SITE_LOGO_URL') || '',
+      siteBg: await getSetting('SITE_BG_URL') || ''
     };
     setConfig(loadedConfig);
   };
@@ -73,19 +75,21 @@ const AdminPanel: React.FC = () => {
     loadData();
   }, [activeSubTab]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'item' | 'logo') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'item' | 'logo' | 'bg') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
     try {
-      const folder = type === 'logo' ? 'branding' : 'items';
+      const folder = type === 'item' ? 'items' : 'branding';
       const publicUrl = await uploadFile(file, folder);
       
       if (type === 'item') {
         setNewItem(prev => ({ ...prev, image: publicUrl }));
-      } else {
+      } else if (type === 'logo') {
         setConfig(prev => ({ ...prev, siteLogo: publicUrl }));
+      } else if (type === 'bg') {
+        setConfig(prev => ({ ...prev, siteBg: publicUrl }));
       }
       alert("¡Imagen cargada exitosamente!");
     } catch (err: any) {
@@ -96,7 +100,7 @@ const AdminPanel: React.FC = () => {
   };
 
   const handleCloudSync = async () => {
-    if (!window.confirm("¿Quieres subir todos los items locales a la nube?")) return;
+    if (!window.confirm("¿Sincronizar todos los items con la nube?")) return;
     setIsSaving(true);
     try {
       const result = await pushLocalItemsToCloud();
@@ -121,6 +125,7 @@ const AdminPanel: React.FC = () => {
     await saveSetting('ROLE_ID_LGS', config.roleLgs);
     await saveSetting('ROLE_ID_GM', config.roleGm);
     await saveSetting('SITE_LOGO_URL', config.siteLogo);
+    await saveSetting('SITE_BG_URL', config.siteBg);
     localStorage.setItem('nova_setting_SUPABASE_URL', config.supabaseUrl);
     localStorage.setItem('nova_setting_SUPABASE_ANON_KEY', config.supabaseKey);
     setIsSaving(false);
@@ -129,10 +134,17 @@ const AdminPanel: React.FC = () => {
   };
 
   const generateMasterLink = () => {
-    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(config))));
+    const payload = {
+      ...config,
+      supabaseUrl: config.supabaseUrl,
+      supabaseKey: config.supabaseKey
+    };
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
     const link = `${window.location.origin}${window.location.pathname}?sync=${encoded}`;
-    navigator.clipboard.writeText(link);
-    alert("¡Link Maestro copiado!");
+    
+    navigator.clipboard.writeText(link).then(() => {
+      alert("¡LINK MAESTRO GENERADO! Incluye fondo épico, logo y toda la configuración del reino.");
+    });
   };
 
   const handleAddItem = async () => {
@@ -157,10 +169,7 @@ const AdminPanel: React.FC = () => {
 
     if (!botTokenRaw || !guildId) return false;
 
-    let cleanToken = botTokenRaw;
-    if (cleanToken.startsWith('Bot ')) {
-      cleanToken = cleanToken.replace('Bot ', '').trim();
-    }
+    let cleanToken = botTokenRaw.startsWith('Bot ') ? botTokenRaw.replace('Bot ', '').trim() : botTokenRaw.trim();
 
     let roleId = '';
     const pos = position.toLowerCase();
@@ -241,7 +250,7 @@ const AdminPanel: React.FC = () => {
       {activeSubTab === 'items' || activeSubTab === 'promos' ? (
         <div className="space-y-12">
           <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/20 shadow-2xl relative">
-             <div className="absolute top-4 right-4 flex gap-2">
+             <div className="absolute top-4 right-4">
                 <button onClick={handleCloudSync} disabled={isSaving} className="px-4 py-2 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg text-[10px] font-black uppercase hover:bg-blue-600 hover:text-white transition-all">
                   {isSaving ? 'Sincronizando...' : 'Subir a la Nube'}
                 </button>
@@ -252,11 +261,9 @@ const AdminPanel: React.FC = () => {
               <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value as any})}>
                 {Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-
               {newItem.category === Category.PROMOTION && (
                 <input placeholder="Precio AP" className="bg-green-900/10 border border-green-500/20 p-4 rounded-xl text-white md:col-span-2" value={newItem.price} onChange={e => setNewItem({...newItem, price: e.target.value})} />
               )}
-
               {newItem.category === Category.COSTUME && (
                 <>
                   <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newItem.faction} onChange={e => setNewItem({...newItem, faction: e.target.value as any})}>
@@ -274,7 +281,6 @@ const AdminPanel: React.FC = () => {
                   </select>
                 </>
               )}
-
               <div className="flex gap-2">
                 <input placeholder="Imagen URL" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-[10px]" value={newItem.image} onChange={e => setNewItem({...newItem, image: e.target.value})} />
                 <button onClick={() => itemFileRef.current?.click()} className="bg-white/10 border border-white/20 text-white px-4 rounded-xl text-[10px] font-black uppercase hover:bg-[#d4af37] hover:text-black transition-all">
@@ -282,22 +288,19 @@ const AdminPanel: React.FC = () => {
                 </button>
                 <input type="file" ref={itemFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'item')} />
               </div>
-              
               <input placeholder="Stats (Ej: +15 Str)" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newItem.stats} onChange={e => setNewItem({...newItem, stats: e.target.value})} />
               <textarea placeholder="Descripción" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white md:col-span-2 h-24" value={newItem.description} onChange={e => setNewItem({...newItem, description: e.target.value})} />
             </div>
-            
             {newItem.image && (
               <div className="mt-4 flex justify-center">
                 <img src={newItem.image} className="h-32 rounded-xl border border-[#d4af37]/40 shadow-xl" alt="Preview" />
               </div>
             )}
-
             <button onClick={handleAddItem} disabled={isSaving || isUploading} className="w-full mt-8 bg-white text-black font-black py-4 rounded-2xl uppercase hover:bg-[#d4af37] transition-all disabled:opacity-50">
               {editingId ? 'Actualizar Reliquia' : 'Publicar en el Reino'}
             </button>
           </div>
-
+          {/* LISTADO DE ITEMS ABAJO */}
           <div className="glass-panel p-8 rounded-[2rem] border border-white/5">
             <h3 className="text-xl font-shaiya text-white mb-6 uppercase text-center">Gestión de Archivo</h3>
             <div className="overflow-x-auto">
@@ -322,125 +325,132 @@ const AdminPanel: React.FC = () => {
           </div>
         </div>
       ) : activeSubTab === 'settings' ? (
-        <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/20 space-y-8 shadow-2xl">
-          <h2 className="text-3xl font-shaiya text-[#d4af37] text-center uppercase tracking-widest">Ajustes Nucleares</h2>
-          
-          <div className="bg-black/60 p-8 rounded-3xl border border-[#d4af37]/20">
-             <h3 className="text-white font-shaiya text-lg mb-4 uppercase">Branding del Reino</h3>
-             <div className="flex flex-col md:flex-row items-center gap-8">
-               <div className="w-32 h-32 bg-black/40 rounded-3xl border border-white/10 flex items-center justify-center overflow-hidden">
-                 {config.siteLogo ? <img src={config.siteLogo} className="w-full h-full object-contain" /> : <span className="text-gray-600 text-[10px]">SIN LOGO</span>}
-               </div>
-               <div className="flex-grow space-y-4">
-                 <p className="text-[10px] text-gray-400 uppercase">Sube el logo permanente de NOVA (Se usará en toda la web)</p>
-                 <div className="flex gap-2">
-                    <input className="flex-grow bg-black/40 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.siteLogo} readOnly placeholder="URL del Logo..." />
-                    <button onClick={() => logoFileRef.current?.click()} className="bg-[#d4af37] text-black font-black px-6 py-3 rounded-xl text-[10px] uppercase hover:bg-white transition-all">
-                       {isUploading ? '⌛' : 'Subir Logo'}
-                    </button>
-                    <input type="file" ref={logoFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logo')} />
-                 </div>
-               </div>
+        <div className="space-y-10 animate-fade-in">
+          {/* SECCIÓN LINK MAESTRO DESTACADA */}
+          <div className="glass-panel p-10 rounded-[3rem] border-2 border-dashed border-[#d4af37] bg-[#d4af37]/5 space-y-6 shadow-2xl relative overflow-hidden">
+             <div className="text-center relative z-10">
+                <h2 className="text-3xl font-shaiya text-[#d4af37] uppercase tracking-widest mb-2">Sincronización Total</h2>
+                <p className="text-gray-400 text-[10px] uppercase font-bold tracking-[4px] max-w-xl mx-auto">Genera un enlace único con tus 13 ajustes (Logo, Fondo, Webhooks y Supabase).</p>
+             </div>
+             <div className="flex justify-center pt-4">
+                <button onClick={generateMasterLink} className="px-12 py-5 bg-white text-black font-black rounded-2xl uppercase tracking-[6px] hover:bg-[#d4af37] transition-all shadow-xl">
+                  🔗 GENERAR LINK MAESTRO
+                </button>
              </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-gray-500 uppercase ml-2">Webhooks de Discord</label>
-              <input placeholder="Webhook Soporte" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.webhookSupport} onChange={e => setConfig({...config, webhookSupport: e.target.value})} />
-              <input placeholder="Webhook Postulaciones" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.webhookApps} onChange={e => setConfig({...config, webhookApps: e.target.value})} />
-              <input placeholder="Webhook Bienvenida Staff" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.webhookWelcome} onChange={e => setConfig({...config, webhookWelcome: e.target.value})} />
+          <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/20 space-y-8 shadow-2xl">
+            <h2 className="text-2xl font-shaiya text-white text-center uppercase tracking-widest">Branding del Reino</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+               {/* CONFIGURACIÓN DE LOGO */}
+               <div className="bg-black/60 p-6 rounded-3xl border border-white/5 space-y-4">
+                 <h3 className="text-[#d4af37] font-black text-[10px] uppercase tracking-widest">Logo Principal</h3>
+                 <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 bg-black/40 rounded-xl border border-white/10 overflow-hidden flex items-center justify-center">
+                      {config.siteLogo ? <img src={config.siteLogo} className="w-full h-full object-contain" /> : <span className="text-[9px] text-gray-700">VACÍO</span>}
+                    </div>
+                    <div className="flex-grow">
+                      <button onClick={() => logoFileRef.current?.click()} className="w-full bg-white/5 border border-white/10 text-white text-[10px] font-black py-2 rounded-lg uppercase hover:bg-[#d4af37] hover:text-black transition-all">Subir Logo</button>
+                      <input type="file" ref={logoFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logo')} />
+                    </div>
+                 </div>
+               </div>
+
+               {/* CONFIGURACIÓN DE FONDO */}
+               <div className="bg-black/60 p-6 rounded-3xl border border-white/5 space-y-4">
+                 <h3 className="text-[#d4af37] font-black text-[10px] uppercase tracking-widest">Fondo Épico</h3>
+                 <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 bg-black/40 rounded-xl border border-white/10 overflow-hidden">
+                      {config.siteBg ? <img src={config.siteBg} className="w-full h-full object-cover" /> : <span className="text-[9px] text-gray-700 p-2 block">DEFAULT</span>}
+                    </div>
+                    <div className="flex-grow">
+                      <button onClick={() => bgFileRef.current?.click()} className="w-full bg-white/5 border border-white/10 text-white text-[10px] font-black py-2 rounded-lg uppercase hover:bg-[#d4af37] hover:text-black transition-all">Subir Fondo</button>
+                      <input type="file" ref={bgFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'bg')} />
+                    </div>
+                 </div>
+               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-gray-500 uppercase ml-2">Credenciales de Aplicación</label>
-              <input placeholder="Discord Client ID" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.clientId} onChange={e => setConfig({...config, clientId: e.target.value})} />
-              <input placeholder="Discord Bot Token" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.botToken} onChange={e => setConfig({...config, botToken: e.target.value})} />
-              <input placeholder="Discord Server (Guild) ID" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.guildId} onChange={e => setConfig({...config, guildId: e.target.value})} />
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/5">
+              <div className="space-y-4">
+                <h3 className="text-white text-[10px] font-black uppercase tracking-widest ml-2">Webhooks y Discord</h3>
+                <input placeholder="Webhook Soporte" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.webhookSupport} onChange={e => setConfig({...config, webhookSupport: e.target.value})} />
+                <input placeholder="Webhook Postulaciones" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.webhookApps} onChange={e => setConfig({...config, webhookApps: e.target.value})} />
+                <input placeholder="Webhook Bienvenida" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.webhookWelcome} onChange={e => setConfig({...config, webhookWelcome: e.target.value})} />
+                <input placeholder="Discord Client ID" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.clientId} onChange={e => setConfig({...config, clientId: e.target.value})} />
+                <input placeholder="Bot Token" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.botToken} onChange={e => setConfig({...config, botToken: e.target.value})} />
+              </div>
 
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-[9px] font-black text-gray-500 uppercase ml-2">IDs de Roles Staff</label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <input placeholder="ID Rol Game Sage (GS)" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.roleGs} onChange={e => setConfig({...config, roleGs: e.target.value})} />
-                <input placeholder="ID Rol Líder GS" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.roleLgs} onChange={e => setConfig({...config, roleLgs: e.target.value})} />
-                <input placeholder="ID Rol GM" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.roleGm} onChange={e => setConfig({...config, roleGm: e.target.value})} />
+              <div className="space-y-4">
+                <h3 className="text-white text-[10px] font-black uppercase tracking-widest ml-2">Supabase y Roles</h3>
+                <input placeholder="Supabase URL" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.supabaseUrl} onChange={e => setConfig({...config, supabaseUrl: e.target.value})} />
+                <input placeholder="Supabase Key" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.supabaseKey} onChange={e => setConfig({...config, supabaseKey: e.target.value})} />
+                <input placeholder="Guild ID" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.guildId} onChange={e => setConfig({...config, guildId: e.target.value})} />
+                <div className="grid grid-cols-3 gap-2">
+                  <input placeholder="GS" className="bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.roleGs} onChange={e => setConfig({...config, roleGs: e.target.value})} />
+                  <input placeholder="L-GS" className="bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.roleLgs} onChange={e => setConfig({...config, roleLgs: e.target.value})} />
+                  <input placeholder="GM" className="bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.roleGm} onChange={e => setConfig({...config, roleGm: e.target.value})} />
+                </div>
               </div>
             </div>
 
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-[9px] font-black text-gray-500 uppercase ml-2">Base de Datos (Supabase)</label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input placeholder="Supabase URL" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.supabaseUrl} onChange={e => setConfig({...config, supabaseUrl: e.target.value})} />
-                <input placeholder="Supabase Key (Anon Key)" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.supabaseKey} onChange={e => setConfig({...config, supabaseKey: e.target.value})} />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-4 pt-4">
-            <button onClick={handleSaveSettings} disabled={isSaving || isUploading} className="flex-grow bg-[#d4af37] text-black font-black py-4 rounded-2xl uppercase tracking-widest shadow-xl hover:bg-white transition-all disabled:opacity-50">Guardar Cambios</button>
-            <button onClick={generateMasterLink} className="flex-grow bg-white text-black font-black py-4 rounded-2xl uppercase tracking-widest shadow-xl hover:bg-[#d4af37] transition-all">Link Maestro</button>
+            <button onClick={handleSaveSettings} disabled={isSaving || isUploading} className="w-full bg-[#d4af37] text-black font-black py-5 rounded-2xl uppercase tracking-widest hover:bg-white transition-all shadow-xl disabled:opacity-50">
+              {isSaving ? 'Guardando Destino...' : 'Confirmar Ajustes del Reino'}
+            </button>
           </div>
         </div>
       ) : (
         <div className="glass-panel p-10 rounded-[3rem] min-h-[400px] border border-white/10 relative">
            <div className="flex justify-between items-center mb-10">
              <h2 className="text-3xl font-shaiya text-white uppercase tracking-widest">Candidatos al Staff</h2>
-             <button onClick={loadData} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[10px] font-black uppercase text-[#d4af37] hover:bg-white/10">Refrescar Lista</button>
+             <button onClick={loadData} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[10px] font-black uppercase text-[#d4af37] hover:bg-white/10">Refrescar</button>
            </div>
-           
            <div className="space-y-6">
-             {!appsList || appsList.length === 0 ? (
-               <div className="text-center py-20">
-                 <p className="text-gray-600 font-shaiya text-xl uppercase mb-4">No hay pergaminos en el archivo</p>
-               </div>
+             {appsList.length === 0 ? (
+               <div className="text-center py-20 text-gray-600 font-shaiya text-xl uppercase">Sin pergaminos pendientes</div>
              ) : (
                appsList.map(app => (
-                 <div key={app.id} className="bg-black/40 p-6 rounded-3xl border border-white/10 flex flex-col md:flex-row justify-between items-center gap-6 group hover:border-[#d4af37]/40 transition-all">
+                 <div key={app.id} className="bg-black/40 p-6 rounded-3xl border border-white/10 flex justify-between items-center group">
                    <div className="flex gap-6 items-center flex-grow cursor-pointer" onClick={() => setViewingApp(app)}>
-                     <img src={app.avatar_url} className="w-16 h-16 rounded-2xl border-2 border-[#d4af37] shadow-lg" />
+                     <img src={app.avatar_url} className="w-16 h-16 rounded-2xl border-2 border-[#d4af37]" />
                      <div>
-                       <p className="text-white text-xl font-shaiya group-hover:text-[#d4af37] transition-colors">{app.username}</p>
-                       <p className="text-[#d4af37] text-[10px] uppercase font-black tracking-widest">{app.position} • {app.discord_id}</p>
+                       <p className="text-white text-xl font-shaiya group-hover:text-[#d4af37]">{app.username}</p>
+                       <p className="text-[#d4af37] text-[10px] uppercase font-black">{app.position}</p>
                      </div>
                    </div>
                    <div className="flex gap-3">
-                     <button onClick={() => setViewingApp(app)} title="Ver Detalle" className="p-3 bg-white/5 text-[#d4af37] border border-[#d4af37]/20 rounded-xl hover:bg-[#d4af37]/10 transition-all">👁️</button>
+                     <button onClick={() => setViewingApp(app)} className="p-3 bg-white/5 text-[#d4af37] border border-[#d4af37]/20 rounded-xl">👁️</button>
                      {app.status === 'pending' ? (
                        <>
-                        <button onClick={() => handleAppStatus(app, 'accepted')} className="bg-green-600/20 text-green-500 border border-green-500/30 px-6 py-2 rounded-xl font-black text-[10px] uppercase hover:bg-green-600 hover:text-white transition-all">Aceptar</button>
-                        <button onClick={() => handleAppStatus(app, 'rejected')} className="bg-red-600/20 text-red-500 border border-red-500/30 px-6 py-2 rounded-xl font-black text-[10px] uppercase hover:bg-red-600 hover:text-white transition-all">Rechazar</button>
+                        <button onClick={() => handleAppStatus(app, 'accepted')} className="bg-green-600/20 text-green-500 border border-green-500/30 px-6 py-2 rounded-xl text-[10px] font-black uppercase">Aceptar</button>
+                        <button onClick={() => handleAppStatus(app, 'rejected')} className="bg-red-600/20 text-red-500 border border-red-500/30 px-6 py-2 rounded-xl text-[10px] font-black uppercase">Rechazar</button>
                        </>
-                     ) : <span className={`px-6 py-2 rounded-xl font-black uppercase text-[10px] border ${app.status === 'accepted' ? 'text-green-500 border-green-500/20 bg-green-500/5' : 'text-red-500 border-red-500/20 bg-red-500/5'}`}>{app.status}</span>}
-                     <button onClick={() => handleDeleteApp(app.id)} title="Eliminar" className="p-3 bg-red-600/10 text-red-500 border border-red-500/20 rounded-xl hover:bg-red-600 hover:text-white transition-all">🗑️</button>
+                     ) : <span className={`px-6 py-2 rounded-xl font-black uppercase text-[10px] border ${app.status === 'accepted' ? 'text-green-500 border-green-500/20' : 'text-red-500 border-red-500/20'}`}>{app.status}</span>}
+                     <button onClick={() => handleDeleteApp(app.id)} className="p-3 bg-red-600/10 text-red-500 border border-red-500/20 rounded-xl">🗑️</button>
                    </div>
                  </div>
                ))
              )}
            </div>
-
            {viewingApp && (
-             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
-               <div className="max-w-2xl w-full glass-panel p-10 rounded-[3rem] border-[#d4af37] shadow-[0_0_100px_rgba(212,175,55,0.2)] relative overflow-y-auto max-h-[90vh]">
-                 <button onClick={() => setViewingApp(null)} className="absolute top-6 right-8 text-white/50 hover:text-white text-2xl font-black transition-all">✕</button>
+             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+               <div className="max-w-2xl w-full glass-panel p-10 rounded-[3rem] border-[#d4af37] shadow-2xl relative">
+                 <button onClick={() => setViewingApp(null)} className="absolute top-6 right-8 text-white/50 hover:text-white">✕</button>
                  <div className="flex items-center gap-6 mb-10 border-b border-white/10 pb-8">
                    <img src={viewingApp.avatar_url} className="w-24 h-24 rounded-3xl border-2 border-[#d4af37]" />
                    <div>
                      <h3 className="text-4xl font-shaiya text-white uppercase">{viewingApp.username}</h3>
-                     <p className="text-[#d4af37] text-xs font-black uppercase tracking-[5px]">{viewingApp.position}</p>
+                     <p className="text-[#d4af37] text-xs font-black uppercase">{viewingApp.position}</p>
                    </div>
                  </div>
-                 <div className="space-y-8">
-                   {[{ label: "Experiencia", value: viewingApp.answers.experience }, { label: "Motivación", value: viewingApp.answers.motivation }].map((item, idx) => (
-                     <div key={idx} className="bg-black/40 p-6 rounded-2xl border border-white/5">
-                       <h4 className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest mb-3">{item.label}</h4>
-                       <p className="text-gray-300 text-sm italic">"{item.value}"</p>
-                     </div>
-                   ))}
+                 <div className="space-y-6">
+                   <div className="bg-black/40 p-4 rounded-xl"><h4 className="text-[#d4af37] text-[10px] font-black uppercase mb-2">Experiencia</h4><p className="text-gray-300 text-sm italic">{viewingApp.answers.experience}</p></div>
+                   <div className="bg-black/40 p-4 rounded-xl"><h4 className="text-[#d4af37] text-[10px] font-black uppercase mb-2">Motivación</h4><p className="text-gray-300 text-sm italic">{viewingApp.answers.motivation}</p></div>
                  </div>
-                 <div className="mt-10 pt-8 border-t border-white/10 flex gap-4">
-                   {viewingApp.status === 'pending' && <button onClick={() => handleAppStatus(viewingApp, 'accepted')} className="flex-grow bg-green-600 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:brightness-125 transition-all">Aprobar</button>}
-                   <button onClick={() => { handleDeleteApp(viewingApp.id); setViewingApp(null); }} className="px-8 bg-red-600/10 text-red-500 border border-red-500/20 font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:bg-red-600 hover:text-white transition-all">Eliminar</button>
+                 <div className="mt-10 flex gap-4">
+                   {viewingApp.status === 'pending' && <button onClick={() => handleAppStatus(viewingApp, 'accepted')} className="flex-grow bg-green-600 text-white font-black py-4 rounded-2xl uppercase text-xs">Aprobar</button>}
+                   <button onClick={() => { handleDeleteApp(viewingApp.id); setViewingApp(null); }} className="px-8 bg-red-600/10 text-red-500 border border-red-500/20 font-black py-4 rounded-2xl uppercase text-xs">Eliminar</button>
                  </div>
                </div>
              </div>

@@ -7,12 +7,14 @@ const AdminPanel: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'items' | 'promos' | 'apps' | 'settings'>('items');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isUpdatingListImage, setIsUpdatingListImage] = useState<string | null>(null);
   const [itemsList, setItemsList] = useState<GameItem[]>([]);
   const [appsList, setAppsList] = useState<StaffApplication[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewingApp, setViewingApp] = useState<StaffApplication | null>(null);
   
   const itemFileRef = useRef<HTMLInputElement>(null);
+  const listFileRef = useRef<HTMLInputElement>(null);
   const logoFileRef = useRef<HTMLInputElement>(null);
   const bgFileRef = useRef<HTMLInputElement>(null);
 
@@ -99,6 +101,24 @@ const AdminPanel: React.FC = () => {
     }
   };
 
+  const handleListImageUpdate = async (e: React.ChangeEvent<HTMLInputElement>, item: GameItem) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUpdatingListImage(item.id);
+    try {
+      const publicUrl = await uploadFile(file, 'items');
+      const updatedItem = { ...item, image: publicUrl };
+      await updateItemInDB(updatedItem);
+      alert(`¡Imagen de "${item.name}" actualizada!`);
+      loadData();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsUpdatingListImage(null);
+    }
+  };
+
   const handleCloudSync = async () => {
     if (!window.confirm("¿Sincronizar todos los items con la nube?")) return;
     setIsSaving(true);
@@ -151,7 +171,7 @@ const AdminPanel: React.FC = () => {
     if (!newItem.name || !newItem.image) return alert("Faltan datos.");
     setIsSaving(true);
     try {
-      if (editingId) await updateItemInDB({ ...newItem, id: editingId });
+      if (editingId) await updateItemInDB({ ...newItem, id: editingId } as GameItem);
       else await addItemToDB(newItem);
       setNewItem({ name: '', category: Category.MOUNT, image: '', description: '', faction: Faction.LIGHT, item_class: 'All', gender: Gender.BOTH, price: '', stats: '' });
       setEditingId(null);
@@ -300,22 +320,46 @@ const AdminPanel: React.FC = () => {
               {editingId ? 'Actualizar Reliquia' : 'Publicar en el Reino'}
             </button>
           </div>
-          {/* LISTADO DE ITEMS ABAJO */}
+
           <div className="glass-panel p-8 rounded-[2rem] border border-white/5">
             <h3 className="text-xl font-shaiya text-white mb-6 uppercase text-center">Gestión de Archivo</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="border-b border-white/10 text-[10px] font-black uppercase text-[#d4af37]">
-                  <tr><th className="p-4">Item</th><th className="p-4">Categoría</th><th className="p-4 text-right">Acción</th></tr>
+                  <tr><th className="p-4">Item (Click Imagen para Editar)</th><th className="p-4">Categoría</th><th className="p-4 text-right">Acción</th></tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {itemsList.filter(i => activeSubTab === 'items' ? i.category !== Category.PROMOTION : i.category === Category.PROMOTION).map(item => (
                     <tr key={item.id} className="group hover:bg-white/5">
-                      <td className="p-4"><div className="flex items-center gap-3"><img src={item.image} className="w-10 h-10 rounded object-cover" />{item.name}</div></td>
-                      <td className="p-4 text-[10px] text-gray-500">{item.category}</td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="relative group/img cursor-pointer w-12 h-12 rounded-lg overflow-hidden border border-white/10 hover:border-[#d4af37] transition-all"
+                               onClick={() => {
+                                 // Activamos el input de archivo oculto pasándole el item actual
+                                 const input = document.getElementById(`list-upload-${item.id}`) as HTMLInputElement;
+                                 input?.click();
+                               }}>
+                            <img src={item.image} className={`w-full h-full object-cover transition-opacity ${isUpdatingListImage === item.id ? 'opacity-30' : 'group-hover/img:opacity-50'}`} />
+                            {isUpdatingListImage === item.id ? (
+                              <div className="absolute inset-0 flex items-center justify-center animate-spin text-[#d4af37]">⌛</div>
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 text-[7px] text-[#d4af37] font-black uppercase text-center px-1">Cambiar Imagen</div>
+                            )}
+                            <input 
+                              type="file" 
+                              id={`list-upload-${item.id}`} 
+                              className="hidden" 
+                              accept="image/*" 
+                              onChange={(e) => handleListImageUpdate(e, item)} 
+                            />
+                          </div>
+                          <span className="font-shaiya text-gray-200">{item.name}</span>
+                        </div>
+                      </td>
+                      <td className="p-4 text-[10px] text-gray-500 uppercase tracking-widest">{item.category}</td>
                       <td className="p-4 text-right">
-                        <button onClick={() => { setNewItem(item); setEditingId(item.id); window.scrollTo({top:0, behavior:'smooth'}) }} className="p-2 text-[#d4af37] hover:bg-[#d4af37]/10 rounded-lg mr-2">✏️</button>
-                        <button onClick={() => { if(confirm('¿Eliminar?')) deleteItemFromDB(item.id).then(loadData) }} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg">🗑️</button>
+                        <button onClick={() => { setNewItem(item); setEditingId(item.id); window.scrollTo({top:0, behavior:'smooth'}) }} className="p-2 text-[#d4af37] hover:bg-[#d4af37]/10 rounded-lg mr-2 transition-colors">✏️</button>
+                        <button onClick={() => { if(confirm('¿Eliminar esta reliquia del reino?')) deleteItemFromDB(item.id).then(loadData) }} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">🗑️</button>
                       </td>
                     </tr>
                   ))}
@@ -326,7 +370,6 @@ const AdminPanel: React.FC = () => {
         </div>
       ) : activeSubTab === 'settings' ? (
         <div className="space-y-10 animate-fade-in">
-          {/* SECCIÓN LINK MAESTRO DESTACADA */}
           <div className="glass-panel p-10 rounded-[3rem] border-2 border-dashed border-[#d4af37] bg-[#d4af37]/5 space-y-6 shadow-2xl relative overflow-hidden">
              <div className="text-center relative z-10">
                 <h2 className="text-3xl font-shaiya text-[#d4af37] uppercase tracking-widest mb-2">Sincronización Total</h2>
@@ -343,7 +386,6 @@ const AdminPanel: React.FC = () => {
             <h2 className="text-2xl font-shaiya text-white text-center uppercase tracking-widest">Branding del Reino</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-               {/* CONFIGURACIÓN DE LOGO */}
                <div className="bg-black/60 p-6 rounded-3xl border border-white/5 space-y-4">
                  <h3 className="text-[#d4af37] font-black text-[10px] uppercase tracking-widest">Logo Principal</h3>
                  <div className="flex items-center gap-4">
@@ -357,7 +399,6 @@ const AdminPanel: React.FC = () => {
                  </div>
                </div>
 
-               {/* CONFIGURACIÓN DE FONDO */}
                <div className="bg-black/60 p-6 rounded-3xl border border-white/5 space-y-4">
                  <h3 className="text-[#d4af37] font-black text-[10px] uppercase tracking-widest">Fondo Épico</h3>
                  <div className="flex items-center gap-4">

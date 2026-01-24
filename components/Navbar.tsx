@@ -1,5 +1,6 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { getSetting } from '../services/supabaseClient';
 
 interface NavbarProps {
   onTabChange: (tab: string) => void;
@@ -7,6 +8,19 @@ interface NavbarProps {
 }
 
 const Navbar: React.FC<NavbarProps> = ({ onTabChange, activeTab }) => {
+  const [siteLogo, setSiteLogo] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchLogo = async () => {
+      const logo = await getSetting('SITE_LOGO_URL');
+      if (logo) setSiteLogo(logo);
+    };
+    fetchLogo();
+    // Intervalo para captar cambios si se actualiza en admin
+    const interval = setInterval(fetchLogo, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   const tabs = [
     { id: 'promotions', label: 'Promociones' },
     { id: 'mounts', label: 'Monturas' },
@@ -17,7 +31,7 @@ const Navbar: React.FC<NavbarProps> = ({ onTabChange, activeTab }) => {
     { id: 'admin', label: 'Administración' }
   ];
 
-  const LOGO_URL = "https://media.discordapp.net/attachments/1460068773175492641/1460108067541614672/LOGONOVA.png?ex=6965b71a&is=6964659a&hm=e93b9b33dbe74f5b1fb24ed1370181206f078f5ef2fd9aceabdbe1e9f4e44268&=&format=webp&quality=lossless&width=927&height=465";
+  const DEFAULT_LOGO = "https://media.discordapp.net/attachments/1460068773175492641/1460108067541614672/LOGONOVA.png?ex=6965b71a&is=6964659a&hm=e93b9b33dbe74f5b1fb24ed1370181206f078f5ef2fd9aceabdbe1e9f4e44268&=&format=webp&quality=lossless&width=927&height=465";
 
   return (
     <nav className="sticky top-0 z-50 bg-[#0a0a0c]/95 backdrop-blur-xl border-b border-[#d4af37]/30 shadow-2xl shadow-black">
@@ -25,7 +39,7 @@ const Navbar: React.FC<NavbarProps> = ({ onTabChange, activeTab }) => {
         <div className="flex items-center justify-between h-20">
           <div className="flex items-center space-x-3 cursor-pointer group" onClick={() => onTabChange('mounts')}>
             <img 
-              src={LOGO_URL} 
+              src={siteLogo || DEFAULT_LOGO} 
               alt="Shaiya NOVA Logo" 
               className="h-14 w-auto object-contain drop-shadow-[0_0_12px_rgba(212,175,55,0.4)] group-hover:scale-110 transition-transform duration-500"
             />

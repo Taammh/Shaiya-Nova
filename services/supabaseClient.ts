@@ -34,6 +34,30 @@ export const getSupabase = (): { client: SupabaseClient, isPlaceholder: boolean 
   return { client: supabaseInstance, isPlaceholder: false };
 };
 
+export const uploadFile = async (file: File, folder: string = 'items'): Promise<string> => {
+  const { client, isPlaceholder } = getSupabase();
+  if (isPlaceholder) throw new Error("Portal no conectado a Supabase.");
+
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+  const filePath = `${folder}/${fileName}`;
+
+  const { data, error } = await client.storage
+    .from('nova-assets')
+    .upload(filePath, file);
+
+  if (error) {
+    console.error("Upload error:", error);
+    throw new Error("Error al subir archivo. ¿Creaste el bucket 'nova-assets' en Supabase y lo pusiste público?");
+  }
+
+  const { data: { publicUrl } } = client.storage
+    .from('nova-assets')
+    .getPublicUrl(filePath);
+
+  return publicUrl;
+};
+
 const mapItemForDB = (item: any) => {
   return {
     id: item.id?.toString() || `item-${Date.now()}`,
@@ -64,9 +88,6 @@ export const pushLocalItemsToCloud = async () => {
   const { error } = await client.from('items').upsert(itemsToUpload, { onConflict: 'id' });
   if (error) {
     console.error("Supabase Push Error:", error);
-    if (error.message.includes('column "price"')) {
-      throw new Error("ERROR DE ESQUEMA: Falta la columna 'price'. Ejecuta el SQL de reparación en Supabase.");
-    }
     throw error;
   }
   return { success: true, count: localItems.length };
@@ -84,7 +105,6 @@ export const getItemsFromDB = async () => {
     if (error) throw error;
     return data && data.length > 0 ? data : localItems;
   } catch (err) { 
-    console.error("Fetch Items Error:", err);
     return localItems; 
   }
 };
@@ -97,13 +117,7 @@ export const addItemToDB = async (item: any) => {
   
   const { client, isPlaceholder } = getSupabase();
   if (!isPlaceholder) {
-    try { 
-      const { error } = await client.from('items').insert([mapItemForDB(newItem)]); 
-      if (error) throw error;
-    } catch (e) {
-      console.error("Add Item Error:", e);
-      throw e;
-    }
+    await client.from('items').insert([mapItemForDB(newItem)]);
   }
   return newItem;
 };
@@ -143,15 +157,9 @@ export const getStaffApplications = async () => {
   if (isPlaceholder) return [];
   try {
     const { data, error } = await client.from('staff_applications').select('*').order('created_at', { ascending: false });
-    if (error) {
-      console.error("Supabase Staff Fetch Error:", error);
-      return [];
-    }
+    if (error) return [];
     return data || [];
-  } catch (err) {
-    console.error("Staff Apps catch error:", err);
-    return [];
-  }
+  } catch { return []; }
 };
 
 export const updateStaffApplicationStatus = async (id: string, status: string) => {

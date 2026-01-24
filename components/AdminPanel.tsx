@@ -1,16 +1,20 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Category, Faction, GameItem, CLASSES_BY_FACTION, Gender, StaffApplication } from '../types';
-import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting, getStaffApplications, updateStaffApplicationStatus, pushLocalItemsToCloud, deleteStaffApplicationFromDB } from '../services/supabaseClient';
+import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting, getStaffApplications, updateStaffApplicationStatus, pushLocalItemsToCloud, deleteStaffApplicationFromDB, uploadFile } from '../services/supabaseClient';
 
 const AdminPanel: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'items' | 'promos' | 'apps' | 'settings'>('items');
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [itemsList, setItemsList] = useState<GameItem[]>([]);
   const [appsList, setAppsList] = useState<StaffApplication[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showSqlHelp, setShowSqlHelp] = useState(false);
   const [viewingApp, setViewingApp] = useState<StaffApplication | null>(null);
+  
+  const itemFileRef = useRef<HTMLInputElement>(null);
+  const logoFileRef = useRef<HTMLInputElement>(null);
 
   const [config, setConfig] = useState({
     webhookSupport: '',
@@ -23,7 +27,8 @@ const AdminPanel: React.FC = () => {
     guildId: '',
     roleGs: '',
     roleLgs: '',
-    roleGm: ''
+    roleGm: '',
+    siteLogo: ''
   });
 
   const [newItem, setNewItem] = useState<Partial<GameItem>>({
@@ -57,7 +62,8 @@ const AdminPanel: React.FC = () => {
       guildId: await getSetting('DISCORD_GUILD_ID') || '',
       roleGs: await getSetting('ROLE_ID_GS') || '',
       roleLgs: await getSetting('ROLE_ID_LGS') || '',
-      roleGm: await getSetting('ROLE_ID_GM') || ''
+      roleGm: await getSetting('ROLE_ID_GM') || '',
+      siteLogo: await getSetting('SITE_LOGO_URL') || ''
     };
     setConfig(loadedConfig);
   };
@@ -66,6 +72,28 @@ const AdminPanel: React.FC = () => {
     loadConfig();
     loadData();
   }, [activeSubTab]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'item' | 'logo') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const folder = type === 'logo' ? 'branding' : 'items';
+      const publicUrl = await uploadFile(file, folder);
+      
+      if (type === 'item') {
+        setNewItem(prev => ({ ...prev, image: publicUrl }));
+      } else {
+        setConfig(prev => ({ ...prev, siteLogo: publicUrl }));
+      }
+      alert("¡Imagen cargada exitosamente!");
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleCloudSync = async () => {
     if (!window.confirm("¿Quieres subir todos los items locales a la nube?")) return;
@@ -92,6 +120,7 @@ const AdminPanel: React.FC = () => {
     await saveSetting('ROLE_ID_GS', config.roleGs);
     await saveSetting('ROLE_ID_LGS', config.roleLgs);
     await saveSetting('ROLE_ID_GM', config.roleGm);
+    await saveSetting('SITE_LOGO_URL', config.siteLogo);
     localStorage.setItem('nova_setting_SUPABASE_URL', config.supabaseUrl);
     localStorage.setItem('nova_setting_SUPABASE_ANON_KEY', config.supabaseKey);
     setIsSaving(false);
@@ -115,7 +144,7 @@ const AdminPanel: React.FC = () => {
       setNewItem({ name: '', category: Category.MOUNT, image: '', description: '', faction: Faction.LIGHT, item_class: 'All', gender: Gender.BOTH, price: '', stats: '' });
       setEditingId(null);
       loadData();
-    } catch { alert('Error de sincronización. Ejecuta el SQL de reparación en Supabase.'); }
+    } catch { alert('Error de sincronización.'); }
     finally { setIsSaving(false); }
   };
 
@@ -143,7 +172,6 @@ const AdminPanel: React.FC = () => {
 
     try {
       const url = `https://discord.com/api/v10/guilds/${guildId}/members/${userId.trim()}/roles/${roleId}`;
-      
       const response = await fetch(url, {
         method: 'PUT',
         headers: {
@@ -152,20 +180,9 @@ const AdminPanel: React.FC = () => {
         },
         body: JSON.stringify({})
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.group("🛡️ Error de Discord 403 - Diagnóstico NOVA");
-        console.error("Respuesta de Discord:", errorData);
-        console.warn("DUEÑO DEL SERVIDOR: Si eres el dueño, Discord prohíbe que el bot te cambie roles.");
-        console.warn("JERARQUÍA: El rol de INTEGRACIÓN del Bot debe estar arriba de los roles del Staff.");
-        console.groupEnd();
-        return false;
-      }
-
-      return true;
+      return response.ok;
     } catch (e) {
-      console.error("Error de comunicación:", e);
+      console.error(e);
       return false;
     }
   };
@@ -175,10 +192,8 @@ const AdminPanel: React.FC = () => {
     setIsSaving(true);
     try {
       await updateStaffApplicationStatus(app.id, status);
-      
       if (status === 'accepted') {
         const roleSuccess = await assignDiscordRole(app.discord_user_id, app.position);
-        
         const webhookWelcome = await getSetting('NOVA_STAFF_WELCOME_WEBHOOK');
         if (webhookWelcome) {
           await fetch(webhookWelcome, {
@@ -187,13 +202,9 @@ const AdminPanel: React.FC = () => {
             body: JSON.stringify({
               embeds: [{
                 title: "🛡️ ¡Nuevo Guardián en NOVA! 🛡️",
-                description: `¡Bienvenido **${app.username}** como **${app.position}**!\n\n${roleSuccess ? '✅ **Rol de Discord asignado automáticamente.**' : '⚠️ **Advertencia de Jerarquía:** No se pudo asignar el rol. Esto es común si el bot intenta darle un rol al dueño del servidor o si su propio rol de integración no está por encima de los demás.'}`,
+                description: `¡Bienvenido **${app.username}** como **${app.position}**!\n\n${roleSuccess ? '✅ **Rol asignado.**' : '⚠️ **Revisar Jerarquía de Roles en Discord.**'}`,
                 color: 0xd4af37,
                 thumbnail: { url: app.avatar_url },
-                fields: [
-                  { name: "Candidato", value: `<@${app.discord_user_id}>`, inline: true },
-                  { name: "Rango", value: `\`${app.position}\``, inline: true }
-                ],
                 footer: { text: "Sistema de Auto-Gestión de NOVA" },
                 timestamp: new Date().toISOString()
               }]
@@ -203,24 +214,18 @@ const AdminPanel: React.FC = () => {
       }
       loadData();
       setViewingApp(null);
-    } catch (err) { 
-      console.error(err);
-      alert("Error al procesar el pergamino."); 
-    }
+    } catch (err) { alert("Error al procesar."); }
     finally { setIsSaving(false); }
   };
 
   const handleDeleteApp = async (id: string) => {
-    if (!window.confirm("¿Estás seguro de que quieres eliminar esta postulación para siempre?")) return;
+    if (!window.confirm("¿Eliminar para siempre?")) return;
     setIsSaving(true);
     try {
       await deleteStaffApplicationFromDB(id);
       loadData();
-    } catch (e) {
-      alert("Error al eliminar.");
-    } finally {
-      setIsSaving(false);
-    }
+    } catch { alert("Error al eliminar."); }
+    finally { setIsSaving(false); }
   };
 
   return (
@@ -236,7 +241,7 @@ const AdminPanel: React.FC = () => {
       {activeSubTab === 'items' || activeSubTab === 'promos' ? (
         <div className="space-y-12">
           <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/20 shadow-2xl relative">
-             <div className="absolute top-4 right-4">
+             <div className="absolute top-4 right-4 flex gap-2">
                 <button onClick={handleCloudSync} disabled={isSaving} className="px-4 py-2 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg text-[10px] font-black uppercase hover:bg-blue-600 hover:text-white transition-all">
                   {isSaving ? 'Sincronizando...' : 'Subir a la Nube'}
                 </button>
@@ -270,12 +275,26 @@ const AdminPanel: React.FC = () => {
                 </>
               )}
 
-              <input placeholder="Imagen URL" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newItem.image} onChange={e => setNewItem({...newItem, image: e.target.value})} />
+              <div className="flex gap-2">
+                <input placeholder="Imagen URL" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-[10px]" value={newItem.image} onChange={e => setNewItem({...newItem, image: e.target.value})} />
+                <button onClick={() => itemFileRef.current?.click()} className="bg-white/10 border border-white/20 text-white px-4 rounded-xl text-[10px] font-black uppercase hover:bg-[#d4af37] hover:text-black transition-all">
+                  {isUploading ? '⌛' : 'Subir'}
+                </button>
+                <input type="file" ref={itemFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'item')} />
+              </div>
+              
               <input placeholder="Stats (Ej: +15 Str)" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newItem.stats} onChange={e => setNewItem({...newItem, stats: e.target.value})} />
               <textarea placeholder="Descripción" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white md:col-span-2 h-24" value={newItem.description} onChange={e => setNewItem({...newItem, description: e.target.value})} />
             </div>
-            <button onClick={handleAddItem} className="w-full mt-8 bg-white text-black font-black py-4 rounded-2xl uppercase hover:bg-[#d4af37] transition-all">
-              {editingId ? 'Actualizar' : 'Publicar'}
+            
+            {newItem.image && (
+              <div className="mt-4 flex justify-center">
+                <img src={newItem.image} className="h-32 rounded-xl border border-[#d4af37]/40 shadow-xl" alt="Preview" />
+              </div>
+            )}
+
+            <button onClick={handleAddItem} disabled={isSaving || isUploading} className="w-full mt-8 bg-white text-black font-black py-4 rounded-2xl uppercase hover:bg-[#d4af37] transition-all disabled:opacity-50">
+              {editingId ? 'Actualizar Reliquia' : 'Publicar en el Reino'}
             </button>
           </div>
 
@@ -306,17 +325,23 @@ const AdminPanel: React.FC = () => {
         <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/20 space-y-8 shadow-2xl">
           <h2 className="text-3xl font-shaiya text-[#d4af37] text-center uppercase tracking-widest">Ajustes Nucleares</h2>
           
-          <div className="bg-yellow-600/10 border border-yellow-500/30 p-6 rounded-2xl">
-            <h3 className="text-[#d4af37] font-black text-xs uppercase mb-4 flex justify-between items-center">
-              ⚠️ Reparación de Base de Datos
-              <button onClick={() => setShowSqlHelp(!showSqlHelp)} className="underline text-[9px]">{showSqlHelp ? 'Ocultar' : 'Mostrar Ayuda SQL'}</button>
-            </h3>
-            {showSqlHelp && (
-              <div className="space-y-4 animate-fade-in">
-                <p className="text-[10px] text-gray-400 uppercase mb-2">Copia y pega esto en Supabase SQL Editor si tienes errores de esquema:</p>
-                <textarea readOnly className="w-full bg-black/80 text-green-500 font-mono text-[10px] p-4 rounded-lg h-48 border border-white/10" value={`-- SQL Schema`}></textarea>
-              </div>
-            )}
+          <div className="bg-black/60 p-8 rounded-3xl border border-[#d4af37]/20">
+             <h3 className="text-white font-shaiya text-lg mb-4 uppercase">Branding del Reino</h3>
+             <div className="flex flex-col md:flex-row items-center gap-8">
+               <div className="w-32 h-32 bg-black/40 rounded-3xl border border-white/10 flex items-center justify-center overflow-hidden">
+                 {config.siteLogo ? <img src={config.siteLogo} className="w-full h-full object-contain" /> : <span className="text-gray-600 text-[10px]">SIN LOGO</span>}
+               </div>
+               <div className="flex-grow space-y-4">
+                 <p className="text-[10px] text-gray-400 uppercase">Sube el logo permanente de NOVA (Se usará en toda la web)</p>
+                 <div className="flex gap-2">
+                    <input className="flex-grow bg-black/40 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.siteLogo} readOnly placeholder="URL del Logo..." />
+                    <button onClick={() => logoFileRef.current?.click()} className="bg-[#d4af37] text-black font-black px-6 py-3 rounded-xl text-[10px] uppercase hover:bg-white transition-all">
+                       {isUploading ? '⌛' : 'Subir Logo'}
+                    </button>
+                    <input type="file" ref={logoFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logo')} />
+                 </div>
+               </div>
+             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -334,22 +359,26 @@ const AdminPanel: React.FC = () => {
               <input placeholder="Discord Server (Guild) ID" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.guildId} onChange={e => setConfig({...config, guildId: e.target.value})} />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 md:col-span-2">
               <label className="text-[9px] font-black text-gray-500 uppercase ml-2">IDs de Roles Staff</label>
-              <input placeholder="ID Rol Game Sage (GS)" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.roleGs} onChange={e => setConfig({...config, roleGs: e.target.value})} />
-              <input placeholder="ID Rol Líder GS" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.roleLgs} onChange={e => setConfig({...config, roleLgs: e.target.value})} />
-              <input placeholder="ID Rol GM" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.roleGm} onChange={e => setConfig({...config, roleGm: e.target.value})} />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input placeholder="ID Rol Game Sage (GS)" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.roleGs} onChange={e => setConfig({...config, roleGs: e.target.value})} />
+                <input placeholder="ID Rol Líder GS" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.roleLgs} onChange={e => setConfig({...config, roleLgs: e.target.value})} />
+                <input placeholder="ID Rol GM" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.roleGm} onChange={e => setConfig({...config, roleGm: e.target.value})} />
+              </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 md:col-span-2">
               <label className="text-[9px] font-black text-gray-500 uppercase ml-2">Base de Datos (Supabase)</label>
-              <input placeholder="Supabase URL" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.supabaseUrl} onChange={e => setConfig({...config, supabaseUrl: e.target.value})} />
-              <input placeholder="Supabase Key (Anon Key)" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.supabaseKey} onChange={e => setConfig({...config, supabaseKey: e.target.value})} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input placeholder="Supabase URL" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.supabaseUrl} onChange={e => setConfig({...config, supabaseUrl: e.target.value})} />
+                <input placeholder="Supabase Key (Anon Key)" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={config.supabaseKey} onChange={e => setConfig({...config, supabaseKey: e.target.value})} />
+              </div>
             </div>
           </div>
 
           <div className="flex gap-4 pt-4">
-            <button onClick={handleSaveSettings} className="flex-grow bg-[#d4af37] text-black font-black py-4 rounded-2xl uppercase tracking-widest shadow-xl hover:bg-white transition-all">Guardar Cambios</button>
+            <button onClick={handleSaveSettings} disabled={isSaving || isUploading} className="flex-grow bg-[#d4af37] text-black font-black py-4 rounded-2xl uppercase tracking-widest shadow-xl hover:bg-white transition-all disabled:opacity-50">Guardar Cambios</button>
             <button onClick={generateMasterLink} className="flex-grow bg-white text-black font-black py-4 rounded-2xl uppercase tracking-widest shadow-xl hover:bg-[#d4af37] transition-all">Link Maestro</button>
           </div>
         </div>
@@ -368,10 +397,7 @@ const AdminPanel: React.FC = () => {
              ) : (
                appsList.map(app => (
                  <div key={app.id} className="bg-black/40 p-6 rounded-3xl border border-white/10 flex flex-col md:flex-row justify-between items-center gap-6 group hover:border-[#d4af37]/40 transition-all">
-                   <div 
-                    className="flex gap-6 items-center flex-grow cursor-pointer" 
-                    onClick={() => setViewingApp(app)}
-                   >
+                   <div className="flex gap-6 items-center flex-grow cursor-pointer" onClick={() => setViewingApp(app)}>
                      <img src={app.avatar_url} className="w-16 h-16 rounded-2xl border-2 border-[#d4af37] shadow-lg" />
                      <div>
                        <p className="text-white text-xl font-shaiya group-hover:text-[#d4af37] transition-colors">{app.username}</p>
@@ -393,43 +419,27 @@ const AdminPanel: React.FC = () => {
              )}
            </div>
 
-           {/* MODAL DE DETALLE DE POSTULACIÓN */}
            {viewingApp && (
              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
                <div className="max-w-2xl w-full glass-panel p-10 rounded-[3rem] border-[#d4af37] shadow-[0_0_100px_rgba(212,175,55,0.2)] relative overflow-y-auto max-h-[90vh]">
                  <button onClick={() => setViewingApp(null)} className="absolute top-6 right-8 text-white/50 hover:text-white text-2xl font-black transition-all">✕</button>
-                 
                  <div className="flex items-center gap-6 mb-10 border-b border-white/10 pb-8">
                    <img src={viewingApp.avatar_url} className="w-24 h-24 rounded-3xl border-2 border-[#d4af37]" />
                    <div>
                      <h3 className="text-4xl font-shaiya text-white uppercase">{viewingApp.username}</h3>
                      <p className="text-[#d4af37] text-xs font-black uppercase tracking-[5px]">{viewingApp.position}</p>
-                     <p className="text-gray-500 text-[10px] uppercase mt-2">ID Discord: {viewingApp.discord_user_id}</p>
                    </div>
                  </div>
-
                  <div className="space-y-8">
-                   {[
-                     { label: "Experiencia en Shaiya", value: viewingApp.answers.experience },
-                     { label: "Motivación por NOVA", value: viewingApp.answers.motivation },
-                     { label: "Manejo de Conflictos", value: viewingApp.answers.conflict },
-                     { label: "Disponibilidad", value: viewingApp.answers.availability },
-                     { label: "Aporte Único", value: viewingApp.answers.contribution }
-                   ].map((item, idx) => (
+                   {[{ label: "Experiencia", value: viewingApp.answers.experience }, { label: "Motivación", value: viewingApp.answers.motivation }].map((item, idx) => (
                      <div key={idx} className="bg-black/40 p-6 rounded-2xl border border-white/5">
                        <h4 className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest mb-3">{item.label}</h4>
-                       <p className="text-gray-300 text-sm italic leading-relaxed">"{item.value}"</p>
+                       <p className="text-gray-300 text-sm italic">"{item.value}"</p>
                      </div>
                    ))}
                  </div>
-
                  <div className="mt-10 pt-8 border-t border-white/10 flex gap-4">
-                   {viewingApp.status === 'pending' && (
-                     <>
-                        <button onClick={() => handleAppStatus(viewingApp, 'accepted')} className="flex-grow bg-green-600 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:brightness-125 transition-all">Aprobar Candidato</button>
-                        <button onClick={() => handleAppStatus(viewingApp, 'rejected')} className="flex-grow bg-red-600/20 text-red-500 border border-red-500/30 font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:bg-red-600 hover:text-white transition-all">Denegar</button>
-                     </>
-                   )}
+                   {viewingApp.status === 'pending' && <button onClick={() => handleAppStatus(viewingApp, 'accepted')} className="flex-grow bg-green-600 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:brightness-125 transition-all">Aprobar</button>}
                    <button onClick={() => { handleDeleteApp(viewingApp.id); setViewingApp(null); }} className="px-8 bg-red-600/10 text-red-500 border border-red-500/20 font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:bg-red-600 hover:text-white transition-all">Eliminar</button>
                  </div>
                </div>

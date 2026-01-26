@@ -48,8 +48,10 @@ const AdminPanel: React.FC = () => {
   const loadData = async () => {
     setIsSaving(true);
     try {
-      setItemsList(await getItemsFromDB() || []);
-      setDropsList(await getDropListsFromDB() || []);
+      const items = await getItemsFromDB();
+      const drops = await getDropListsFromDB();
+      setItemsList(items || []);
+      setDropsList(drops || []);
       setAppsList(await getStaffApplications() || []);
     } finally { setIsSaving(false); }
   };
@@ -72,12 +74,16 @@ const AdminPanel: React.FC = () => {
   useEffect(() => { loadData(); loadConfig(); }, [activeSubTab]);
 
   const generateMasterLink = () => {
-    const syncObj = { config: config };
+    const syncObj = { 
+      config: config,
+      items: itemsList,
+      drops: dropsList
+    };
     const jsonStr = JSON.stringify(syncObj);
     const safeBase64 = btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode(parseInt(p1, 16))));
     const url = `${window.location.origin}${window.location.pathname}?sync=${encodeURIComponent(safeBase64)}`;
     navigator.clipboard.writeText(url);
-    alert("¡LINK MAESTRO GENERADO! Cópialo y úsalo para sincronizar otros navegadores.");
+    alert("¡LINK MAESTRO GENERADO! Se han incluido las llaves y todo el historial de drops e items para la sincronización.");
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: string) => {

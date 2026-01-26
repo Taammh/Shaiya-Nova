@@ -13,18 +13,12 @@ const isValidSupabaseUrl = (url: string) => {
 };
 
 export const getSupabase = (): { client: SupabaseClient, isPlaceholder: boolean } => {
-  // 1. Prioridad Máxima: Variables de Entorno Reales (Vercel)
-  // 2. Prioridad Media: LocalStorage (Sincronización manual)
-  // 3. Fallback: Placeholder
-  
   const env = (window as any).process?.env || {};
-  
   const url = env.SUPABASE_URL || localStorage.getItem('nova_setting_SUPABASE_URL') || '';
   const key = env.SUPABASE_ANON_KEY || localStorage.getItem('nova_setting_SUPABASE_ANON_KEY') || '';
 
   if (!url || !key || !isValidSupabaseUrl(url)) {
     if (!supabaseInstance) {
-      // Cliente "fantasma" para evitar errores si no hay conexión
       supabaseInstance = createClient('https://xyz.supabase.co', 'dummy-key');
     }
     return { client: supabaseInstance, isPlaceholder: true };
@@ -110,9 +104,17 @@ export const getDropListsFromDB = async () => {
   }
 };
 
+const updateLocalDrops = (drops: any[]) => {
+  localStorage.setItem('nova_local_drops', JSON.stringify(drops));
+};
+
 export const addDropListToDB = async (drop: any) => {
   const newDrop = { ...drop, id: drop.id || `drop-${Date.now()}`, created_at: new Date().toISOString() };
   const { client, isPlaceholder } = getSupabase();
+  
+  const currentLocal = JSON.parse(localStorage.getItem('nova_local_drops') || '[]');
+  updateLocalDrops([newDrop, ...currentLocal]);
+
   if (!isPlaceholder) {
     await client.from('drop_lists').insert([newDrop]);
   }
@@ -121,6 +123,10 @@ export const addDropListToDB = async (drop: any) => {
 
 export const updateDropListInDB = async (drop: any) => {
   const { client, isPlaceholder } = getSupabase();
+  
+  const currentLocal = JSON.parse(localStorage.getItem('nova_local_drops') || '[]');
+  updateLocalDrops(currentLocal.map((d: any) => d.id === drop.id ? drop : d));
+
   if (!isPlaceholder) {
     await client.from('drop_lists').update(drop).eq('id', drop.id);
   }
@@ -129,14 +135,26 @@ export const updateDropListInDB = async (drop: any) => {
 
 export const deleteDropListFromDB = async (id: string) => {
   const { client, isPlaceholder } = getSupabase();
+  
+  const currentLocal = JSON.parse(localStorage.getItem('nova_local_drops') || '[]');
+  updateLocalDrops(currentLocal.filter((d: any) => d.id !== id));
+
   if (!isPlaceholder) {
     await client.from('drop_lists').delete().eq('id', id);
   }
 };
 
+const updateLocalItems = (items: any[]) => {
+  localStorage.setItem('nova_local_items', JSON.stringify(items));
+};
+
 export const addItemToDB = async (item: any) => {
   const newItem = { ...item, id: item.id || `item-${Date.now()}`, created_at: new Date().toISOString() };
   const { client, isPlaceholder } = getSupabase();
+  
+  const currentLocal = JSON.parse(localStorage.getItem('nova_local_items') || '[]');
+  updateLocalItems([newItem, ...currentLocal]);
+
   if (!isPlaceholder) {
     await client.from('items').insert([mapItemForDB(newItem)]);
   }
@@ -145,6 +163,10 @@ export const addItemToDB = async (item: any) => {
 
 export const updateItemInDB = async (item: any) => {
   const { client, isPlaceholder } = getSupabase();
+  
+  const currentLocal = JSON.parse(localStorage.getItem('nova_local_items') || '[]');
+  updateLocalItems(currentLocal.map((i: any) => i.id === item.id ? item : i));
+
   if (!isPlaceholder) {
     await client.from('items').update(mapItemForDB(item)).eq('id', item.id);
   }
@@ -153,6 +175,10 @@ export const updateItemInDB = async (item: any) => {
 
 export const deleteItemFromDB = async (id: string) => {
   const { client, isPlaceholder } = getSupabase();
+  
+  const currentLocal = JSON.parse(localStorage.getItem('nova_local_items') || '[]');
+  updateLocalItems(currentLocal.filter((i: any) => i.id !== id));
+
   if (!isPlaceholder) {
     await client.from('items').delete().eq('id', id);
   }
@@ -188,8 +214,6 @@ export const deleteStaffApplicationFromDB = async (id: string) => {
 
 export const getSetting = async (key: string) => {
   const env = (window as any).process?.env || {};
-  
-  // Mapeo de llaves de entorno a settings
   if (key === 'SUPABASE_URL' && env.SUPABASE_URL) return env.SUPABASE_URL;
   if (key === 'SUPABASE_ANON_KEY' && env.SUPABASE_ANON_KEY) return env.SUPABASE_ANON_KEY;
   if (key === 'API_KEY' && env.API_KEY) return env.API_KEY;

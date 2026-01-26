@@ -51,14 +51,21 @@ const App: React.FC = () => {
         if (decoded.config) {
           Object.entries(decoded.config).forEach(([k, v]) => {
             if (v) {
-              // Aseguramos que guardamos las llaves con el nombre exacto esperado por getSupabase
               localStorage.setItem(`nova_setting_${k}`, String(v));
             }
           });
         }
+
+        // Sincronizar datos locales si existen en el link
+        if (decoded.items) {
+          localStorage.setItem('nova_local_items', JSON.stringify(decoded.items));
+        }
+        if (decoded.drops) {
+          localStorage.setItem('nova_local_drops', JSON.stringify(decoded.drops));
+        }
         
         window.history.replaceState({}, document.title, window.location.pathname);
-        alert("¡EL REINO HA SIDO SINCRONIZADO CON ÉXITO!");
+        alert("¡EL REINO HA SIDO SINCRONIZADO CON ÉXITO! Configuración y base de datos restauradas.");
         window.location.reload(); 
         return;
       } catch (e) { 

@@ -38,6 +38,7 @@ export interface GameItem {
   classes?: string[];
   gender?: Gender;
   price?: string;
+  rarity?: ItemRarity; // Añadido para colorear items en la lista principal
 }
 
 export interface MapPoint {

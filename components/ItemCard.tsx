@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { GameItem, Category, Faction, Gender } from '../types';
+import { GameItem, Category, Faction, Gender, ItemRarity } from '../types';
 import { getLoreForItem } from '../services/geminiService';
 
 interface ItemCardProps {
@@ -23,58 +23,69 @@ const ItemCard: React.FC<ItemCardProps> = ({ item }) => {
     setIsLoadingLore(false);
   };
 
-  const factionColor = item.faction === Faction.LIGHT ? 'text-blue-400 border-blue-400/30' : 
-                       item.faction === Faction.FURY ? 'text-red-500 border-red-500/30' : 'text-yellow-500 border-yellow-500/30';
+  const getRarityStyle = (rarity?: ItemRarity) => {
+    if (!rarity) return 'border-white/10';
+    switch (rarity) {
+      case 'Noble': return 'border-sky-400 shadow-[0_0_20px_rgba(56,189,248,0.3)]';
+      case 'Atroz': return 'border-blue-700 shadow-[0_0_20px_rgba(29,78,216,0.3)]';
+      case 'Legendary': return 'border-green-600 shadow-[0_0_20px_rgba(22,163,74,0.3)]';
+      case 'Diosa': return 'border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.4)] animate-glow';
+      case 'Special': return 'border-purple-900 shadow-[0_0_20px_rgba(88,28,135,0.4)]';
+      case 'Unique': return 'border-orange-600 shadow-[0_0_20px_rgba(234,88,12,0.4)]';
+      default: return 'border-white/20';
+    }
+  };
 
   const isPromo = item.category === Category.PROMOTION;
+  const rarityStyle = getRarityStyle(item.rarity);
 
   return (
-    <div className={`glass-panel border ${isPromo ? 'border-[#d4af37] animate-glow' : 'border-white/10'} hover:border-[#d4af37]/60 rounded-xl overflow-hidden transition-all duration-500 group shadow-lg`}>
-      <div className="relative h-56 overflow-hidden">
+    <div className={`glass-panel border-2 ${rarityStyle} hover:scale-105 transition-all duration-500 group rounded-[2rem] overflow-hidden shadow-xl`}>
+      <div className="relative h-60 overflow-hidden bg-black/40">
         <img 
           src={item.image} 
           alt={item.name} 
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 opacity-90 group-hover:opacity-100"
         />
         {isPromo && (
-          <div className="absolute top-0 left-0 bg-red-600 text-white font-black text-[10px] px-4 py-1 uppercase tracking-widest shadow-xl transform -rotate-12 translate-x-[-10px] translate-y-[10px]">
-            OFERTA
+          <div className="absolute top-0 left-0 bg-red-600 text-white font-black text-[10px] px-5 py-1.5 uppercase tracking-widest shadow-2xl transform -rotate-12 translate-x-[-12px] translate-y-[12px] z-10">
+            OFERTA LIMITADA
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c] via-transparent to-transparent opacity-80"></div>
-        <div className="absolute top-3 right-3 px-3 py-1 bg-black/80 backdrop-blur-md text-[10px] font-bold uppercase tracking-widest text-[#d4af37] border border-[#d4af37]/30 rounded-lg">
+        <div className="absolute top-4 right-4 px-3 py-1 bg-black/80 backdrop-blur-md text-[9px] font-black uppercase tracking-[2px] text-[#d4af37] border border-[#d4af37]/30 rounded-lg">
           {item.category}
         </div>
       </div>
-      <div className="p-6 space-y-4">
+      <div className="p-7 space-y-4">
         <div className="flex justify-between items-start">
           <div className="space-y-1">
-            <h3 className="text-2xl font-shaiya text-white group-hover:text-[#d4af37] transition-colors drop-shadow-md">
+            <h3 className="text-3xl font-shaiya text-white group-hover:text-[#d4af37] transition-colors drop-shadow-lg leading-tight">
               {item.name}
             </h3>
-            {isPromo && item.price && (
-              <p className="text-xl font-black text-green-400 tracking-tighter drop-shadow-[0_0_8px_rgba(74,222,128,0.3)]">
+            {item.price && (
+              <p className={`text-xl font-black tracking-tighter drop-shadow-[0_0_8px_rgba(255,255,255,0.2)] ${isPromo ? 'text-green-400' : 'text-[#d4af37]'}`}>
                 {item.price}
               </p>
             )}
           </div>
         </div>
         
-        <p className="text-gray-300 text-sm leading-relaxed italic opacity-80 group-hover:opacity-100 transition-opacity line-clamp-3">
+        <p className="text-gray-400 text-xs leading-relaxed italic opacity-80 group-hover:opacity-100 transition-opacity line-clamp-3 font-medium">
           {item.description}
         </p>
 
         {item.stats && (
-          <div className="bg-black/60 p-3 rounded-lg border border-white/5 group-hover:border-[#d4af37]/20 transition-colors">
-            <p className="text-[#d4af37] text-xs font-mono font-bold tracking-tight">{item.stats}</p>
+          <div className="bg-black/80 p-4 rounded-2xl border border-white/5 group-hover:border-[#d4af37]/30 transition-colors">
+            <p className="text-[#d4af37] text-[10px] font-black tracking-widest uppercase">{item.stats}</p>
           </div>
         )}
 
         {!isPromo && (
-          <div className="pt-4 border-t border-white/10">
+          <div className="pt-4 border-t border-white/5">
             {lore ? (
               <div className="animate-fade-in">
-                <p className="text-amber-100 text-[11px] leading-relaxed italic bg-amber-900/10 p-2 rounded border border-amber-900/20">
+                <p className="text-amber-100 text-[10px] leading-relaxed italic bg-amber-900/10 p-3 rounded-2xl border border-amber-900/20 shadow-inner">
                   "{lore}"
                 </p>
               </div>
@@ -82,9 +93,9 @@ const ItemCard: React.FC<ItemCardProps> = ({ item }) => {
               <button 
                 onClick={handleRevealLore}
                 disabled={isLoadingLore}
-                className="w-full text-center py-2 text-[#d4af37] text-[10px] uppercase tracking-[3px] font-bold border border-transparent hover:border-[#d4af37]/30 hover:bg-[#d4af37]/5 rounded-lg transition-all duration-300 disabled:opacity-50"
+                className="w-full text-center py-3 text-[#d4af37] text-[9px] uppercase tracking-[4px] font-black border border-white/5 hover:border-[#d4af37]/40 hover:bg-[#d4af37]/10 rounded-xl transition-all duration-300 disabled:opacity-50"
               >
-                {isLoadingLore ? 'Descifrando runas...' : 'Revelar Historia Oculta'}
+                {isLoadingLore ? 'Descifrando runas...' : 'Revelar Historia'}
               </button>
             )}
           </div>

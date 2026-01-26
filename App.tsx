@@ -23,9 +23,14 @@ const App: React.FC = () => {
 
   const fetchItems = async () => {
     try {
+      setIsLoading(true);
       const items = await getItemsFromDB();
       setCloudItems(items as GameItem[]);
-    } catch (e) { console.error(e); } finally { setIsLoading(false); }
+    } catch (e) { 
+      console.error("Fallo al invocar ítems:", e); 
+    } finally { 
+      setIsLoading(false); 
+    }
   };
 
   const fetchSettings = async () => {
@@ -36,27 +41,26 @@ const App: React.FC = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const sync = urlParams.get('sync');
-    const version = urlParams.get('v');
     
     if (sync) {
       try {
-        let decoded: any;
-        // Decodificación segura del Link Maestro
         const binary = atob(decodeURIComponent(sync));
         const jsonStr = decodeURIComponent(binary.split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-        decoded = JSON.parse(jsonStr);
+        const decoded = JSON.parse(jsonStr);
         
-        // Solo sincronizamos la configuración de los settings via URL para evitar URI_TOO_LONG
         if (decoded.config) {
           Object.entries(decoded.config).forEach(([k, v]) => {
-            if (v) localStorage.setItem(`nova_setting_${k}`, String(v));
+            if (v) {
+              // Aseguramos que guardamos las llaves con el nombre exacto esperado por getSupabase
+              localStorage.setItem(`nova_setting_${k}`, String(v));
+            }
           });
         }
         
-        // Importante: Limpiamos la URL después de procesar
         window.history.replaceState({}, document.title, window.location.pathname);
-        alert("¡CONFIGURACIÓN DEL REINO SINCRONIZADA!");
+        alert("¡EL REINO HA SIDO SINCRONIZADO CON ÉXITO!");
         window.location.reload(); 
+        return;
       } catch (e) { 
         console.error("Fallo de sincronización:", e);
       }
@@ -93,46 +97,61 @@ const App: React.FC = () => {
     <div className={`min-h-screen flex flex-col relative ${siteBg ? '' : 'bg-shaiya-epic'}`} style={dynamicBg}>
       <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
       <main className="flex-grow container mx-auto px-4 py-12 relative z-10">
-        {activeTab === 'droplist' && <DropList />}
-        {activeTab === 'report' && <div className="py-12"><BugReportForm /></div>}
-        {activeTab === 'staff_app' && <div className="py-12"><StaffApplicationForm /></div>}
-        {activeTab === 'admin' && (
-          <div className="py-12">
-            {!isAdminAuthenticated ? (
-              <div className="max-w-md mx-auto glass-panel p-12 rounded-[3rem] text-center border-[#d4af37]/30 shadow-2xl">
-                <h2 className="text-4xl font-shaiya text-white mb-8 uppercase tracking-widest">Portal Maestro</h2>
-                <form onSubmit={(e) => { e.preventDefault(); if(adminPassword === 'Nova2296') setIsAdminAuthenticated(true); else alert('Denegado'); }} className="space-y-6">
-                  <input type="password" placeholder="Runa Secreta" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none text-center tracking-widest" />
-                  <button className="w-full bg-[#d4af37] text-black font-black py-4 rounded-xl uppercase tracking-widest">Acceder</button>
-                </form>
-              </div>
-            ) : <AdminPanel />}
+        {isLoading && activeTab !== 'admin' ? (
+          <div className="flex flex-col items-center justify-center py-40 animate-pulse">
+            <div className="w-20 h-20 border-t-2 border-b-2 border-[#d4af37] rounded-full animate-spin mb-6"></div>
+            <p className="text-[#d4af37] font-shaiya text-2xl uppercase tracking-widest">Invocando el Reino de NOVA...</p>
           </div>
-        )}
-        {activeTab !== 'report' && activeTab !== 'admin' && activeTab !== 'staff_app' && activeTab !== 'droplist' && (
-          <div className="space-y-12">
-            {activeTab === 'costumes' && (
-              <div className="max-w-4xl mx-auto glass-panel p-8 rounded-[2.5rem] flex flex-wrap gap-6 justify-center animate-fade-in">
-                <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs font-black uppercase" value={selectedFaction} onChange={e => setSelectedFaction(e.target.value as Faction)}>
-                  <option value={Faction.LIGHT}>Luz</option>
-                  <option value={Faction.FURY}>Furia</option>
-                </select>
-                <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs font-black uppercase" value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
-                  <option value="All">Todas las Clases</option>
-                  {(CLASSES_BY_FACTION[selectedFaction] || []).map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs font-black uppercase" value={selectedGender} onChange={e => setSelectedGender(e.target.value)}>
-                  <option value="All">Ambos Sexos</option>
-                  <option value={Gender.MALE}>Hombres</option>
-                  <option value={Gender.FEMALE}>Mujeres</option>
-                </select>
+        ) : (
+          <>
+            {activeTab === 'droplist' && <DropList />}
+            {activeTab === 'report' && <div className="py-12"><BugReportForm /></div>}
+            {activeTab === 'staff_app' && <div className="py-12"><StaffApplicationForm /></div>}
+            {activeTab === 'admin' && (
+              <div className="py-12">
+                {!isAdminAuthenticated ? (
+                  <div className="max-w-md mx-auto glass-panel p-12 rounded-[3rem] text-center border-[#d4af37]/30 shadow-2xl">
+                    <h2 className="text-4xl font-shaiya text-white mb-8 uppercase tracking-widest">Portal Maestro</h2>
+                    <form onSubmit={(e) => { e.preventDefault(); if(adminPassword === 'Nova2296') setIsAdminAuthenticated(true); else alert('Denegado'); }} className="space-y-6">
+                      <input type="password" placeholder="Runa Secreta" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none text-center tracking-widest" />
+                      <button className="w-full bg-[#d4af37] text-black font-black py-4 rounded-xl uppercase tracking-widest">Acceder</button>
+                    </form>
+                  </div>
+                ) : <AdminPanel />}
               </div>
             )}
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {filteredItems.map(item => <ItemCard key={item.id} item={item} />)}
-            </div>
-          </div>
+            {activeTab !== 'report' && activeTab !== 'admin' && activeTab !== 'staff_app' && activeTab !== 'droplist' && (
+              <div className="space-y-12">
+                {activeTab === 'costumes' && (
+                  <div className="max-w-4xl mx-auto glass-panel p-8 rounded-[2.5rem] flex flex-wrap gap-6 justify-center animate-fade-in">
+                    <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs font-black uppercase" value={selectedFaction} onChange={e => setSelectedFaction(e.target.value as Faction)}>
+                      <option value={Faction.LIGHT}>Luz</option>
+                      <option value={Faction.FURY}>Furia</option>
+                    </select>
+                    <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs font-black uppercase" value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
+                      <option value="All">Todas las Clases</option>
+                      {(CLASSES_BY_FACTION[selectedFaction] || []).map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs font-black uppercase" value={selectedGender} onChange={e => setSelectedGender(e.target.value)}>
+                      <option value="All">Ambos Sexos</option>
+                      <option value={Gender.MALE}>Hombres</option>
+                      <option value={Gender.FEMALE}>Mujeres</option>
+                    </select>
+                  </div>
+                )}
+                
+                {filteredItems.length === 0 ? (
+                  <div className="text-center py-20">
+                    <p className="text-gray-500 font-shaiya text-xl uppercase tracking-widest">Aún no hay reliquias en esta categoría.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                    {filteredItems.map(item => <ItemCard key={item.id} item={item} />)}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </main>
       <footer className="py-12 text-center text-gray-500 border-t border-white/5 bg-black/40">

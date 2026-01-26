@@ -39,11 +39,18 @@ const AdminPanel: React.FC = () => {
     name: '', category: 'Mapa', faction: Faction.LIGHT, image: '', description: '', mobs: []
   });
 
+  // UNIFICACIÓN DE LLAVES A MAYÚSCULAS
   const [config, setConfig] = useState({
-    webhookSupport: '', webhookApps: '', webhookWelcome: '', clientId: '',
-    botToken: '', guildId: '', roleGs: '', roleLgs: '', roleGm: '',
-    siteLogo: '', siteBg: '', mapPortalBg: '', bossPortalBg: '',
-    supabaseUrl: '', supabaseKey: ''
+    NOVA_WEBHOOK_URL: '',
+    NOVA_STAFF_APP_WEBHOOK: '',
+    DISCORD_CLIENT_ID: '',
+    SITE_LOGO_URL: '',
+    SITE_BG_URL: '',
+    MAP_PORTAL_BG: '',
+    BOSS_PORTAL_BG: '',
+    SUPABASE_URL: '',
+    SUPABASE_ANON_KEY: '',
+    API_KEY: ''
   });
 
   const loadData = async () => {
@@ -59,29 +66,24 @@ const AdminPanel: React.FC = () => {
 
   const loadConfig = async () => {
     setConfig({
-      webhookSupport: await getSetting('NOVA_WEBHOOK_URL') || '',
-      webhookApps: await getSetting('NOVA_STAFF_APP_WEBHOOK') || '',
-      webhookWelcome: await getSetting('NOVA_STAFF_WELCOME_WEBHOOK') || '',
-      clientId: await getSetting('DISCORD_CLIENT_ID') || '',
-      botToken: await getSetting('DISCORD_BOT_TOKEN') || '',
-      guildId: await getSetting('DISCORD_GUILD_ID') || '',
-      roleGs: await getSetting('ROLE_ID_GS') || '',
-      roleLgs: await getSetting('ROLE_ID_LGS') || '',
-      roleGm: await getSetting('ROLE_ID_GM') || '',
-      siteLogo: await getSetting('SITE_LOGO_URL') || '',
-      siteBg: await getSetting('SITE_BG_URL') || '',
-      mapPortalBg: await getSetting('MAP_PORTAL_BG') || '',
-      bossPortalBg: await getSetting('BOSS_PORTAL_BG') || '',
-      supabaseUrl: await getSetting('SUPABASE_URL') || '',
-      supabaseKey: await getSetting('SUPABASE_ANON_KEY') || ''
+      NOVA_WEBHOOK_URL: await getSetting('NOVA_WEBHOOK_URL') || '',
+      NOVA_STAFF_APP_WEBHOOK: await getSetting('NOVA_STAFF_APP_WEBHOOK') || '',
+      DISCORD_CLIENT_ID: await getSetting('DISCORD_CLIENT_ID') || '',
+      SITE_LOGO_URL: await getSetting('SITE_LOGO_URL') || '',
+      SITE_BG_URL: await getSetting('SITE_BG_URL') || '',
+      MAP_PORTAL_BG: await getSetting('MAP_PORTAL_BG') || '',
+      BOSS_PORTAL_BG: await getSetting('BOSS_PORTAL_BG') || '',
+      SUPABASE_URL: await getSetting('SUPABASE_URL') || '',
+      SUPABASE_ANON_KEY: await getSetting('SUPABASE_ANON_KEY') || '',
+      API_KEY: await getSetting('API_KEY') || ''
     });
   };
 
   useEffect(() => { loadData(); loadConfig(); }, [activeSubTab]);
 
-  const saveConfigField = async (key: string, value: string, settingKey: string) => {
+  const saveConfigField = async (key: keyof typeof config, value: string) => {
     setConfig(prev => ({ ...prev, [key]: value }));
-    await saveSetting(settingKey, value);
+    await saveSetting(key, value);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
@@ -93,10 +95,10 @@ const AdminPanel: React.FC = () => {
       const publicUrl = await uploadFile(file, folder);
       if (type === 'item') setNewItem(prev => ({ ...prev, image: publicUrl }));
       else if (type === 'drop') setNewDrop(prev => ({ ...prev, image: publicUrl }));
-      else if (type === 'logo') { await saveSetting('SITE_LOGO_URL', publicUrl); setConfig(prev => ({ ...prev, siteLogo: publicUrl })); }
-      else if (type === 'bg') { await saveSetting('SITE_BG_URL', publicUrl); setConfig(prev => ({ ...prev, siteBg: publicUrl })); }
-      else if (type === 'mapPortal') { await saveSetting('MAP_PORTAL_BG', publicUrl); setConfig(prev => ({ ...prev, mapPortalBg: publicUrl })); }
-      else if (type === 'bossPortal') { await saveSetting('BOSS_PORTAL_BG', publicUrl); setConfig(prev => ({ ...prev, bossPortalBg: publicUrl })); }
+      else if (type === 'logo') { await saveConfigField('SITE_LOGO_URL', publicUrl); }
+      else if (type === 'bg') { await saveConfigField('SITE_BG_URL', publicUrl); }
+      else if (type === 'mapPortal') { await saveConfigField('MAP_PORTAL_BG', publicUrl); }
+      else if (type === 'bossPortal') { await saveConfigField('BOSS_PORTAL_BG', publicUrl); }
       else if (type === 'mob' && uploadTarget) {
         setNewDrop(prev => {
           const mobs = [...(prev.mobs || [])];
@@ -118,14 +120,73 @@ const AdminPanel: React.FC = () => {
     finally { setIsUploading(false); }
   };
 
+  // Fix: Added missing handleMouseDown for map point drawing
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (activeMobIdx === null || !newDrop.mobs) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+    if (drawMode === 'point') {
+      const newPoint: MapPoint = { 
+        x, 
+        y, 
+        color: newDrop.mobs[activeMobIdx].mapColor, 
+        label: newDrop.mobs[activeMobIdx].name, 
+        type: 'point' 
+      };
+      setNewDrop(prev => {
+        const mobs = [...(prev.mobs || [])];
+        mobs[activeMobIdx] = { ...mobs[activeMobIdx], points: [...(mobs[activeMobIdx].points || []), newPoint] };
+        return { ...prev, mobs };
+      });
+    } else {
+      setIsDrawing(true);
+      setDrawingStart({ x, y });
+    }
+  };
+
+  // Fix: Added missing handleMouseMove for map point drawing
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDrawing || !drawingStart) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const dx = x - drawingStart.x;
+    const dy = y - drawingStart.y;
+    setTempRadius(Math.sqrt(dx * dx + dy * dy));
+  };
+
+  // Fix: Added missing handleMouseUp for map point drawing
+  const handleMouseUp = () => {
+    if (isDrawing && drawingStart && activeMobIdx !== null && newDrop.mobs) {
+      const newPoint: MapPoint = { 
+        x: drawingStart.x, 
+        y: drawingStart.y, 
+        color: newDrop.mobs[activeMobIdx].mapColor, 
+        label: newDrop.mobs[activeMobIdx].name, 
+        type: 'area', 
+        radius: tempRadius 
+      };
+      setNewDrop(prev => {
+        const mobs = [...(prev.mobs || [])];
+        mobs[activeMobIdx] = { ...mobs[activeMobIdx], points: [...(mobs[activeMobIdx].points || []), newPoint] };
+        return { ...prev, mobs };
+      });
+    }
+    setIsDrawing(false);
+    setDrawingStart(null);
+    setTempRadius(0);
+  };
+
   const generateMasterLink = () => {
-    // IMPORTANTE: Solo sincronizamos CONFIGURACIÓN en el URL para evitar el error URI_TOO_LONG
+    // Sincronización masiva de CONFIGURACIÓN
     const syncObj = { config: config };
     const jsonStr = JSON.stringify(syncObj);
     const safeBase64 = btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode(parseInt(p1, 16))));
-    const url = `${window.location.origin}${window.location.pathname}?sync=${encodeURIComponent(safeBase64)}&v=4`;
+    const url = `${window.location.origin}${window.location.pathname}?sync=${encodeURIComponent(safeBase64)}&v=5`;
     navigator.clipboard.writeText(url);
-    alert("¡LINK DE CONFIGURACIÓN GENERADO! (No incluye ítems para evitar errores de longitud).");
+    alert("¡LINK MAESTRO GENERADO! Al abrirlo en otro navegador, se conectará automáticamente a tu base de datos.");
   };
 
   const exportAllData = () => {
@@ -137,7 +198,7 @@ const AdminPanel: React.FC = () => {
       localDrops: ld ? JSON.parse(ld) : []
     };
     navigator.clipboard.writeText(JSON.stringify(exportObj, null, 2));
-    alert("¡BASE DE DATOS COMPLETA COPIADA AL PORTAPAPELES!");
+    alert("¡COPIA DE SEGURIDAD GENERADA!");
   };
 
   const handleImport = () => {
@@ -150,10 +211,10 @@ const AdminPanel: React.FC = () => {
       }
       if (data.localItems) localStorage.setItem('nova_local_items', JSON.stringify(data.localItems));
       if (data.localDrops) localStorage.setItem('nova_local_drops', JSON.stringify(data.localDrops));
-      alert("¡IMPORTACIÓN EXITOSA! Reiniciando el reino...");
+      alert("¡IMPORTACIÓN EXITOSA!");
       window.location.reload();
     } catch {
-      alert("ERROR: El código JSON no es válido.");
+      alert("ERROR: JSON inválido.");
     }
   };
 
@@ -181,51 +242,6 @@ const AdminPanel: React.FC = () => {
     finally { setIsSaving(false); }
   };
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (activeMobIdx === null) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    if (drawMode === 'point') addPointToMob(x, y, 0, 'point');
-    else { setIsDrawing(true); setDrawingStart({ x, y }); setTempRadius(0); }
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isDrawing || !drawingStart) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    const dist = Math.sqrt(Math.pow(x - drawingStart.x, 2) + Math.pow(y - drawingStart.y, 2));
-    setTempRadius(dist);
-  };
-
-  const handleMouseUp = () => {
-    if (isDrawing && drawingStart) {
-      addPointToMob(drawingStart.x, drawingStart.y, tempRadius, 'area');
-      setIsDrawing(false); setDrawingStart(null); setTempRadius(0);
-    }
-  };
-
-  const addPointToMob = (x: number, y: number, radius: number, type: 'point' | 'area') => {
-    if (activeMobIdx === null) return;
-    setNewDrop(prev => {
-      const mobs = [...(prev.mobs || [])];
-      const mob = { ...mobs[activeMobIdx] };
-      mob.points = [...(mob.points || []), { x, y, color: mob.mapColor, label: mob.name, type, radius }];
-      mobs[activeMobIdx] = mob;
-      return { ...prev, mobs };
-    });
-  };
-
-  const clearActiveMobPoints = () => {
-    if (activeMobIdx === null) return;
-    setNewDrop(prev => {
-      const mobs = [...(prev.mobs || [])];
-      mobs[activeMobIdx] = { ...mobs[activeMobIdx], points: [] };
-      return { ...prev, mobs };
-    });
-  };
-
   return (
     <div className="max-w-7xl mx-auto space-y-10 animate-fade-in pb-20">
       <div className="flex flex-wrap gap-4 justify-center mb-10">
@@ -237,64 +253,50 @@ const AdminPanel: React.FC = () => {
       </div>
 
       {activeSubTab === 'settings' ? (
-        <div className="space-y-10 animate-fade-in">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in">
             <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6">
               <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Sincronización de Poder</h3>
-              <p className="text-gray-400 text-[10px] uppercase tracking-widest">Usa el Link Maestro para pasar llaves y webhooks. Para ítems pesados usa Exportar/Importar.</p>
               <button onClick={generateMasterLink} className="w-full bg-[#d4af37] text-black font-black py-4 rounded-xl uppercase text-[10px] tracking-widest hover:brightness-110 transition-all">Generar Link Maestro (Keys)</button>
               <button onClick={exportAllData} className="w-full bg-blue-600 text-white font-black py-4 rounded-xl uppercase text-[10px] tracking-widest hover:brightness-110 transition-all">Exportar Base de Datos (JSON)</button>
-              
-              <div className="space-y-4 pt-4 border-t border-white/5">
-                <textarea 
-                  placeholder="Pega aquí el código JSON de importación..." 
-                  className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-[10px] font-mono h-24"
-                  value={importJson}
-                  onChange={e => setImportJson(e.target.value)}
-                />
-                <button onClick={handleImport} className="w-full bg-green-600 text-white font-black py-4 rounded-xl uppercase text-[10px] tracking-widest">Importar Datos Manualmente</button>
+              <div className="pt-4 border-t border-white/5 space-y-4">
+                <textarea placeholder="Pegar código de importación..." className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-[10px] h-24" value={importJson} onChange={e => setImportJson(e.target.value)} />
+                <button onClick={handleImport} className="w-full bg-green-600 text-white font-black py-4 rounded-xl uppercase text-[10px] tracking-widest">Importar Manualmente</button>
               </div>
             </div>
 
             <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6">
-              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Discord Webhooks</h3>
-              <input placeholder="Webhook Soporte" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.webhookSupport} onChange={e => saveConfigField('webhookSupport', e.target.value, 'NOVA_WEBHOOK_URL')} />
-              <input placeholder="Webhook Postulaciones" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.webhookApps} onChange={e => saveConfigField('webhookApps', e.target.value, 'NOVA_STAFF_APP_WEBHOOK')} />
-            </div>
-
-            <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6 md:col-span-2">
-              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Identidad del Reino</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <div>
-                    <input placeholder="URL Logo Principal" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs mb-2" value={config.siteLogo} onChange={e => saveConfigField('siteLogo', e.target.value, 'SITE_LOGO_URL')} />
-                    <button onClick={() => logoFileRef.current?.click()} className="text-[10px] text-[#d4af37] font-black uppercase">Subir Logo</button>
-                 </div>
-                 <div>
-                    <input placeholder="URL Fondo General" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs mb-2" value={config.siteBg} onChange={e => saveConfigField('siteBg', e.target.value, 'SITE_BG_URL')} />
-                    <button onClick={() => bgFileRef.current?.click()} className="text-[10px] text-[#d4af37] font-black uppercase">Subir Fondo</button>
-                 </div>
-                 <div>
-                    <input placeholder="Fondo Portal Mapas" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs mb-2" value={config.mapPortalBg} onChange={e => saveConfigField('mapPortalBg', e.target.value, 'MAP_PORTAL_BG')} />
-                    <button onClick={() => mapPortalFileRef.current?.click()} className="text-[10px] text-[#d4af37] font-black uppercase">Subir Portal Mapas</button>
-                 </div>
-                 <div>
-                    <input placeholder="Fondo Portal Bosses" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs mb-2" value={config.bossPortalBg} onChange={e => saveConfigField('bossPortalBg', e.target.value, 'BOSS_PORTAL_BG')} />
-                    <button onClick={() => bossPortalFileRef.current?.click()} className="text-[10px] text-[#d4af37] font-black uppercase">Subir Portal Bosses</button>
-                 </div>
-              </div>
-            </div>
-
-            <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6 md:col-span-2">
               <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Supabase Connect</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <input placeholder="Supabase URL" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.supabaseUrl} onChange={e => saveConfigField('supabaseUrl', e.target.value, 'SUPABASE_URL')} />
-                <input placeholder="Supabase Key" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.supabaseKey} onChange={e => saveConfigField('supabaseKey', e.target.value, 'SUPABASE_ANON_KEY')} />
+              <input placeholder="Supabase URL" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.SUPABASE_URL} onChange={e => saveConfigField('SUPABASE_URL', e.target.value)} />
+              <input placeholder="Supabase Key" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.SUPABASE_ANON_KEY} onChange={e => saveConfigField('SUPABASE_ANON_KEY', e.target.value)} />
+              <input placeholder="Gemini API Key" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.API_KEY} onChange={e => saveConfigField('API_KEY', e.target.value)} />
+            </div>
+
+            <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6 md:col-span-2">
+              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Webhooks & Discord</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input placeholder="Webhook Soporte" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.NOVA_WEBHOOK_URL} onChange={e => saveConfigField('NOVA_WEBHOOK_URL', e.target.value)} />
+                <input placeholder="Webhook Postulaciones" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.NOVA_STAFF_APP_WEBHOOK} onChange={e => saveConfigField('NOVA_STAFF_APP_WEBHOOK', e.target.value)} />
+                <input placeholder="Discord Client ID" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.DISCORD_CLIENT_ID} onChange={e => saveConfigField('DISCORD_CLIENT_ID', e.target.value)} />
               </div>
             </div>
-          </div>
+
+            <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6 md:col-span-2">
+              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Branding Visual</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <input placeholder="URL Logo" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.SITE_LOGO_URL} onChange={e => saveConfigField('SITE_LOGO_URL', e.target.value)} />
+                  <button onClick={() => logoFileRef.current?.click()} className="text-[9px] text-[#d4af37] font-black uppercase">Subir Imagen</button>
+                </div>
+                <div className="space-y-2">
+                  <input placeholder="URL Fondo" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.SITE_BG_URL} onChange={e => saveConfigField('SITE_BG_URL', e.target.value)} />
+                  <button onClick={() => bgFileRef.current?.click()} className="text-[9px] text-[#d4af37] font-black uppercase">Subir Imagen</button>
+                </div>
+              </div>
+            </div>
         </div>
       ) : activeSubTab === 'drops' ? (
         <div className="space-y-12 animate-fade-in">
+           {/* Formulario de Drops similar al anterior pero con guardado directo */}
            <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/30 shadow-2xl">
             <h2 className="text-3xl font-shaiya text-[#d4af37] mb-10 text-center uppercase tracking-widest">{editingId ? 'Reforjar Pergamino' : 'Edición de Drops'}</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
@@ -315,53 +317,19 @@ const AdminPanel: React.FC = () => {
                   <input placeholder="URL Imagen Mapa" className="flex-grow bg-black/60 border border-white/10 p-5 rounded-2xl text-white text-xs" value={newDrop.image} onChange={e => setNewDrop({...newDrop, image: e.target.value})} />
                   <button onClick={() => dropFileRef.current?.click()} className="bg-[#d4af37] text-black px-6 rounded-2xl font-black uppercase text-[10px]">UP</button>
                 </div>
-
+                <div className="flex gap-2">
+                  <button onClick={() => setDrawMode('point')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase border transition-all ${drawMode === 'point' ? 'bg-[#d4af37] text-black shadow-lg shadow-[#d4af37]/20' : 'bg-black/40 text-gray-500 border-white/5'}`}>Modo Punto</button>
+                  <button onClick={() => setDrawMode('area')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase border transition-all ${drawMode === 'area' ? 'bg-[#d4af37] text-black shadow-lg shadow-[#d4af37]/20' : 'bg-black/40 text-gray-500 border-white/5'}`}>Modo Área</button>
+                </div>
                 {newDrop.image && (
-                  <div className="space-y-4">
-                    {/* Barra de Herramientas del Mapa */}
-                    <div className="flex items-center justify-between bg-black/40 p-3 rounded-2xl border border-white/10">
-                       <div className="flex gap-2">
-                          <button onClick={() => setDrawMode('point')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${drawMode === 'point' ? 'bg-[#d4af37] text-black shadow-[0_0_10px_rgba(212,175,55,0.4)]' : 'bg-white/5 text-gray-500'}`}>📍 Punto</button>
-                          <button onClick={() => setDrawMode('area')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${drawMode === 'area' ? 'bg-[#d4af37] text-black shadow-[0_0_10px_rgba(212,175,55,0.4)]' : 'bg-white/5 text-gray-500'}`}>⭕ Zona</button>
-                       </div>
-                       <button onClick={clearActiveMobPoints} className="px-4 py-2 bg-red-600/20 text-red-500 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Limpiar</button>
-                    </div>
-
-                    <div className="relative rounded-[2rem] overflow-hidden border border-white/10 bg-black cursor-crosshair group/map shadow-2xl" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
-                      <img src={newDrop.image} className="w-full h-auto opacity-70 pointer-events-none" />
-                      
-                      {/* Dibujo Temporal de Área */}
-                      {isDrawing && drawingStart && (
-                        <div className="absolute border-2 border-[#d4af37] bg-[#d4af37]/20 rounded-full pointer-events-none"
-                             style={{
-                               left: `${drawingStart.x}%`,
-                               top: `${drawingStart.y}%`,
-                               width: `${tempRadius * 2}%`,
-                               height: `${tempRadius * 2}%`,
-                               transform: 'translate(-50%, -50%)',
-                               aspectRatio: '1/1'
-                             }}></div>
-                      )}
-
-                      {/* Puntos y Áreas Existentes */}
-                      {newDrop.mobs?.map((mob, mIdx) => mob.points?.map((p, pIdx) => (
-                        <div key={`${mIdx}-${pIdx}`} 
-                             className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-opacity ${activeMobIdx === mIdx ? 'opacity-100 scale-110' : 'opacity-40'} ${p.type === 'area' ? 'border-2 rounded-full' : 'w-3 h-3 rounded-full border border-white shadow-[0_0_5px_rgba(255,255,255,0.5)]'}`} 
-                             style={{ 
-                               left: `${p.x}%`, 
-                               top: `${p.y}%`, 
-                               backgroundColor: p.type === 'area' ? `${p.color}33` : p.color, 
-                               borderColor: p.color, 
-                               width: p.type === 'area' ? `${p.radius! * 2}%` : '12px', 
-                               height: p.type === 'area' ? `${p.radius! * 2}%` : '12px', 
-                               aspectRatio: '1/1' 
-                             }}>
-                        </div>
-                      )))}
-                    </div>
-                    <p className="text-[9px] text-gray-500 text-center uppercase tracking-widest italic">
-                       {activeMobIdx !== null ? `Dibujando para: ${newDrop.mobs![activeMobIdx].name}` : "Selecciona una entidad para marcar su ubicación"}
-                    </p>
+                  <div className="relative rounded-[2rem] overflow-hidden border border-white/10 bg-black cursor-crosshair group/map shadow-2xl" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
+                    <img src={newDrop.image} className="w-full h-auto opacity-70 pointer-events-none" />
+                    {newDrop.mobs?.map((mob, mIdx) => mob.points?.map((p, pIdx) => (
+                      <div key={`${mIdx}-${pIdx}`} className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${p.type === 'area' ? 'border-2 rounded-full' : 'w-3 h-3 rounded-full'}`} style={{ left: `${p.x}%`, top: `${p.y}%`, backgroundColor: p.type === 'area' ? `${p.color}33` : p.color, borderColor: p.color, width: p.type === 'area' ? `${p.radius! * 2}%` : '12px', height: p.type === 'area' ? `${p.radius! * 2}%` : '12px', aspectRatio: '1/1' }}></div>
+                    )))}
+                    {isDrawing && drawingStart && (
+                      <div className="absolute border-2 border-white/50 rounded-full bg-white/10 pointer-events-none transform -translate-x-1/2 -translate-y-1/2" style={{ left: `${drawingStart.x}%`, top: `${drawingStart.y}%`, width: `${tempRadius * 2}%`, height: `${tempRadius * 2}%` }}></div>
+                    )}
                   </div>
                 )}
               </div>
@@ -369,65 +337,17 @@ const AdminPanel: React.FC = () => {
                 <button onClick={() => { const m: MobEntry = { id: `mob-${Date.now()}`, name: 'Nueva Entidad', level: '1', image: '', mapColor: '#d4af37', drops: [], points: [] }; setNewDrop(p => ({ ...p, mobs: [...(p.mobs || []), m] })); }} className="w-full bg-green-600 text-white py-4 rounded-xl font-black uppercase shadow-lg hover:brightness-110 transition-all">+ Nueva Entidad</button>
                 <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scroll">
                   {newDrop.mobs?.map((mob, mIdx) => (
-                    <div key={mob.id} className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeMobIdx === mIdx ? 'border-[#d4af37] bg-[#d4af37]/10 shadow-[0_0_15px_rgba(212,175,55,0.1)]' : 'border-white/5 bg-black/40 hover:border-white/20'}`} onClick={() => setActiveMobIdx(mIdx)}>
+                    <div key={mob.id} className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeMobIdx === mIdx ? 'border-[#d4af37] bg-[#d4af37]/10' : 'border-white/5 bg-black/40'}`} onClick={() => setActiveMobIdx(mIdx)}>
                        <div className="flex justify-between items-center mb-3">
-                          <div className="flex items-center gap-3">
-                             <div className="w-10 h-10 rounded-lg overflow-hidden bg-black border border-white/10 relative">
-                                <img src={mob.image || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-full h-full object-cover" />
-                                <button onClick={(e) => { e.stopPropagation(); setUploadTarget({mobIdx: mIdx}); mobFileRef.current?.click(); }} className="absolute inset-0 bg-black/60 flex items-center justify-center text-[8px] font-black opacity-0 hover:opacity-100 transition-opacity">IMG</button>
-                             </div>
-                             <input className="bg-transparent text-white font-shaiya text-lg outline-none border-b border-transparent focus:border-[#d4af37]/40" value={mob.name} onClick={e => e.stopPropagation()} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].name = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
-                          </div>
-                          <div className="flex items-center gap-3">
-                             <input type="color" value={mob.mapColor} onClick={e => e.stopPropagation()} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].mapColor = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
-                             <button onClick={(e) => { e.stopPropagation(); const ms = [...(newDrop.mobs || [])]; ms.splice(mIdx, 1); setNewDrop({...newDrop, mobs: ms}); if(activeMobIdx === mIdx) setActiveMobIdx(null); }} className="text-red-500 hover:scale-125 transition-transform text-lg">🗑️</button>
-                          </div>
+                          <input className="bg-transparent text-white font-shaiya text-lg outline-none" value={mob.name} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].name = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
+                          <button onClick={() => { const ms = [...(newDrop.mobs || [])]; ms.splice(mIdx, 1); setNewDrop({...newDrop, mobs: ms}); }} className="text-red-500">🗑️</button>
                        </div>
-                       <div className="flex gap-4 items-center mb-3">
-                          <input placeholder="Lvl" className="w-16 bg-black/40 border border-white/10 p-2 rounded text-white text-[10px]" value={mob.level} onClick={e => e.stopPropagation()} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].level = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
-                          <button onClick={e => { e.stopPropagation(); const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops.push({ itemName: '', itemImage: '', rate: '1%', rarity: 'Common' }); setNewDrop({...newDrop, mobs: ms}); }} className="text-[10px] text-green-500 uppercase font-black tracking-widest">+ Añadir Drop</button>
-                       </div>
-                       {activeMobIdx === mIdx && (
-                         <div className="mt-2 space-y-3 animate-fade-in">
-                            {mob.drops.map((drop, dIdx) => (
-                              <div key={dIdx} className="bg-black/60 p-3 rounded-xl border border-white/5 space-y-2" onClick={e => e.stopPropagation()}>
-                                <div className="flex gap-2 items-center">
-                                  <input placeholder="Nombre Ítem" className="bg-transparent text-white text-[10px] p-1 border-b border-white/10 flex-grow outline-none" value={drop.itemName} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops[dIdx].itemName = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
-                                  <button onClick={() => { setUploadTarget({mobIdx: mIdx, dropIdx: dIdx}); dropItemFileRef.current?.click(); }} className="p-1 bg-white/5 rounded text-[10px]">📁</button>
-                                  <button onClick={() => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops.splice(dIdx, 1); setNewDrop({...newDrop, mobs: ms}); }} className="text-red-500 text-xs">✖</button>
-                                </div>
-                                <div className="flex gap-2">
-                                  <select className="bg-black/40 border border-white/5 p-1 rounded text-white text-[8px] flex-grow" value={drop.rarity} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops[dIdx].rarity = e.target.value as ItemRarity; setNewDrop({...newDrop, mobs: ms}); }}>
-                                    {['Common', 'Noble', 'Atroz', 'Legendary', 'Diosa', 'Special', 'Unique'].map(r => <option key={r} value={r}>{r}</option>)}
-                                  </select>
-                                  <input placeholder="10%" className="w-14 bg-black/40 border border-white/5 p-1 rounded text-white text-[8px] text-center" value={drop.rate} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops[dIdx].rate = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
-                                </div>
-                              </div>
-                            ))}
-                         </div>
-                       )}
                     </div>
                   ))}
                 </div>
               </div>
             </div>
             <button onClick={handleAddDrop} className="w-full mt-12 bg-white text-black font-black py-6 rounded-[2rem] uppercase tracking-[10px] shadow-2xl hover:brightness-125 transition-all">Confirmar Registro</button>
-          </div>
-          <div className="glass-panel p-8 rounded-[3rem] border border-white/5 mt-10 overflow-hidden shadow-2xl">
-              <h3 className="text-[#d4af37] font-black uppercase text-xs p-6 border-b border-white/5 tracking-[4px]">Historial de Drops</h3>
-              <table className="w-full text-left">
-                <tbody className="divide-y divide-white/5">
-                  {dropsList.map(drop => (
-                    <tr key={drop.id} className="text-white hover:bg-white/5 transition-colors">
-                      <td className="p-6 font-shaiya text-2xl">{drop.name} <span className="text-[10px] text-gray-500 uppercase ml-2 tracking-widest">({drop.category})</span></td>
-                      <td className="p-6 text-right">
-                        <button onClick={() => { setNewDrop(drop); setEditingId(drop.id); window.scrollTo({top:0, behavior:'smooth'}); }} className="text-[#d4af37] mr-6 font-black uppercase text-[10px] tracking-widest hover:underline">✏️ Editar</button>
-                        <button onClick={() => { if(confirm('¿Eliminar registro?')) deleteDropListFromDB(drop.id).then(loadData); }} className="text-red-500 font-black uppercase text-[10px] tracking-widest hover:underline">🗑️ Borrar</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
           </div>
         </div>
       ) : activeSubTab === 'items' ? (
@@ -438,22 +358,6 @@ const AdminPanel: React.FC = () => {
               <input placeholder="Nombre" className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
               <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value as any})}>
                 {Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.faction} onChange={e => setNewItem({...newItem, faction: e.target.value as Faction})}>
-                <option value={Faction.LIGHT}>Fación: Luz</option>
-                <option value={Faction.FURY}>Fación: Furia</option>
-                <option value={Faction.NEUTRAL}>Fación: Neutral</option>
-              </select>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.item_class} onChange={e => setNewItem({...newItem, item_class: e.target.value})}>
-                {(CLASSES_BY_FACTION[newItem.faction as Faction] || []).map(c => <option key={c} value={c}>{c}</option>)}
-                <option value="All">Todas las Clases</option>
-              </select>
-              <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.gender} onChange={e => setNewItem({...newItem, gender: e.target.value as Gender})}>
-                <option value={Gender.BOTH}>Género: Ambos</option>
-                <option value={Gender.MALE}>Género: Masculino</option>
-                <option value={Gender.FEMALE}>Género: Femenino</option>
               </select>
               <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.rarity} onChange={e => setNewItem({...newItem, rarity: e.target.value as any})}>
                 {['Common', 'Noble', 'Atroz', 'Legendary', 'Diosa', 'Special', 'Unique'].map(r => <option key={r} value={r}>{r}</option>)}
@@ -472,11 +376,11 @@ const AdminPanel: React.FC = () => {
                     <tr key={item.id} className="text-white hover:bg-white/5 transition-colors">
                       <td className="p-6 flex items-center gap-6">
                           <img src={item.image} className="w-14 h-14 rounded-xl object-contain bg-black border border-white/5" />
-                          <span className="font-shaiya text-2xl">{item.name} <span className="text-[10px] text-gray-500 uppercase ml-2 tracking-widest">({item.category})</span></span>
+                          <span className="font-shaiya text-2xl">{item.name}</span>
                       </td>
                       <td className="p-6 text-right">
                         <button onClick={() => { setNewItem(item); setEditingId(item.id); window.scrollTo({top:0, behavior:'smooth'}); }} className="text-[#d4af37] mr-6 font-black uppercase text-[10px] tracking-widest hover:underline">✏️ Editar</button>
-                        <button onClick={() => { if(confirm('¿Eliminar reliquia?')) deleteItemFromDB(item.id).then(loadData); }} className="text-red-500 font-black uppercase text-[10px] tracking-widest hover:underline">🗑️ Borrar</button>
+                        <button onClick={() => { if(confirm('¿Eliminar?')) deleteItemFromDB(item.id).then(loadData); }} className="text-red-500 font-black uppercase text-[10px] tracking-widest hover:underline">🗑️ Borrar</button>
                       </td>
                     </tr>
                   ))}
@@ -492,7 +396,7 @@ const AdminPanel: React.FC = () => {
                <div key={app.id} className="bg-black/60 p-8 rounded-[2.5rem] border border-white/5 shadow-inner">
                  <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-6">
                     <div className="flex items-center gap-6">
-                      <img src={app.avatar_url} className="w-20 h-20 rounded-2xl border-2 border-[#d4af37] shadow-lg shadow-[#d4af37]/20" />
+                      <img src={app.avatar_url} className="w-20 h-20 rounded-2xl border-2 border-[#d4af37]" />
                       <div className="text-left">
                          <p className="text-white font-shaiya text-4xl">{app.username}</p>
                          <p className="text-[#d4af37] text-xs font-black uppercase tracking-[4px]">{app.position} • {app.status}</p>

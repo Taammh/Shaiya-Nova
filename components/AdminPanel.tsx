@@ -155,7 +155,6 @@ const AdminPanel: React.FC = () => {
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     
     // Calculamos la distancia euclidiana en el sistema de coordenadas de porcentaje
-    // Pero como el radio en CSS es circular, usamos el ancho relativo
     const dx = x - drawingStart.x;
     const dy = y - drawingStart.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -188,6 +187,16 @@ const AdminPanel: React.FC = () => {
       mobs[mIdx] = { ...mobs[mIdx], points: [] };
       return { ...prev, mobs };
     });
+  };
+
+  const removeMob = (mIdx: number) => {
+    if (!confirm('¿Seguro que deseas eliminar esta entidad (Mob/Boss)?')) return;
+    setNewDrop(prev => {
+      const mobs = [...(prev.mobs || [])];
+      mobs.splice(mIdx, 1);
+      return { ...prev, mobs };
+    });
+    setActiveMobIdx(null);
   };
 
   const handleAddItem = async () => {
@@ -267,7 +276,6 @@ const AdminPanel: React.FC = () => {
 
       {activeSubTab === 'settings' ? (
         <div className="space-y-10 animate-fade-in">
-          {/* Settings Tab content (no change needed here) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6">
               <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Discord Webhooks</h3>
@@ -400,7 +408,8 @@ const AdminPanel: React.FC = () => {
                          <div className="flex flex-col gap-2">
                             <div className="flex gap-2">
                                <button onClick={e => { e.stopPropagation(); duplicateMob(mIdx); }} title="Duplicar Entidad" className="bg-blue-600/20 text-blue-400 p-2 rounded-lg hover:bg-blue-600 hover:text-white transition-all">👯</button>
-                               <button onClick={e => { e.stopPropagation(); clearMobPoints(mIdx); }} title="Limpiar Zona/Puntos" className="bg-red-600/20 text-red-400 p-2 rounded-lg hover:bg-red-600 hover:text-white transition-all">🧹</button>
+                               <button onClick={e => { e.stopPropagation(); clearMobPoints(mIdx); }} title="Limpiar Zona/Puntos" className="bg-orange-600/20 text-orange-400 p-2 rounded-lg hover:bg-orange-600 hover:text-white transition-all">🧹</button>
+                               <button onClick={e => { e.stopPropagation(); removeMob(mIdx); }} title="Eliminar Entidad" className="bg-red-600/20 text-red-400 p-2 rounded-lg hover:bg-red-600 hover:text-white transition-all">🗑️</button>
                                <input type="color" className="w-8 h-8 cursor-pointer rounded overflow-hidden" value={mob.mapColor} onClick={e => e.stopPropagation()} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].mapColor = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
                             </div>
                             <button onClick={e => { e.stopPropagation(); addDropToMob(mIdx); }} className="bg-green-600/20 text-green-500 px-3 py-1 rounded-lg text-[8px] font-black uppercase hover:bg-green-600 hover:text-white transition-all">DROP +</button>
@@ -438,7 +447,6 @@ const AdminPanel: React.FC = () => {
             </button>
           </div>
           <div className="glass-panel p-8 rounded-[3rem] border border-white/5 mt-10 overflow-hidden">
-              {/* Drop History content (no change needed here) */}
               <h3 className="text-[#d4af37] font-black uppercase tracking-[5px] text-xs p-6 border-b border-white/5">Historial de Drops</h3>
               <table className="w-full text-left">
                 <thead className="text-[#d4af37] text-[10px] uppercase font-black bg-black/40">
@@ -461,7 +469,6 @@ const AdminPanel: React.FC = () => {
         </div>
       ) : activeSubTab === 'items' ? (
         <div className="space-y-10 animate-fade-in">
-          {/* Relics Tab content (no change needed here) */}
           <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/20 text-center shadow-2xl">
             <h2 className="text-3xl font-shaiya text-[#d4af37] mb-8 uppercase tracking-widest">{editingId ? 'Reforjar Reliquia' : 'Nueva Reliquia'}</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -548,7 +555,6 @@ const AdminPanel: React.FC = () => {
         </div>
       ) : activeSubTab === 'apps' ? (
         <div className="glass-panel p-10 rounded-[3rem] border border-white/10 animate-fade-in">
-           {/* Apps Tab content (no change needed here) */}
            <h2 className="text-4xl font-shaiya text-white uppercase mb-12 text-center tracking-widest">Postulaciones del Staff</h2>
            <div className="space-y-6">
              {appsList.map(app => (

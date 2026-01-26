@@ -48,7 +48,9 @@ const AdminPanel: React.FC = () => {
     siteLogo: '',
     siteBg: '',
     mapPortalBg: '',
-    bossPortalBg: ''
+    bossPortalBg: '',
+    supabaseUrl: '',
+    supabaseKey: ''
   });
 
   const loadData = async () => {
@@ -76,7 +78,9 @@ const AdminPanel: React.FC = () => {
       siteLogo: await getSetting('SITE_LOGO_URL') || '',
       siteBg: await getSetting('SITE_BG_URL') || '',
       mapPortalBg: await getSetting('MAP_PORTAL_BG') || '',
-      bossPortalBg: await getSetting('BOSS_PORTAL_BG') || ''
+      bossPortalBg: await getSetting('BOSS_PORTAL_BG') || '',
+      supabaseUrl: await getSetting('SUPABASE_URL') || '',
+      supabaseKey: await getSetting('SUPABASE_ANON_KEY') || ''
     });
   };
 
@@ -98,23 +102,18 @@ const AdminPanel: React.FC = () => {
       const folder = type.includes('Portal') || type === 'logo' || type === 'bg' ? 'branding' : 'drops';
       const publicUrl = await uploadFile(file, folder);
       
-      if (type === 'item') {
-        setNewItem(prev => ({ ...prev, image: publicUrl }));
-      } else if (type === 'drop') {
-        setNewDrop(prev => ({ ...prev, image: publicUrl }));
-      } else if (type === 'logo') {
-        await saveSetting('SITE_LOGO_URL', publicUrl);
-        setConfig(prev => ({ ...prev, siteLogo: publicUrl }));
-      } else if (type === 'bg') {
-        await saveSetting('SITE_BG_URL', publicUrl);
-        setConfig(prev => ({ ...prev, siteBg: publicUrl }));
-      } else if (type === 'mob' && uploadTarget !== null) {
+      if (type === 'item') setNewItem(prev => ({ ...prev, image: publicUrl }));
+      else if (type === 'drop') setNewDrop(prev => ({ ...prev, image: publicUrl }));
+      else if (type === 'logo') { await saveSetting('SITE_LOGO_URL', publicUrl); setConfig(prev => ({ ...prev, siteLogo: publicUrl })); }
+      else if (type === 'bg') { await saveSetting('SITE_BG_URL', publicUrl); setConfig(prev => ({ ...prev, siteBg: publicUrl })); }
+      else if (type === 'mob' && uploadTarget) {
         setNewDrop(prev => {
           const mobs = [...(prev.mobs || [])];
           mobs[uploadTarget.mobIdx] = { ...mobs[uploadTarget.mobIdx], image: publicUrl };
           return { ...prev, mobs };
         });
-      } else if (type === 'dropItem' && uploadTarget !== null && uploadTarget.dropIdx !== undefined) {
+      }
+      else if (type === 'dropItem' && uploadTarget && uploadTarget.dropIdx !== undefined) {
         setNewDrop(prev => {
           const mobs = [...(prev.mobs || [])];
           const drops = [...mobs[uploadTarget.mobIdx].drops];
@@ -123,7 +122,7 @@ const AdminPanel: React.FC = () => {
           return { ...prev, mobs };
         });
       }
-      alert("Imagen vinculada.");
+      alert("Imagen cargada con éxito.");
     } catch (err: any) { alert(err.message); }
     finally { setIsUploading(false); }
   };
@@ -133,7 +132,7 @@ const AdminPanel: React.FC = () => {
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(dataToSync))));
     const url = `${window.location.origin}${window.location.pathname}?sync=${encoded}`;
     navigator.clipboard.writeText(url);
-    alert("Link Maestro copiado con éxito.");
+    alert("Link Maestro copiado al portapapeles.");
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -210,7 +209,7 @@ const AdminPanel: React.FC = () => {
       mobs[mIdx] = mob;
       return { ...prev, mobs };
     });
-    setActiveMobIdx(mIdx); // Asegurar que se vea el panel de drops
+    setActiveMobIdx(mIdx);
   };
 
   return (
@@ -233,56 +232,63 @@ const AdminPanel: React.FC = () => {
               <input placeholder="Webhook Bienvenida" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.webhookWelcome} onChange={e => saveConfigField('webhookWelcome', e.target.value, 'NOVA_STAFF_WELCOME_WEBHOOK')} />
             </div>
             <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6">
-              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">IDs de Roles</h3>
-              <input placeholder="ID Rol Game Sage" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.roleGs} onChange={e => saveConfigField('roleGs', e.target.value, 'ROLE_ID_GS')} />
+              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Infraestructura Real</h3>
+              <input placeholder="Supabase URL" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.supabaseUrl} onChange={e => saveConfigField('supabaseUrl', e.target.value, 'SUPABASE_URL')} />
+              <input placeholder="Supabase Anon Key" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.supabaseKey} onChange={e => saveConfigField('supabaseKey', e.target.value, 'SUPABASE_ANON_KEY')} />
+              <input placeholder="Discord Client ID" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.clientId} onChange={e => saveConfigField('clientId', e.target.value, 'DISCORD_CLIENT_ID')} />
+            </div>
+            <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6">
+              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">IDs de Roles (Staff)</h3>
+              <input placeholder="ID Rol GS" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.roleGs} onChange={e => saveConfigField('roleGs', e.target.value, 'ROLE_ID_GS')} />
               <input placeholder="ID Rol Líder GS" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.roleLgs} onChange={e => saveConfigField('roleLgs', e.target.value, 'ROLE_ID_LGS')} />
               <input placeholder="ID Rol GM" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.roleGm} onChange={e => saveConfigField('roleGm', e.target.value, 'ROLE_ID_GM')} />
             </div>
-            <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6 md:col-span-2">
-              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Infraestructura</h3>
-              <input placeholder="Discord Client ID" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs mb-4" value={config.clientId} onChange={e => saveConfigField('clientId', e.target.value, 'DISCORD_CLIENT_ID')} />
-              <div className="flex gap-4">
-                 <button onClick={generateMasterLink} className="flex-grow bg-gradient-to-r from-blue-600 to-purple-600 text-white font-black py-4 rounded-xl uppercase tracking-widest shadow-xl">Generar Link Maestro</button>
+            <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6">
+              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Visual Branding</h3>
+              <div className="flex gap-4 items-center">
+                <input placeholder="URL Logo" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.siteLogo} onChange={e => saveConfigField('siteLogo', e.target.value, 'SITE_LOGO_URL')} />
+                <button onClick={() => logoFileRef.current?.click()} className="bg-white/10 p-4 rounded-xl text-white">📁</button>
+              </div>
+              <div className="flex gap-4 items-center">
+                <input placeholder="URL Fondo" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.siteBg} onChange={e => saveConfigField('siteBg', e.target.value, 'SITE_BG_URL')} />
+                <button onClick={() => bgFileRef.current?.click()} className="bg-white/10 p-4 rounded-xl text-white">📁</button>
               </div>
             </div>
           </div>
+          <button onClick={generateMasterLink} className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black py-6 rounded-[2rem] uppercase tracking-[5px] shadow-2xl">Generar Link Maestro de Sincronización</button>
         </div>
       ) : activeSubTab === 'drops' ? (
-        <div className="space-y-12 animate-fade-in">
-           <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/30 shadow-2xl">
-            <h2 className="text-3xl font-shaiya text-[#d4af37] mb-10 text-center uppercase tracking-widest">{editingId ? 'Reforjar Pergamino' : 'Nueva Guía Táctica'}</h2>
+        <div className="space-y-12">
+           <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/30">
+            <h2 className="text-3xl font-shaiya text-[#d4af37] mb-10 text-center uppercase">Edición de Drops</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-              <div className="space-y-8">
-                <div className="space-y-4">
-                  <h3 className="text-white text-[10px] font-black uppercase tracking-[4px]">Configuración Base</h3>
-                  <input placeholder="Nombre del Mapa o Boss Principal" className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newDrop.name} onChange={e => setNewDrop({...newDrop, name: e.target.value})} />
-                  <div className="grid grid-cols-2 gap-4">
-                    <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newDrop.category} onChange={e => setNewDrop({...newDrop, category: e.target.value as any})}>
-                      <option value="Mapa">Tipo: Mapa</option>
-                      <option value="Boss">Tipo: Boss</option>
-                    </select>
-                    <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newDrop.faction} onChange={e => setNewDrop({...newDrop, faction: e.target.value as any})}>
-                      <option value={Faction.LIGHT}>Fación: Luz</option>
-                      <option value={Faction.FURY}>Fación: Furia</option>
-                      <option value={Faction.NEUTRAL}>Fación: Neutral</option>
-                    </select>
-                  </div>
-                  <div className="flex gap-4">
-                    <input placeholder="URL Imagen Mapa" className="flex-grow bg-black/60 border border-white/10 p-5 rounded-2xl text-white text-xs" value={newDrop.image} onChange={e => setNewDrop({...newDrop, image: e.target.value})} />
-                    <button onClick={() => dropFileRef.current?.click()} className="bg-[#d4af37] text-black px-6 rounded-2xl font-black uppercase text-[10px]">SUBIR</button>
-                    <input type="file" ref={dropFileRef} className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'drop')} />
-                  </div>
+              <div className="space-y-6">
+                <h3 className="text-white text-[10px] font-black uppercase tracking-[4px]">Configuración de Mapa</h3>
+                <input placeholder="Nombre" className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newDrop.name} onChange={e => setNewDrop({...newDrop, name: e.target.value})} />
+                <div className="grid grid-cols-2 gap-4">
+                  <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newDrop.category} onChange={e => setNewDrop({...newDrop, category: e.target.value as any})}>
+                    <option value="Mapa">Tipo: Mapa</option>
+                    <option value="Boss">Tipo: Boss</option>
+                  </select>
+                  <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newDrop.faction} onChange={e => setNewDrop({...newDrop, faction: e.target.value as any})}>
+                    <option value={Faction.LIGHT}>Fación: Luz</option>
+                    <option value={Faction.FURY}>Fación: Furia</option>
+                    <option value={Faction.NEUTRAL}>Fación: Neutral</option>
+                  </select>
+                </div>
+                <div className="flex gap-4">
+                  <input placeholder="URL Imagen" className="flex-grow bg-black/60 border border-white/10 p-5 rounded-2xl text-white text-xs" value={newDrop.image} onChange={e => setNewDrop({...newDrop, image: e.target.value})} />
+                  <button onClick={() => dropFileRef.current?.click()} className="bg-[#d4af37] text-black px-6 rounded-2xl font-black uppercase text-[10px]">Cargar</button>
+                  <input type="file" ref={dropFileRef} className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'drop')} />
                 </div>
                 {newDrop.image && (
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center px-2">
-                       <div className="flex gap-2">
-                          <button onClick={() => setDrawMode('point')} className={`px-4 py-1.5 rounded-lg text-[8px] font-black uppercase border ${drawMode === 'point' ? 'bg-[#d4af37] text-black' : 'bg-black/40 text-gray-500 border-white/5'}`}>Punto</button>
-                          <button onClick={() => setDrawMode('area')} className={`px-4 py-1.5 rounded-lg text-[8px] font-black uppercase border ${drawMode === 'area' ? 'bg-[#d4af37] text-black' : 'bg-black/40 text-gray-500 border-white/5'}`}>Zona</button>
-                       </div>
+                    <div className="flex gap-2">
+                       <button onClick={() => setDrawMode('point')} className={`px-4 py-1.5 rounded-lg text-[8px] font-black border ${drawMode === 'point' ? 'bg-[#d4af37] text-black' : 'bg-black/40 text-gray-500 border-white/5'}`}>Punto</button>
+                       <button onClick={() => setDrawMode('area')} className={`px-4 py-1.5 rounded-lg text-[8px] font-black border ${drawMode === 'area' ? 'bg-[#d4af37] text-black' : 'bg-black/40 text-gray-500 border-white/5'}`}>Zona</button>
                     </div>
-                    <div className="relative rounded-[2rem] overflow-hidden border border-white/10 bg-black select-none" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
-                      <img src={newDrop.image} className="w-full h-auto opacity-70 pointer-events-none" />
+                    <div className="relative rounded-[2rem] overflow-hidden border border-white/10 bg-black" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
+                      <img src={newDrop.image} className="w-full h-auto opacity-70" />
                       {newDrop.mobs?.map((mob, mIdx) => mob.points?.map((p, pIdx) => (
                         <div key={`${mIdx}-${pIdx}`} className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${p.type === 'area' ? 'border-2 rounded-full' : 'w-3 h-3 rounded-full border border-white'}`}
                              style={{ left: `${p.x}%`, top: `${p.y}%`, backgroundColor: p.type === 'area' ? `${p.color}33` : p.color, borderColor: p.color, width: p.type === 'area' ? `${p.radius! * 2}%` : '12px', height: p.type === 'area' ? `${p.radius! * 2}%` : '12px', aspectRatio: '1/1' }}></div>
@@ -291,50 +297,41 @@ const AdminPanel: React.FC = () => {
                   </div>
                 )}
               </div>
-              <div className="space-y-8">
-                <div className="flex justify-between items-center px-2">
-                  <h3 className="text-white text-[10px] font-black uppercase tracking-[4px]">Bestiario</h3>
-                  <button onClick={addMob} className="bg-green-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase">+ Nueva Entidad</button>
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-white text-[10px] font-black uppercase">Bestiario</h3>
+                  <button onClick={addMob} className="bg-green-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase">+ Entidad</button>
                 </div>
-                <div className="space-y-6 max-h-[600px] overflow-y-auto pr-3 custom-scroll">
+                <div className="space-y-4 max-h-[600px] overflow-y-auto">
                   {newDrop.mobs?.map((mob, mIdx) => (
-                    <div key={mob.id} className={`p-6 rounded-[2.5rem] border-2 cursor-pointer transition-all ${activeMobIdx === mIdx ? 'bg-[#d4af37]/10 border-[#d4af37]' : 'bg-black/60 border-white/5'}`} onClick={() => setActiveMobIdx(mIdx)}>
+                    <div key={mob.id} className={`p-6 rounded-[2.5rem] border-2 ${activeMobIdx === mIdx ? 'bg-[#d4af37]/10 border-[#d4af37]' : 'bg-black/60 border-white/5'}`} onClick={() => setActiveMobIdx(mIdx)}>
                        <div className="flex gap-4 items-center">
-                         <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-white/10 group bg-black shrink-0">
+                         <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-black shrink-0">
                            <img src={mob.image || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-full h-full object-cover" />
-                           <button onClick={(e) => { e.stopPropagation(); setUploadTarget({ mobIdx: mIdx }); mobFileRef.current?.click(); }} className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[8px] font-black">UP</button>
+                           <button onClick={(e) => { e.stopPropagation(); setUploadTarget({ mobIdx: mIdx }); mobFileRef.current?.click(); }} className="absolute inset-0 bg-black/60 opacity-0 hover:opacity-100 flex items-center justify-center text-white text-[8px]">UP</button>
                          </div>
                          <div className="flex-grow">
-                            <input className="bg-transparent border-none text-white font-shaiya text-lg outline-none w-full" value={mob.name} onClick={e => e.stopPropagation()} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].name = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
+                            <input className="bg-transparent border-none text-white font-shaiya text-lg outline-none w-full" value={mob.name} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].name = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
                             <div className="flex items-center gap-2">
-                               <input type="text" className="bg-transparent border-none text-gray-500 text-[10px] font-black w-20 outline-none" value={`NIVEL ${mob.level}`} onClick={e => e.stopPropagation()} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].level = e.target.value.replace('NIVEL ', ''); setNewDrop({...newDrop, mobs: ms}); }} />
-                               <span className="text-gray-700 mx-1">•</span>
-                               <p className="text-[10px] font-black uppercase text-gray-500">{mob.points.length} Marcas</p>
+                               <input className="bg-transparent border-none text-gray-500 text-[10px] w-20 outline-none" value={`LV ${mob.level}`} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].level = e.target.value.replace('LV ', ''); setNewDrop({...newDrop, mobs: ms}); }} />
                             </div>
                          </div>
                          <div className="flex flex-col gap-2">
-                            <input type="color" className="w-8 h-8 bg-transparent border-none cursor-pointer" value={mob.mapColor} onClick={e => e.stopPropagation()} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].mapColor = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
-                            <button onClick={e => { e.stopPropagation(); addDropToMob(mIdx); }} className="bg-green-600/20 text-green-500 px-3 py-1 rounded-lg text-[8px] font-black uppercase hover:bg-green-600 hover:text-white transition-all">DROP +</button>
+                            <input type="color" className="w-8 h-8" value={mob.mapColor} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].mapColor = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
+                            <button onClick={e => { e.stopPropagation(); addDropToMob(mIdx); }} className="bg-green-600 text-white px-3 py-1 rounded text-[8px]">DROP +</button>
                          </div>
                        </div>
                        {activeMobIdx === mIdx && (
-                         <div className="mt-4 space-y-3 border-t border-white/5 pt-4">
+                         <div className="mt-4 space-y-2 border-t border-white/5 pt-4">
                             {mob.drops.map((drop, dIdx) => (
-                              <div key={dIdx} className="flex items-center gap-3 bg-black/40 p-3 rounded-xl border border-white/5 group/drop">
-                                 <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-black">
+                              <div key={dIdx} className="flex items-center gap-3 bg-black/40 p-3 rounded-xl">
+                                 <div className="relative w-10 h-10 shrink-0 bg-black rounded-lg overflow-hidden">
                                     <img src={drop.itemImage || "https://api.dicebear.com/7.x/pixel-art/svg?seed=item"} className="w-full h-full object-contain" />
-                                    <button onClick={(e) => { e.stopPropagation(); setUploadTarget({ mobIdx: mIdx, dropIdx: dIdx }); dropItemFileRef.current?.click(); }} className="absolute inset-0 bg-black/60 opacity-0 group-hover/drop:opacity-100 flex items-center justify-center text-white text-[7px] font-black">UP</button>
+                                    <button onClick={(e) => { e.stopPropagation(); setUploadTarget({ mobIdx: mIdx, dropIdx: dIdx }); dropItemFileRef.current?.click(); }} className="absolute inset-0 bg-black/60 opacity-0 hover:opacity-100 flex items-center justify-center text-white text-[7px]">UP</button>
                                  </div>
-                                 <div className="flex-grow space-y-1">
-                                    <input className="bg-transparent border-none text-white text-xs font-bold w-full outline-none" value={drop.itemName} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops[dIdx].itemName = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
-                                    <div className="flex justify-between items-center">
-                                       <select className="bg-transparent text-[#d4af37] text-[8px] font-black uppercase outline-none" value={drop.rarity} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops[dIdx].rarity = e.target.value as any; setNewDrop({...newDrop, mobs: ms}); }}>
-                                          {['Common', 'Noble', 'Atroz', 'Legendary', 'Diosa', 'Special', 'Unique'].map(r => <option key={r} value={r} className="bg-black">{r}</option>)}
-                                       </select>
-                                       <input className="bg-transparent border-none text-[#d4af37] text-[10px] w-14 text-right outline-none font-mono font-black" value={drop.rate} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops[dIdx].rate = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
-                                    </div>
-                                 </div>
-                                 <button onClick={(e) => { e.stopPropagation(); const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops.splice(dIdx, 1); setNewDrop({...newDrop, mobs: ms}); }} className="text-red-500 opacity-0 group-hover/drop:opacity-100 transition-opacity">✖</button>
+                                 <input className="bg-transparent text-white text-xs w-full outline-none" value={drop.itemName} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops[dIdx].itemName = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
+                                 <input className="bg-transparent text-[#d4af37] text-[10px] w-12 text-right outline-none" value={drop.rate} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops[dIdx].rate = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
+                                 <button onClick={() => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops.splice(dIdx, 1); setNewDrop({...newDrop, mobs: ms}); }} className="text-red-500">✖</button>
                               </div>
                             ))}
                          </div>
@@ -344,9 +341,26 @@ const AdminPanel: React.FC = () => {
                 </div>
               </div>
             </div>
-            <button onClick={handleAddDrop} disabled={isSaving || isUploading} className="w-full mt-12 bg-white text-black font-black py-6 rounded-[2rem] uppercase tracking-[10px] hover:bg-[#d4af37] transition-all shadow-2xl">
-               {editingId ? 'Reforjar Pergamino' : 'Sellar Guía de Drop'}
-            </button>
+            <button onClick={handleAddDrop} className="w-full mt-10 bg-white text-black font-black py-6 rounded-[2rem] uppercase tracking-[10px] hover:bg-[#d4af37] transition-all">Sellar Mapa</button>
+          </div>
+          <div className="glass-panel p-8 rounded-[3rem] border border-white/5">
+              <table className="w-full text-left">
+                <thead className="text-[#d4af37] text-[10px] uppercase font-black">
+                  <tr><th className="p-6">Mapa</th><th className="p-6">Categoría</th><th className="p-6 text-right">Acción</th></tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {dropsList.map(drop => (
+                    <tr key={drop.id} className="text-white hover:bg-white/5">
+                      <td className="p-6 font-shaiya text-xl">{drop.name}</td>
+                      <td className="p-6 uppercase text-[10px]">{drop.category} ({drop.faction})</td>
+                      <td className="p-6 text-right">
+                        <button onClick={() => { setNewDrop(drop); setEditingId(drop.id); window.scrollTo({top:0, behavior:'smooth'}) }} className="text-[#d4af37] mr-4">✏️</button>
+                        <button onClick={() => deleteDropListFromDB(drop.id).then(loadData)} className="text-red-500">🗑️</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
           </div>
         </div>
       ) : activeSubTab === 'items' ? (
@@ -381,16 +395,38 @@ const AdminPanel: React.FC = () => {
                 <option value={Gender.FEMALE}>Género: Femenino</option>
               </select>
             </div>
-            <button onClick={handleAddItem} className="w-full bg-white text-black font-black py-5 rounded-[2rem] uppercase tracking-[5px] hover:bg-[#d4af37] transition-all">Sellar Reliquia</button>
+            <button onClick={handleAddItem} className="w-full bg-white text-black font-black py-5 rounded-[2rem] uppercase tracking-[5px] hover:bg-[#d4af37] transition-all">Manifestar Reliquia</button>
+          </div>
+          <div className="glass-panel p-8 rounded-[3rem] border border-white/5">
+             <table className="w-full text-left">
+                <thead className="text-[#d4af37] text-[10px] uppercase font-black">
+                  <tr><th className="p-6">Reliquia</th><th className="p-6">Fación / Clase</th><th className="p-6 text-right">Acción</th></tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {itemsList.map(item => (
+                    <tr key={item.id} className="text-white hover:bg-white/5">
+                      <td className="p-6 font-shaiya text-xl">{item.name}</td>
+                      <td className="p-6 text-[10px] uppercase">{item.faction} • {item.item_class}</td>
+                      <td className="p-6 text-right">
+                        <button onClick={() => { setNewItem(item); setEditingId(item.id); window.scrollTo({top:0, behavior:'smooth'}) }} className="text-[#d4af37] mr-4">✏️</button>
+                        <button onClick={() => deleteItemFromDB(item.id).then(loadData)} className="text-red-500">🗑️</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+             </table>
           </div>
         </div>
       ) : (
-        <div className="text-center py-20 text-gray-500 font-shaiya text-2xl uppercase">No hay postulaciones registradas.</div>
+        <div className="text-center py-20 text-gray-500 font-shaiya text-2xl uppercase opacity-20 italic">El registro de postulaciones está vacío...</div>
       )}
 
-      {/* Inputs Ocultos */}
+      {/* Hidden Files */}
       <input type="file" ref={mobFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'mob')} />
       <input type="file" ref={dropItemFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'dropItem')} />
+      <input type="file" ref={itemFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'item')} />
+      <input type="file" ref={logoFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logo')} />
+      <input type="file" ref={bgFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'bg')} />
     </div>
   );
 };

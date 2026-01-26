@@ -19,6 +19,8 @@ const AdminPanel: React.FC = () => {
   const dropItemFileRef = useRef<HTMLInputElement>(null);
   const logoFileRef = useRef<HTMLInputElement>(null);
   const bgFileRef = useRef<HTMLInputElement>(null);
+  const mapPortalFileRef = useRef<HTMLInputElement>(null);
+  const bossPortalFileRef = useRef<HTMLInputElement>(null);
 
   const [activeMobIdx, setActiveMobIdx] = useState<number | null>(null);
   const [drawMode, setDrawMode] = useState<'point' | 'area'>('point');
@@ -29,7 +31,7 @@ const AdminPanel: React.FC = () => {
 
   const [newItem, setNewItem] = useState<Partial<GameItem>>({
     name: '', category: Category.MOUNT, image: '', description: '', 
-    faction: Faction.LIGHT, item_class: 'All', gender: Gender.BOTH, price: '', stats: '', rarity: 'Common'
+    faction: Faction.LIGHT, item_class: 'Luchador/Defensor', gender: Gender.BOTH, price: '', stats: '', rarity: 'Common'
   });
 
   const [newDrop, setNewDrop] = useState<Partial<DropMap>>({
@@ -107,6 +109,8 @@ const AdminPanel: React.FC = () => {
       else if (type === 'drop') setNewDrop(prev => ({ ...prev, image: publicUrl }));
       else if (type === 'logo') { await saveSetting('SITE_LOGO_URL', publicUrl); setConfig(prev => ({ ...prev, siteLogo: publicUrl })); }
       else if (type === 'bg') { await saveSetting('SITE_BG_URL', publicUrl); setConfig(prev => ({ ...prev, siteBg: publicUrl })); }
+      else if (type === 'mapPortal') { await saveSetting('MAP_PORTAL_BG', publicUrl); setConfig(prev => ({ ...prev, mapPortalBg: publicUrl })); }
+      else if (type === 'bossPortal') { await saveSetting('BOSS_PORTAL_BG', publicUrl); setConfig(prev => ({ ...prev, bossPortalBg: publicUrl })); }
       else if (type === 'mob' && uploadTarget) {
         setNewDrop(prev => {
           const mobs = [...(prev.mobs || [])];
@@ -123,7 +127,7 @@ const AdminPanel: React.FC = () => {
           return { ...prev, mobs };
         });
       }
-      alert("Imagen cargada.");
+      alert("Imagen vinculada con éxito.");
     } catch (err: any) { alert(err.message); }
     finally { setIsUploading(false); }
   };
@@ -170,7 +174,7 @@ const AdminPanel: React.FC = () => {
     try {
       if (editingId) await updateItemInDB({ ...newItem, id: editingId } as GameItem);
       else await addItemToDB(newItem);
-      setNewItem({ name: '', category: Category.MOUNT, image: '', description: '', faction: Faction.LIGHT, item_class: 'All', gender: Gender.BOTH, price: '', stats: '', rarity: 'Common' });
+      setNewItem({ name: '', category: Category.MOUNT, image: '', description: '', faction: Faction.LIGHT, item_class: 'Luchador/Defensor', gender: Gender.BOTH, price: '', stats: '', rarity: 'Common' });
       setEditingId(null); loadData();
     } catch { alert('Error.'); }
     finally { setIsSaving(false); }
@@ -236,6 +240,28 @@ const AdminPanel: React.FC = () => {
               <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Infraestructura Real</h3>
               <input placeholder="Supabase URL" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.supabaseUrl} onChange={e => saveConfigField('supabaseUrl', e.target.value, 'SUPABASE_URL')} />
               <input placeholder="Supabase Anon Key" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.supabaseKey} onChange={e => saveConfigField('supabaseKey', e.target.value, 'SUPABASE_ANON_KEY')} />
+              <input placeholder="Discord Client ID" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.clientId} onChange={e => saveConfigField('clientId', e.target.value, 'DISCORD_CLIENT_ID')} />
+            </div>
+            <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6 md:col-span-2">
+              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Identidad Visual & Portales</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="flex gap-4">
+                    <input placeholder="URL Logo Principal" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.siteLogo} onChange={e => saveConfigField('siteLogo', e.target.value, 'SITE_LOGO_URL')} />
+                    <button onClick={() => logoFileRef.current?.click()} className="bg-white/10 px-4 rounded-xl text-white">📁</button>
+                 </div>
+                 <div className="flex gap-4">
+                    <input placeholder="URL Fondo General" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.siteBg} onChange={e => saveConfigField('siteBg', e.target.value, 'SITE_BG_URL')} />
+                    <button onClick={() => bgFileRef.current?.click()} className="bg-white/10 px-4 rounded-xl text-white">📁</button>
+                 </div>
+                 <div className="flex gap-4">
+                    <input placeholder="URL Portal Mapas" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.mapPortalBg} onChange={e => saveConfigField('mapPortalBg', e.target.value, 'MAP_PORTAL_BG')} />
+                    <button onClick={() => mapPortalFileRef.current?.click()} className="bg-white/10 px-4 rounded-xl text-white">📁</button>
+                 </div>
+                 <div className="flex gap-4">
+                    <input placeholder="URL Portal Jefes" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.bossPortalBg} onChange={e => saveConfigField('bossPortalBg', e.target.value, 'BOSS_PORTAL_BG')} />
+                    <button onClick={() => bossPortalFileRef.current?.click()} className="bg-white/10 px-4 rounded-xl text-white">📁</button>
+                 </div>
+              </div>
             </div>
           </div>
           <button onClick={generateMasterLink} className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black py-6 rounded-[2rem] uppercase tracking-[5px] shadow-2xl">Generar Link Maestro de Sincronización</button>
@@ -335,6 +361,26 @@ const AdminPanel: React.FC = () => {
                {editingId ? 'Confirmar Reforja de Pergamino' : 'Sellar Guía de Drop'}
             </button>
           </div>
+          <div className="glass-panel p-8 rounded-[3rem] border border-white/5 mt-10 overflow-hidden">
+              <h3 className="text-[#d4af37] font-black uppercase tracking-[5px] text-xs p-6 border-b border-white/5">Historial de Drops</h3>
+              <table className="w-full text-left">
+                <thead className="text-[#d4af37] text-[10px] uppercase font-black bg-black/40">
+                  <tr><th className="p-6">Mapa / Jefe</th><th className="p-6">Categoría</th><th className="p-6 text-right">Acción</th></tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {dropsList.map(drop => (
+                    <tr key={drop.id} className="text-white hover:bg-white/5 transition-colors">
+                      <td className="p-6 font-shaiya text-2xl">{drop.name}</td>
+                      <td className="p-6 uppercase text-[10px] text-gray-500 font-black">{drop.category} ({drop.faction})</td>
+                      <td className="p-6 text-right">
+                        <button onClick={() => { setNewDrop(drop); setEditingId(drop.id); window.scrollTo({top:0, behavior:'smooth'}) }} className="text-[#d4af37] mr-4 hover:scale-125 transition-transform">✏️</button>
+                        <button onClick={() => { if(confirm('¿Borrar registro?')) deleteDropListFromDB(drop.id).then(loadData) }} className="text-red-500 hover:scale-125 transition-transform">🗑️</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+          </div>
         </div>
       ) : activeSubTab === 'items' ? (
         <div className="space-y-10 animate-fade-in">
@@ -379,9 +425,38 @@ const AdminPanel: React.FC = () => {
                 {['Common', 'Noble', 'Atroz', 'Legendary', 'Diosa', 'Special', 'Unique'].map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
-            <button onClick={handleAddItem} className="w-full bg-white text-black font-black py-6 rounded-[2.5rem] uppercase tracking-[8px] hover:bg-[#d4af37] transition-all shadow-xl">
+            <div className="flex gap-4 mb-6">
+               <input placeholder="URL Imagen Reliquia" className="flex-grow bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none text-xs" value={newItem.image} onChange={e => setNewItem({...newItem, image: e.target.value})} />
+               <button onClick={() => itemFileRef.current?.click()} className="bg-[#d4af37] text-black px-10 rounded-2xl font-black uppercase text-xs">SUBIR</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+               <input placeholder="Estadísticas (Ej: STR +20)" className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.stats} onChange={e => setNewItem({...newItem, stats: e.target.value})} />
+               <input placeholder="Valor / Precio" className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.price} onChange={e => setNewItem({...newItem, price: e.target.value})} />
+            </div>
+            <textarea placeholder="Descripción detallada..." className="w-full bg-black/40 border border-white/10 p-5 rounded-2xl text-white outline-none mb-8 min-h-[100px]" value={newItem.description} onChange={e => setNewItem({...newItem, description: e.target.value})} />
+            <button onClick={handleAddItem} disabled={isSaving || isUploading} className="w-full bg-white text-black font-black py-6 rounded-[2.5rem] uppercase tracking-[8px] hover:bg-[#d4af37] transition-all shadow-xl">
                {editingId ? 'Confirmar Reforja' : 'Manifestar Reliquia'}
             </button>
+          </div>
+          <div className="glass-panel p-8 rounded-[3rem] border border-white/5 mt-10 overflow-hidden">
+             <h3 className="text-[#d4af37] font-black uppercase tracking-[5px] text-xs p-6 border-b border-white/5">Historial de Reliquias</h3>
+             <table className="w-full text-left">
+                <thead className="text-[#d4af37] text-[10px] uppercase font-black bg-black/40">
+                  <tr><th className="p-6">Reliquia</th><th className="p-6">Categoría / Facción / Clase</th><th className="p-6 text-right">Acción</th></tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {itemsList.map(item => (
+                    <tr key={item.id} className="text-white hover:bg-white/5 transition-colors">
+                      <td className="p-6 font-shaiya text-2xl">{item.name}</td>
+                      <td className="p-6 text-[10px] uppercase font-black text-gray-500">{item.category} • {item.faction} • {item.item_class}</td>
+                      <td className="p-6 text-right">
+                        <button onClick={() => { setNewItem(item); setEditingId(item.id); window.scrollTo({top:0, behavior:'smooth'}) }} className="text-[#d4af37] mr-4 hover:scale-125 transition-transform">✏️</button>
+                        <button onClick={() => { if(confirm('¿Destruir reliquia?')) deleteItemFromDB(item.id).then(loadData) }} className="text-red-500 hover:scale-125 transition-transform">🗑️</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+             </table>
           </div>
         </div>
       ) : activeSubTab === 'apps' ? (
@@ -435,6 +510,8 @@ const AdminPanel: React.FC = () => {
       <input type="file" ref={dropItemFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'dropItem')} />
       <input type="file" ref={logoFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logo')} />
       <input type="file" ref={bgFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'bg')} />
+      <input type="file" ref={mapPortalFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'mapPortal')} />
+      <input type="file" ref={bossPortalFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'bossPortal')} />
     </div>
   );
 };

@@ -13,7 +13,7 @@ import { Category, Faction, CLASSES_BY_FACTION, GameItem, Gender } from './types
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('promotions');
   const [selectedFaction, setSelectedFaction] = useState<Faction>(Faction.LIGHT);
-  const [selectedClass, setSelectedClass] = useState<string>('All');
+  const [selectedClass, setSelectedClass] = useState<string>('Luchador/Defensor');
   const [selectedGender, setSelectedGender] = useState<string>('All');
   const [cloudItems, setCloudItems] = useState<GameItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,8 +91,11 @@ const App: React.FC = () => {
 
       if (activeTab === 'costumes') {
         const matchesFaction = item.faction === selectedFaction;
-        // Classes are strictly handled for costumes
-        let matchesClass = selectedClass === 'All' ? true : item.item_class === selectedClass;
+        // Normalización para evitar fallos por espacios o mayúsculas/minúsculas
+        const itemClassClean = (item.item_class || '').trim();
+        const selectedClassClean = (selectedClass || '').trim();
+        
+        let matchesClass = selectedClass === 'All' ? true : itemClassClean === selectedClassClean;
         const matchesGender = selectedGender === 'All' || item.gender === Gender.BOTH || item.gender === selectedGender;
         return matchesFaction && matchesClass && matchesGender;
       }
@@ -100,7 +103,7 @@ const App: React.FC = () => {
     });
   }, [activeTab, selectedFaction, selectedClass, selectedGender, allItems]);
 
-  // Adjust selected class when faction changes for costumes
+  // Sincronizar clase seleccionada al cambiar facción en trajes
   useEffect(() => {
     if (activeTab === 'costumes') {
       setSelectedClass(CLASSES_BY_FACTION[selectedFaction][0]);
@@ -145,14 +148,14 @@ const App: React.FC = () => {
                 <div className="flex flex-col items-center">
                   <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Facción</span>
                   <div className="flex gap-4">
-                    <button onClick={() => setSelectedFaction(Faction.LIGHT)} className={`px-6 py-2 rounded-lg font-bold uppercase text-xs transition-all ${selectedFaction === Faction.LIGHT ? 'bg-blue-600/40 border border-blue-400 text-blue-100' : 'bg-black/40 text-gray-500'}`}>Luz</button>
-                    <button onClick={() => setSelectedFaction(Faction.FURY)} className={`px-6 py-2 rounded-lg font-bold uppercase text-xs transition-all ${selectedFaction === Faction.FURY ? 'bg-red-600/40 border border-red-400 text-red-100' : 'bg-black/40 text-gray-500'}`}>Furia</button>
+                    <button onClick={() => setSelectedFaction(Faction.LIGHT)} className={`px-6 py-2 rounded-lg font-bold uppercase text-xs transition-all ${selectedFaction === Faction.LIGHT ? 'bg-blue-600/40 border border-blue-400 text-blue-100 shadow-[0_0_15px_rgba(37,99,235,0.3)]' : 'bg-black/40 text-gray-500'}`}>Luz</button>
+                    <button onClick={() => setSelectedFaction(Faction.FURY)} className={`px-6 py-2 rounded-lg font-bold uppercase text-xs transition-all ${selectedFaction === Faction.FURY ? 'bg-red-600/40 border border-red-400 text-red-100 shadow-[0_0_15px_rgba(220,38,38,0.3)]' : 'bg-black/40 text-gray-500'}`}>Furia</button>
                   </div>
                 </div>
                 
                 <div className="flex flex-col items-center">
                   <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Clase</span>
-                  <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="bg-black/60 border border-white/10 text-gray-200 p-2 rounded-lg outline-none font-bold uppercase text-[10px] w-48 h-10">
+                  <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="bg-black/60 border border-white/10 text-gray-200 p-2 rounded-lg outline-none font-bold uppercase text-[10px] w-48 h-10 cursor-pointer hover:border-[#d4af37]/50 transition-colors">
                     {(CLASSES_BY_FACTION[selectedFaction] || []).map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>

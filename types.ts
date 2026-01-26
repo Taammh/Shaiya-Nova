@@ -21,7 +21,7 @@ export enum Gender {
 // Map of specific classes for Costumes as requested
 export const CLASSES_BY_FACTION: Record<Faction, string[]> = {
   [Faction.LIGHT]: ['Luchador/Defensor', 'Cura', 'Mago', 'Arquero/Ranger'],
-  [Faction.FURY]: ['Guerrero/Guardian', 'Cazador', 'Asesino', 'Oraculo/Pagano'],
+  [Faction.FURY]: ['War/Guardian', 'Hunter', 'Asesino', 'Oraculo/Pagano'],
   [Faction.NEUTRAL]: []
 };
 

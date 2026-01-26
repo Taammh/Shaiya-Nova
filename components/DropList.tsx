@@ -37,7 +37,9 @@ const DropList: React.FC = () => {
 
   const filteredDrops = drops.filter(d => {
     if (d.category !== filterType) return false;
-    return d.faction === selectedFaction || d.faction === Faction.NEUTRAL;
+    // Si no tiene facción o es neutral, aparece en ambas búsquedas
+    const dropFaction = d.faction || Faction.NEUTRAL;
+    return dropFaction === selectedFaction || dropFaction === Faction.NEUTRAL;
   });
 
   const getRarityBorder = (rarity: ItemRarity) => {
@@ -161,35 +163,39 @@ const DropList: React.FC = () => {
         <div className="text-center py-40 animate-pulse text-[#d4af37] font-shaiya text-3xl uppercase tracking-widest">Consultando pergaminos antiguos...</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
-          {filteredDrops.map(drop => (
-            <div key={drop.id} onClick={() => setSelectedEntity(drop)} className="group cursor-pointer glass-panel rounded-[2.5rem] md:rounded-[3rem] overflow-hidden border border-white/10 hover:border-[#d4af37]/50 transition-all duration-500 shadow-2xl relative">
-              <div className="relative h-64 md:h-80">
-                <img src={drop.image} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c] via-black/20 to-transparent"></div>
-                <div className="absolute bottom-6 left-8"><h3 className="text-3xl md:text-4xl font-shaiya text-white leading-none tracking-wide">{drop.name}</h3></div>
-                
-                {/* Entidades Miniatura */}
-                <div className="absolute top-6 right-6 flex -space-x-3">
-                   {drop.mobs.slice(0, 4).map((mob, idx) => (
-                     <div key={mob.id} className="w-10 h-10 rounded-full border-2 shadow-2xl overflow-hidden bg-black flex-shrink-0" style={{ borderColor: mob.mapColor, zIndex: 10 - idx }}>
-                        <img src={mob.image || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                     </div>
-                   ))}
-                   {drop.mobs.length > 4 && (
-                     <div className="w-10 h-10 rounded-full border-2 border-white/20 bg-black/80 flex items-center justify-center text-white text-[10px] font-black z-0">
-                        +{drop.mobs.length - 4}
-                     </div>
-                   )}
+          {filteredDrops.length === 0 ? (
+             <div className="col-span-full text-center py-20 opacity-30 font-shaiya text-2xl uppercase tracking-widest">No hay registros en esta categoría.</div>
+          ) : (
+            filteredDrops.map(drop => (
+              <div key={drop.id} onClick={() => setSelectedEntity(drop)} className="group cursor-pointer glass-panel rounded-[2.5rem] md:rounded-[3rem] overflow-hidden border border-white/10 hover:border-[#d4af37]/50 transition-all duration-500 shadow-2xl relative">
+                <div className="relative h-64 md:h-80">
+                  <img src={drop.image} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c] via-black/20 to-transparent"></div>
+                  <div className="absolute bottom-6 left-8"><h3 className="text-3xl md:text-4xl font-shaiya text-white leading-none tracking-wide">{drop.name}</h3></div>
+                  
+                  {/* Entidades Miniatura */}
+                  <div className="absolute top-6 right-6 flex -space-x-3">
+                     {drop.mobs.slice(0, 4).map((mob, idx) => (
+                       <div key={mob.id} className="w-10 h-10 rounded-full border-2 shadow-2xl overflow-hidden bg-black flex-shrink-0" style={{ borderColor: mob.mapColor, zIndex: 10 - idx }}>
+                          <img src={mob.image || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                       </div>
+                     ))}
+                     {drop.mobs.length > 4 && (
+                       <div className="w-10 h-10 rounded-full border-2 border-white/20 bg-black/80 flex items-center justify-center text-white text-[10px] font-black z-0">
+                          +{drop.mobs.length - 4}
+                       </div>
+                     )}
+                  </div>
+                </div>
+                <div className="p-8 md:p-10">
+                  <p className="text-gray-500 text-xs md:text-sm italic line-clamp-2 mb-6 md:mb-8">{drop.description}</p>
+                  <div className="flex justify-between items-center border-t border-white/5 pt-6">
+                    <span className="text-[#d4af37] text-[8px] md:text-[10px] font-black uppercase tracking-[3px] group-hover:translate-x-2 transition-transform">EXPLORAR REGISTROS →</span>
+                  </div>
                 </div>
               </div>
-              <div className="p-8 md:p-10">
-                <p className="text-gray-500 text-xs md:text-sm italic line-clamp-2 mb-6 md:mb-8">{drop.description}</p>
-                <div className="flex justify-between items-center border-t border-white/5 pt-6">
-                  <span className="text-[#d4af37] text-[8px] md:text-[10px] font-black uppercase tracking-[3px] group-hover:translate-x-2 transition-transform">EXPLORAR REGISTROS →</span>
-                </div>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       )}
     </div>

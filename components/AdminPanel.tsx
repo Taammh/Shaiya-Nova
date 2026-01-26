@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Category, Faction, CLASSES_BY_FACTION, Gender, StaffApplication, DropMap, MobEntry, DropEntry, MapPoint, ItemRarity, GameItem } from '../types';
-import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting, getStaffApplications, updateStaffApplicationStatus, deleteStaffApplicationFromDB, uploadFile, getDropListsFromDB, addDropListToDB, updateDropListInDB, deleteDropListFromDB } from '../services/supabaseClient';
+import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting, getStaffApplications, updateStaffApplicationStatus, deleteStaffApplicationFromDB, uploadFile, getDropListsFromDB, addDropListToDB, updateDropListInDB, deleteDropListFromDB, getSupabase } from '../services/supabaseClient';
 
 const AdminPanel: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'items' | 'drops' | 'apps' | 'settings'>('items');
@@ -73,17 +73,38 @@ const AdminPanel: React.FC = () => {
 
   useEffect(() => { loadData(); loadConfig(); }, [activeSubTab]);
 
+  const handleMigrateToCloud = async () => {
+    const { isPlaceholder, client } = getSupabase();
+    if (isPlaceholder) return alert("Primero debes configurar y guardar las llaves de Supabase.");
+    
+    setIsSaving(true);
+    try {
+      const localItems = JSON.parse(localStorage.getItem('nova_local_items') || '[]');
+      const localDrops = JSON.parse(localStorage.getItem('nova_local_drops') || '[]');
+
+      if (localItems.length > 0) {
+        await client.from('items').upsert(localItems);
+      }
+      if (localDrops.length > 0) {
+        await client.from('drop_lists').upsert(localDrops);
+      }
+      
+      alert(`¡MIGRACIÓN COMPLETADA! Se han subido ${localItems.length} items y ${localDrops.length} drops a la nube.`);
+      loadData();
+    } catch (err: any) {
+      alert("Error en migración: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const generateMasterLink = () => {
-    // Solo enviamos la configuración (URL, KEY, etc) para que el link sea corto.
-    // Los datos se cargarán automáticamente desde la nueva base de datos vinculada.
-    const syncObj = { 
-      config: config
-    };
+    const syncObj = { config: config };
     const jsonStr = JSON.stringify(syncObj);
     const safeBase64 = btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode(parseInt(p1, 16))));
     const url = `${window.location.origin}${window.location.pathname}?sync=${encodeURIComponent(safeBase64)}`;
     navigator.clipboard.writeText(url);
-    alert("¡LINK MAESTRO GENERADO! Se han sincronizado las llaves de acceso. Al abrirlo en otro dispositivo, este se conectará a la misma base de datos y cargará todo automáticamente.");
+    alert("¡LINK MAESTRO GENERADO! Se han sincronizado las llaves de acceso. Al abrirlo en otro dispositivo, este se conectará a la misma base de datos.");
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
@@ -359,21 +380,25 @@ const AdminPanel: React.FC = () => {
 
           <div className="glass-panel p-6 rounded-[2rem] border-white/5">
             <h3 className="text-[#d4af37] font-shaiya text-xl mb-6 uppercase">Historial de Drop Lists</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {dropsList.map(drop => (
-                <div key={drop.id} className="bg-black/60 border border-white/5 rounded-[1.5rem] overflow-hidden group hover:border-[#d4af37]/30 transition-all">
-                  <img src={drop.image} className="w-full h-32 object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
-                  <div className="p-4">
-                    <h4 className="text-white font-shaiya text-lg mb-1">{drop.name}</h4>
-                    <p className="text-gray-500 text-[9px] uppercase font-black tracking-widest">{drop.category} • {drop.faction}</p>
-                    <div className="flex justify-between mt-4">
-                       <button onClick={() => { setNewDrop(drop); setEditingId(drop.id); window.scrollTo({top:0, behavior:'smooth'}); }} className="text-[#d4af37] font-black text-[10px] hover:underline">EDITAR</button>
-                       <button onClick={() => { if(confirm('¿Eliminar?')) deleteDropListFromDB(drop.id).then(loadData); }} className="text-red-500 font-black text-[10px] hover:underline">BORRAR</button>
+            {dropsList.length === 0 ? (
+               <div className="text-center py-10 opacity-40 uppercase text-xs tracking-widest">No hay registros guardados.</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {dropsList.map(drop => (
+                  <div key={drop.id} className="bg-black/60 border border-white/5 rounded-[1.5rem] overflow-hidden group hover:border-[#d4af37]/30 transition-all">
+                    <img src={drop.image} className="w-full h-32 object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
+                    <div className="p-4">
+                      <h4 className="text-white font-shaiya text-lg mb-1">{drop.name}</h4>
+                      <p className="text-gray-500 text-[9px] uppercase font-black tracking-widest">{drop.category} • {drop.faction}</p>
+                      <div className="flex justify-between mt-4">
+                         <button onClick={() => { setNewDrop(drop); setEditingId(drop.id); window.scrollTo({top:0, behavior:'smooth'}); }} className="text-[#d4af37] font-black text-[10px] hover:underline">EDITAR</button>
+                         <button onClick={() => { if(confirm('¿Eliminar?')) deleteDropListFromDB(drop.id).then(loadData); }} className="text-red-500 font-black text-[10px] hover:underline">BORRAR</button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -423,13 +448,26 @@ const AdminPanel: React.FC = () => {
             <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Sincronización de Reino</h3>
             <button onClick={generateMasterLink} className="w-full bg-[#d4af37] text-black font-black py-4 rounded-xl uppercase tracking-widest text-[10px] shadow-lg hover:brightness-110">Generar Link Maestro (Sincronizar)</button>
             <p className="text-[8px] text-gray-500 uppercase text-center tracking-widest">Este link solo sincroniza las llaves de acceso. Los datos se cargarán de Supabase.</p>
+            
+            <div className="pt-4 border-t border-white/5">
+               <button onClick={handleMigrateToCloud} disabled={isSaving} className="w-full bg-blue-600/20 text-blue-400 border border-blue-500/30 font-black py-4 rounded-xl uppercase tracking-widest text-[10px] hover:bg-blue-600 hover:text-white transition-all">
+                  {isSaving ? 'Migrando...' : 'Migrar Datos Locales a Supabase'}
+               </button>
+               <p className="text-[7px] text-gray-500 mt-2 text-center uppercase">Usa esto si tienes datos guardados antes de conectar Supabase.</p>
+            </div>
           </div>
 
           <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-6">
             <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Supabase Connect</h3>
-            <input placeholder="Supabase URL" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.SUPABASE_URL} onChange={e => saveSetting('SUPABASE_URL', e.target.value)} />
-            <input placeholder="Supabase Key" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.SUPABASE_ANON_KEY} onChange={e => saveSetting('SUPABASE_ANON_KEY', e.target.value)} />
-            <input placeholder="Gemini API Key" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.API_KEY} onChange={e => saveSetting('API_KEY', e.target.value)} />
+            <input placeholder="Supabase URL" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.SUPABASE_URL} onChange={e => setConfig({...config, SUPABASE_URL: e.target.value})} />
+            <input placeholder="Supabase Key" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.SUPABASE_ANON_KEY} onChange={e => setConfig({...config, SUPABASE_ANON_KEY: e.target.value})} />
+            <input placeholder="Gemini API Key" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.API_KEY} onChange={e => setConfig({...config, API_KEY: e.target.value})} />
+            <button onClick={async () => {
+              await saveSetting('SUPABASE_URL', config.SUPABASE_URL);
+              await saveSetting('SUPABASE_ANON_KEY', config.SUPABASE_ANON_KEY);
+              await saveSetting('API_KEY', config.API_KEY);
+              alert("Configuración guardada.");
+            }} className="w-full bg-white text-black font-black py-3 rounded-xl uppercase text-[10px]">Guardar Llaves</button>
           </div>
 
           <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-6 md:col-span-2">
@@ -438,24 +476,16 @@ const AdminPanel: React.FC = () => {
               <div className="space-y-4">
                 <label className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest block">Logo Principal</label>
                 <div className="flex gap-2">
-                  <input placeholder="URL Logo" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.SITE_LOGO_URL} onChange={e => saveSetting('SITE_LOGO_URL', e.target.value)} />
+                  <input placeholder="URL Logo" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.SITE_LOGO_URL} onChange={e => setConfig({...config, SITE_LOGO_URL: e.target.value})} />
                   <button onClick={() => logoFileRef.current?.click()} className="bg-white/10 text-white px-4 rounded-xl font-black text-[10px] border border-white/5">SUBIR</button>
                 </div>
               </div>
               <div className="space-y-4">
                 <label className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest block">Fondo del Reino</label>
                 <div className="flex gap-2">
-                  <input placeholder="URL Fondo" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.SITE_BG_URL} onChange={e => saveSetting('SITE_BG_URL', e.target.value)} />
+                  <input placeholder="URL Fondo" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.SITE_BG_URL} onChange={e => setConfig({...config, SITE_BG_URL: e.target.value})} />
                   <button onClick={() => bgFileRef.current?.click()} className="bg-white/10 text-white px-4 rounded-xl font-black text-[10px] border border-white/5">SUBIR</button>
                 </div>
-              </div>
-              <div className="space-y-4">
-                <label className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest block">Webhook Soporte</label>
-                <input placeholder="Discord Webhook URL" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.NOVA_WEBHOOK_URL} onChange={e => saveSetting('NOVA_WEBHOOK_URL', e.target.value)} />
-              </div>
-              <div className="space-y-4">
-                <label className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest block">Webhook Postulaciones</label>
-                <input placeholder="Discord Webhook URL" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.NOVA_STAFF_APP_WEBHOOK} onChange={e => saveSetting('NOVA_STAFF_APP_WEBHOOK', e.target.value)} />
               </div>
             </div>
           </div>

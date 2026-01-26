@@ -30,7 +30,7 @@ const AdminPanel: React.FC = () => {
   });
 
   const [newDrop, setNewDrop] = useState<Partial<DropMap>>({
-    name: '', category: 'Mapa', image: '', description: '', mobs: []
+    name: '', category: 'Mapa', faction: Faction.LIGHT, image: '', description: '', mobs: []
   });
 
   const [config, setConfig] = useState({
@@ -171,14 +171,13 @@ const AdminPanel: React.FC = () => {
     try {
       if (editingId) await updateDropListInDB({ ...newDrop, id: editingId } as DropMap);
       else await addDropListToDB(newDrop);
-      setNewDrop({ name: '', category: 'Mapa', image: '', description: '', mobs: [] });
+      setNewDrop({ name: '', category: 'Mapa', faction: Faction.LIGHT, image: '', description: '', mobs: [] });
       setEditingId(null);
       loadData();
     } catch { alert('Error.'); }
     finally { setIsSaving(false); }
   };
 
-  // Fix: Added missing handleMapClick function to allow marking locations on the map
   const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (activeMobIdx === null) return alert("Selecciona una entidad del bestiario primero para marcar su posición.");
     const rect = e.currentTarget.getBoundingClientRect();
@@ -195,7 +194,6 @@ const AdminPanel: React.FC = () => {
     });
   };
 
-  // Fix: Added missing addMob function to allow adding new entities to the map's bestiary
   const addMob = () => {
     const mob: MobEntry = {
       id: `mob-${Date.now()}`,
@@ -213,7 +211,6 @@ const AdminPanel: React.FC = () => {
     setActiveMobIdx(newDrop.mobs?.length || 0);
   };
 
-  // Fix: Added missing addDropToMob function to allow adding loot items to a specific mob
   const addDropToMob = (mIdx: number) => {
     const newDropEntry: DropEntry = {
       itemName: 'Nuevo Item',
@@ -345,10 +342,21 @@ const AdminPanel: React.FC = () => {
                 <div className="space-y-4">
                   <h3 className="text-white text-[10px] font-black uppercase tracking-[4px] ml-2">Configuración Base</h3>
                   <input placeholder="Nombre (Ej: Pantano Infernal)" className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none focus:border-[#d4af37]" value={newDrop.name} onChange={e => setNewDrop({...newDrop, name: e.target.value})} />
-                  <select className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none cursor-pointer" value={newDrop.category} onChange={e => setNewDrop({...newDrop, category: e.target.value as any})}>
-                    <option value="Mapa">Tipo: Mapa / Región</option>
-                    <option value="Boss">Tipo: Jefe / Boss</option>
-                  </select>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none cursor-pointer" value={newDrop.category} onChange={e => setNewDrop({...newDrop, category: e.target.value as any})}>
+                      <option value="Mapa">Tipo: Mapa / Región</option>
+                      <option value="Boss">Tipo: Jefe / Boss</option>
+                    </select>
+                    {newDrop.category === 'Mapa' && (
+                      <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none cursor-pointer" value={newDrop.faction} onChange={e => setNewDrop({...newDrop, faction: e.target.value as any})}>
+                        <option value={Faction.LIGHT}>Fación: Luz</option>
+                        <option value={Faction.FURY}>Fación: Furia</option>
+                        <option value={Faction.NEUTRAL}>Fación: Ambas (Neutral)</option>
+                      </select>
+                    )}
+                  </div>
+
                   <div className="flex gap-4">
                     <input placeholder="Imagen URL del Mapa" className="flex-grow bg-black/60 border border-white/10 p-5 rounded-2xl text-white text-xs" value={newDrop.image} onChange={e => setNewDrop({...newDrop, image: e.target.value})} />
                     <button onClick={() => dropFileRef.current?.click()} className="bg-[#d4af37] text-black px-6 rounded-2xl font-black uppercase text-[10px] hover:bg-white transition-all shadow-lg">Subir</button>

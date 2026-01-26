@@ -68,6 +68,7 @@ export interface DropMap {
   id: string;
   name: string;
   category: 'Mapa' | 'Boss';
+  faction?: Faction; // Nuevo campo para filtrar por facción
   image: string;
   description: string;
   mobs: MobEntry[];

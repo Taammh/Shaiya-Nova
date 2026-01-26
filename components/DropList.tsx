@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { DropMap, MobEntry, DropEntry, Faction } from '../types';
+import { DropMap, MobEntry, DropEntry, Faction, ItemRarity } from '../types';
 import { getDropListsFromDB, getSetting } from '../services/supabaseClient';
 
 const DropList: React.FC = () => {
@@ -9,7 +9,7 @@ const DropList: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [mainView, setMainView] = useState<'selection' | 'list'>('selection');
   const [filterType, setFilterType] = useState<'Mapa' | 'Boss'>('Mapa');
-  const [selectedFaction, setSelectedFaction] = useState<Faction>(Faction.LIGHT); // Default filter for maps
+  const [selectedFaction, setSelectedFaction] = useState<Faction>(Faction.LIGHT); 
   
   const [portalBgs, setPortalBgs] = useState({
     map: 'https://media.discordapp.net/attachments/1460068773175492641/1460108918108852366/img_81.jpg',
@@ -41,18 +41,22 @@ const DropList: React.FC = () => {
     setMainView('list');
   };
 
-  // Improved filtering logic for Faction
   const filteredDrops = drops.filter(d => {
     if (d.category !== filterType) return false;
-    
-    // Only apply faction filter for "Mapa" category
-    if (filterType === 'Mapa') {
-      // Show map if it's the specific faction OR if it's Neutral/Both
-      return d.faction === selectedFaction || d.faction === Faction.NEUTRAL;
-    }
-    
-    return true; // Bosses are usually neutral/accessible to all in this context
+    // Show map/boss if it matches faction OR if it's Neutral/Both
+    return d.faction === selectedFaction || d.faction === Faction.NEUTRAL;
   });
+
+  const getRarityColor = (rarity: ItemRarity) => {
+    switch (rarity) {
+      case 'Noble': return 'border-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.3)]';
+      case 'Atroz': return 'border-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.3)]';
+      case 'Legendary': return 'border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]';
+      case 'Diosa': return 'border-[#d4af37] shadow-[0_0_10px_rgba(212,175,55,0.3)]';
+      case 'Special': return 'border-transparent bg-gradient-to-r from-orange-500 to-purple-600 bg-clip-border shadow-[0_0_15px_rgba(249,115,22,0.4)]';
+      default: return 'border-white/20 shadow-none'; // Common
+    }
+  };
 
   if (selectedEntity) {
     return (
@@ -87,8 +91,8 @@ const DropList: React.FC = () => {
                 <h2 className="text-4xl font-shaiya text-[#d4af37]">{selectedEntity.name}</h2>
                 {selectedEntity.faction && (
                    <span className={`px-4 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${
-                     selectedEntity.faction === Faction.LIGHT ? 'bg-blue-600/20 border-blue-500/30 text-blue-400' :
-                     selectedEntity.faction === Faction.FURY ? 'bg-red-600/20 border-red-500/30 text-red-400' : 'bg-gray-600/20 border-white/10 text-gray-400'
+                     selectedEntity.faction === Faction.LIGHT ? 'bg-blue-600/20 border-blue-500/30 text-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.2)]' :
+                     selectedEntity.faction === Faction.FURY ? 'bg-red-600/20 border-red-500/30 text-red-400 shadow-[0_0_10px_rgba(220,38,38,0.2)]' : 'bg-gray-600/20 border-white/10 text-gray-400'
                    }`}>
                      {selectedEntity.faction === Faction.NEUTRAL ? 'Neutral / PVP' : `Facción: ${selectedEntity.faction}`}
                    </span>
@@ -118,29 +122,35 @@ const DropList: React.FC = () => {
         <div className="space-y-10 pt-10 border-t border-white/5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {selectedEntity.mobs.map((mob) => (
-              <div key={mob.id} className="glass-panel rounded-[2.5rem] overflow-hidden border border-white/10">
+              <div key={mob.id} className="glass-panel rounded-[2.5rem] overflow-hidden border border-white/10 shadow-xl">
                 <div className="flex p-6 gap-6 bg-white/5 border-b border-white/5">
                   <div className="relative">
                      <img src={mob.image} className="w-28 h-28 rounded-2xl object-cover border-2 border-white/10 shadow-2xl" />
                      <div className="absolute -bottom-2 -right-2 w-6 h-6 rounded-full border-2 border-white" style={{ backgroundColor: mob.mapColor }}></div>
                   </div>
                   <div className="flex-grow flex flex-col justify-center">
-                    <h3 className="text-3xl font-shaiya text-white">{mob.name}</h3>
-                    <span className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest mt-1">Nivel {mob.level}</span>
+                    <h3 className="text-3xl font-shaiya text-white leading-none">{mob.name}</h3>
+                    <span className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest mt-2">Nivel {mob.level}</span>
                   </div>
                 </div>
                 <div className="p-6">
-                  <div className="grid grid-cols-1 gap-3">
+                  <div className="grid grid-cols-1 gap-4">
                     {mob.drops.map((drop, dIdx) => (
                       <div key={dIdx} className="flex items-center gap-4 bg-black/60 p-3 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group">
-                        <div className="w-12 h-12 rounded-xl bg-black/80 flex items-center justify-center p-1 border border-white/10 group-hover:border-[#d4af37]/50 transition-colors">
+                        <div className={`w-14 h-14 rounded-xl bg-black/80 flex items-center justify-center p-1 border-2 transition-all group-hover:scale-105 ${getRarityColor(drop.rarity)}`}>
                            <img src={drop.itemImage || "https://api.dicebear.com/7.x/pixel-art/svg?seed=item"} className="w-full h-full object-contain" />
                         </div>
                         <div className="flex-grow">
-                          <p className="text-gray-200 text-sm font-bold">{drop.itemName}</p>
-                          <p className="text-gray-500 text-[8px] font-black uppercase tracking-tighter">{drop.rarity}</p>
+                          <p className="text-gray-200 text-sm font-bold uppercase tracking-tight">{drop.itemName}</p>
+                          <p className={`text-[8px] font-black uppercase tracking-widest ${
+                            drop.rarity === 'Noble' ? 'text-sky-400' :
+                            drop.rarity === 'Atroz' ? 'text-blue-500' :
+                            drop.rarity === 'Legendary' ? 'text-green-500' :
+                            drop.rarity === 'Diosa' ? 'text-[#d4af37]' :
+                            drop.rarity === 'Special' ? 'text-orange-500' : 'text-gray-500'
+                          }`}>{drop.rarity}</p>
                         </div>
-                        <div className="px-4 py-1 bg-[#d4af37]/10 rounded-lg border border-[#d4af37]/20">
+                        <div className="px-5 py-2 bg-black/80 rounded-xl border border-white/10 shadow-inner">
                            <span className="text-[#d4af37] font-mono font-black text-xs">{drop.rate}</span>
                         </div>
                       </div>
@@ -216,26 +226,24 @@ const DropList: React.FC = () => {
             <button onClick={() => setFilterType('Boss')} className={`px-8 py-3 rounded-xl text-xs font-black uppercase transition-all ${filterType === 'Boss' ? 'bg-[#d4af37] text-black shadow-lg shadow-[#d4af37]/20' : 'text-gray-500 hover:text-white'}`}>Bosses</button>
           </div>
 
-          {filterType === 'Mapa' && (
-            <div className="flex gap-4 animate-fade-in">
-              <button 
-                onClick={() => setSelectedFaction(Faction.LIGHT)} 
-                className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${
-                  selectedFaction === Faction.LIGHT ? 'bg-blue-600/40 border-blue-400 text-blue-100 shadow-[0_0_15px_rgba(37,99,235,0.3)]' : 'bg-black/40 border-white/5 text-gray-500 hover:text-blue-400'
-                }`}
-              >
-                Luz
-              </button>
-              <button 
-                onClick={() => setSelectedFaction(Faction.FURY)} 
-                className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${
-                  selectedFaction === Faction.FURY ? 'bg-red-600/40 border-red-400 text-red-100 shadow-[0_0_15px_rgba(220,38,38,0.3)]' : 'bg-black/40 border-white/5 text-gray-500 hover:text-red-400'
-                }`}
-              >
-                Furia
-              </button>
-            </div>
-          )}
+          <div className="flex gap-4 animate-fade-in">
+            <button 
+              onClick={() => setSelectedFaction(Faction.LIGHT)} 
+              className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${
+                selectedFaction === Faction.LIGHT ? 'bg-blue-600/40 border-blue-400 text-blue-100 shadow-[0_0_15px_rgba(37,99,235,0.3)]' : 'bg-black/40 border-white/5 text-gray-500 hover:text-blue-400'
+              }`}
+            >
+              Luz
+            </button>
+            <button 
+              onClick={() => setSelectedFaction(Faction.FURY)} 
+              className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${
+                selectedFaction === Faction.FURY ? 'bg-red-600/40 border-red-400 text-red-100 shadow-[0_0_15px_rgba(220,38,38,0.3)]' : 'bg-black/40 border-white/5 text-gray-500 hover:text-red-400'
+              }`}
+            >
+              Furia
+            </button>
+          </div>
         </div>
       </div>
 
@@ -255,7 +263,7 @@ const DropList: React.FC = () => {
                 <div className="absolute bottom-10 left-10">
                   <div className="flex gap-2 items-center mb-2">
                     <span className="text-[#d4af37] text-[10px] font-black uppercase tracking-[6px] opacity-70">{drop.category}</span>
-                    {drop.category === 'Mapa' && drop.faction === Faction.NEUTRAL && (
+                    {drop.faction === Faction.NEUTRAL && (
                       <span className="text-gray-400 text-[8px] font-bold uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded border border-white/10">Neutral</span>
                     )}
                   </div>
@@ -275,7 +283,7 @@ const DropList: React.FC = () => {
                       <div className="w-10 h-10 rounded-full border-2 border-[#0a0a0c] bg-gray-800 flex items-center justify-center text-[9px] font-bold text-white">+{drop.mobs.length - 3}</div>
                     )}
                   </div>
-                  <span className="text-[#d4af37] text-[10px] font-black uppercase tracking-[4px] group-hover:translate-x-3 transition-transform">Ver Mapa →</span>
+                  <span className="text-[#d4af37] text-[10px] font-black uppercase tracking-[4px] group-hover:translate-x-3 transition-transform">Ver {filterType} →</span>
                 </div>
               </div>
             </div>

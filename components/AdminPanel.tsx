@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Category, Faction, GameItem, CLASSES_BY_FACTION, Gender, StaffApplication, DropMap, MobEntry, DropEntry, MapPoint } from '../types';
+import { Category, Faction, GameItem, CLASSES_BY_FACTION, Gender, StaffApplication, DropMap, MobEntry, DropEntry, MapPoint, ItemRarity } from '../types';
 import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting, getStaffApplications, updateStaffApplicationStatus, pushLocalItemsToCloud, deleteStaffApplicationFromDB, uploadFile, getDropListsFromDB, addDropListToDB, updateDropListInDB, deleteDropListFromDB } from '../services/supabaseClient';
 
 const AdminPanel: React.FC = () => {
@@ -335,13 +335,11 @@ const AdminPanel: React.FC = () => {
                       <option value="Mapa">Tipo: Mapa / Región</option>
                       <option value="Boss">Tipo: Jefe / Boss</option>
                     </select>
-                    {newDrop.category === 'Mapa' && (
-                      <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none cursor-pointer" value={newDrop.faction} onChange={e => setNewDrop({...newDrop, faction: e.target.value as any})}>
-                        <option value={Faction.LIGHT}>Fación: Luz</option>
-                        <option value={Faction.FURY}>Fación: Furia</option>
-                        <option value={Faction.NEUTRAL}>Fación: Ambas (Neutral)</option>
-                      </select>
-                    )}
+                    <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none cursor-pointer" value={newDrop.faction} onChange={e => setNewDrop({...newDrop, faction: e.target.value as any})}>
+                      <option value={Faction.LIGHT}>Fación: Luz</option>
+                      <option value={Faction.FURY}>Fación: Furia</option>
+                      <option value={Faction.NEUTRAL}>Fación: Ambas (Neutral)</option>
+                    </select>
                   </div>
                   <div className="flex gap-4">
                     <input placeholder="Imagen URL del Mapa" className="flex-grow bg-black/60 border border-white/10 p-5 rounded-2xl text-white text-xs" value={newDrop.image} onChange={e => setNewDrop({...newDrop, image: e.target.value})} />
@@ -411,22 +409,36 @@ const AdminPanel: React.FC = () => {
                           </div>
                           <div className="space-y-2">
                             {mob.drops.map((drop, dIdx) => (
-                              <div key={dIdx} className="bg-black/60 p-3 rounded-2xl border border-white/5 flex items-center gap-3 group/dropentry">
-                                <div className="w-10 h-10 bg-black/80 rounded-lg border border-white/10 flex items-center justify-center overflow-hidden cursor-pointer relative group/dropimg" onClick={(e) => { e.stopPropagation(); setUploadTarget({mobIdx: mIdx, dropIdx: dIdx}); dropItemFileRef.current?.click(); }}>
-                                  {drop.itemImage ? <img src={drop.itemImage} className="w-full h-full object-contain" /> : <span className="text-[6px] text-gray-700">FOTO</span>}
-                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/dropimg:opacity-100 flex items-center justify-center text-[6px] text-white">SUBIR</div>
+                              <div key={dIdx} className="bg-black/60 p-3 rounded-2xl border border-white/5 flex flex-col gap-3 group/dropentry">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 bg-black/80 rounded-lg border border-white/10 flex items-center justify-center overflow-hidden cursor-pointer relative group/dropimg" onClick={(e) => { e.stopPropagation(); setUploadTarget({mobIdx: mIdx, dropIdx: dIdx}); dropItemFileRef.current?.click(); }}>
+                                    {drop.itemImage ? <img src={drop.itemImage} className="w-full h-full object-contain" /> : <span className="text-[6px] text-gray-700">FOTO</span>}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/dropimg:opacity-100 flex items-center justify-center text-[6px] text-white">SUBIR</div>
+                                  </div>
+                                  <input placeholder="Nombre Item" className="flex-grow bg-transparent border-none text-white text-xs outline-none font-bold" value={drop.itemName} onChange={e => {
+                                     const mobs = [...(newDrop.mobs || [])];
+                                     mobs[mIdx].drops[dIdx].itemName = e.target.value;
+                                     setNewDrop({...newDrop, mobs});
+                                  }} />
+                                  <input placeholder="%" className="w-16 bg-black/40 border border-white/5 rounded-lg p-2 text-[#d4af37] text-[10px] text-center" value={drop.rate} onChange={e => {
+                                     const mobs = [...(newDrop.mobs || [])];
+                                     mobs[mIdx].drops[dIdx].rate = e.target.value;
+                                     setNewDrop({...newDrop, mobs});
+                                  }} />
+                                  <button onClick={(e) => { e.stopPropagation(); const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops.splice(dIdx, 1); setNewDrop({...newDrop, mobs: ms}); }} className="text-red-500/30 hover:text-red-500 text-[10px]">✕</button>
                                 </div>
-                                <input placeholder="Nombre Item" className="flex-grow bg-transparent border-none text-white text-xs outline-none font-bold" value={drop.itemName} onChange={e => {
+                                <select className="w-full bg-black/40 border border-white/10 p-2 rounded-xl text-white text-[10px] outline-none" value={drop.rarity} onChange={e => {
                                    const mobs = [...(newDrop.mobs || [])];
-                                   mobs[mIdx].drops[dIdx].itemName = e.target.value;
+                                   mobs[mIdx].drops[dIdx].rarity = e.target.value as ItemRarity;
                                    setNewDrop({...newDrop, mobs});
-                                }} />
-                                <input placeholder="%" className="w-16 bg-black/40 border border-white/5 rounded-lg p-2 text-[#d4af37] text-[10px] text-center" value={drop.rate} onChange={e => {
-                                   const mobs = [...(newDrop.mobs || [])];
-                                   mobs[mIdx].drops[dIdx].rate = e.target.value;
-                                   setNewDrop({...newDrop, mobs});
-                                }} />
-                                <button onClick={(e) => { e.stopPropagation(); const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops.splice(dIdx, 1); setNewDrop({...newDrop, mobs: ms}); }} className="text-red-500/30 hover:text-red-500 text-[10px]">✕</button>
+                                }}>
+                                  <option value="Common">Rareza: Común</option>
+                                  <option value="Noble">Rareza: Noble</option>
+                                  <option value="Atroz">Rareza: Atroz</option>
+                                  <option value="Legendary">Rareza: Legendario</option>
+                                  <option value="Diosa">Rareza: Diosa</option>
+                                  <option value="Special">Rareza: Especial</option>
+                                </select>
                               </div>
                             ))}
                           </div>

@@ -47,11 +47,13 @@ export interface MapPoint {
   label: string;
 }
 
+export type ItemRarity = 'Common' | 'Noble' | 'Atroz' | 'Legendary' | 'Diosa' | 'Special';
+
 export interface DropEntry {
   itemName: string;
   itemImage: string;
   rate: string;
-  rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary';
+  rarity: ItemRarity;
 }
 
 export interface MobEntry {
@@ -68,7 +70,7 @@ export interface DropMap {
   id: string;
   name: string;
   category: 'Mapa' | 'Boss';
-  faction?: Faction; // Nuevo campo para filtrar por facción
+  faction?: Faction; 
   image: string;
   description: string;
   mobs: MobEntry[];

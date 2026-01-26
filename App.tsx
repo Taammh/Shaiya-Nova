@@ -41,28 +41,56 @@ const App: React.FC = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const rawSyncData = urlParams.get('sync');
-    const isZlib = urlParams.get('z') === '1';
+    const syncVersion = urlParams.get('z');
     
     if (rawSyncData) {
       try {
-        let decodedData: any;
+        let decoded: any;
         const decodedUri = decodeURIComponent(rawSyncData);
         
-        if (isZlib) {
-          // PROCESAR LINK COMPRIMIDO
+        if (syncVersion === '2') {
+          // PROCESAR LINK ULTRA-COMPACTO V2
           const binary = atob(decodedUri);
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i++) {
             bytes[i] = binary.charCodeAt(i);
           }
           const decompressed = unzlibSync(bytes);
-          decodedData = JSON.parse(strFromU8(decompressed));
+          const rawObj = JSON.parse(strFromU8(decompressed));
+          
+          // MAPEO DE RETORNO (V2)
+          decoded = {
+            webhookSupport: rawObj.w1,
+            webhookApps: rawObj.w2,
+            webhookWelcome: rawObj.w3,
+            clientId: rawObj.ci,
+            botToken: rawObj.bt,
+            guildId: rawObj.gi,
+            roleGs: rawObj.r1,
+            roleLgs: rawObj.r2,
+            roleGm: rawObj.r3,
+            siteLogo: rawObj.sl,
+            siteBg: rawObj.sb,
+            mapPortalBg: rawObj.mp,
+            bossPortalBg: rawObj.bp,
+            supabaseUrl: rawObj.su,
+            supabaseKey: rawObj.sk,
+            localItems: rawObj.li,
+            localDrops: rawObj.ld
+          };
+        } else if (syncVersion === '1') {
+          // LEGACY ZLIB V1
+          const binary = atob(decodedUri);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          const decompressed = unzlibSync(bytes);
+          decoded = JSON.parse(strFromU8(decompressed));
         } else {
-          // PROCESAR LINK LEGACY (Solo Base64)
-          decodedData = JSON.parse(decodeURIComponent(escape(atob(decodedUri))));
+          // LEGACY BASE64
+          decoded = JSON.parse(decodeURIComponent(escape(atob(decodedUri))));
         }
-        
-        const decoded = decodedData;
         
         // Sincronizar Ajustes Críticos
         if (decoded.webhookSupport) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', decoded.webhookSupport);
@@ -90,11 +118,11 @@ const App: React.FC = () => {
         }
 
         window.history.replaceState({}, document.title, window.location.pathname);
-        alert("¡EL REINO HA SIDO SINCRONIZADO! Los datos comprimidos se han restaurado correctamente.");
+        alert("¡EL REINO HA SIDO SINCRONIZADO! Historial restaurado con éxito.");
         window.location.reload(); 
       } catch (e) {
-        console.error("Fallo en el ritual de sincronización (Posible URL truncada o corrupta):", e);
-        alert("Error de sincronización. Asegúrate de que el enlace sea completo.");
+        console.error("Fallo en la sincronización:", e);
+        alert("Error de sincronización. Asegúrate de copiar el enlace completo.");
       }
     }
 

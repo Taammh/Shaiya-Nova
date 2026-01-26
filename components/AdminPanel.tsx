@@ -256,35 +256,53 @@ const AdminPanel: React.FC = () => {
     setActiveMobIdx(mIdx);
   };
 
+  // Función de ayuda para convertir Uint8Array a Base64 sin problemas de stack
+  const uint8ToBase64 = (u8: Uint8Array): string => {
+    let bin = '';
+    const len = u8.length;
+    for (let i = 0; i < len; i++) {
+      bin += String.fromCharCode(u8[i]);
+    }
+    return btoa(bin);
+  };
+
   const generateMasterLink = () => {
-    const localItemsStr = localStorage.getItem('nova_local_items');
-    const localDropsStr = localStorage.getItem('nova_local_drops');
+    const li = localStorage.getItem('nova_local_items');
+    const ld = localStorage.getItem('nova_local_drops');
     
-    const dataToSync = { 
-      ...config,
-      localItems: localItemsStr ? JSON.parse(localItemsStr) : [],
-      localDrops: localDropsStr ? JSON.parse(localDropsStr) : []
+    // MAPEADO DE LLAVES PARA MÁXIMA REDUCCIÓN DE TAMAÑO
+    const compactData = { 
+      w1: config.webhookSupport,
+      w2: config.webhookApps,
+      w3: config.webhookWelcome,
+      ci: config.clientId,
+      bt: config.botToken,
+      gi: config.guildId,
+      r1: config.roleGs,
+      r2: config.roleLgs,
+      r3: config.roleGm,
+      sl: config.siteLogo,
+      sb: config.siteBg,
+      mp: config.mapPortalBg,
+      bp: config.bossPortalBg,
+      su: config.supabaseUrl,
+      sk: config.supabaseKey,
+      li: li ? JSON.parse(li) : [],
+      ld: ld ? JSON.parse(ld) : []
     };
     
-    const jsonStr = JSON.stringify(dataToSync);
+    const jsonStr = JSON.stringify(compactData);
     
-    // COMPRESIÓN PARA COMPATIBILIDAD CON ACORTADORES
     try {
       const compressed = zlibSync(strToU8(jsonStr), { level: 9 });
-      // Convertir Uint8Array a Base64 de forma segura
-      const base64 = btoa(String.fromCharCode.apply(null, Array.from(compressed)));
-      // Codificar para URL
-      const url = `${window.location.origin}${window.location.pathname}?sync=${encodeURIComponent(base64)}&z=1`;
+      const base64 = uint8ToBase64(compressed);
+      const url = `${window.location.origin}${window.location.pathname}?sync=${encodeURIComponent(base64)}&z=2`;
       
       navigator.clipboard.writeText(url);
-      alert("¡LINK MAESTRO OPTIMIZADO! Ahora es mucho más corto y compatible con acortadores de URL.");
+      alert("¡LINK MAESTRO ULTRA-COMPACTO! Compatible con todos los acortadores.");
     } catch (e) {
       console.error("Fallo de compresión:", e);
-      // Fallback a base64 normal si falla fflate
-      const fallback = btoa(unescape(encodeURIComponent(jsonStr)));
-      const url = `${window.location.origin}${window.location.pathname}?sync=${encodeURIComponent(fallback)}`;
-      navigator.clipboard.writeText(url);
-      alert("Link Maestro generado (Sin compresión).");
+      alert("Error al comprimir los datos sagrados.");
     }
   };
 
@@ -594,7 +612,7 @@ const AdminPanel: React.FC = () => {
                         {expandedAppId === app.id ? 'Ocultar Respuestas' : 'Ver Respuestas'}
                       </button>
                       <button onClick={() => updateStaffApplicationStatus(app.id, 'accepted').then(loadData)} className="bg-green-600/20 text-green-500 px-8 py-3 rounded-xl text-[10px] font-black uppercase hover:bg-green-600 transition-all shadow-lg">Aceptar</button>
-                      <button onClick={() => deleteStaffApplicationFromDB(app.id).then(loadData)} className="bg-red-600/20 text-red-500 px-8 py-3 rounded-xl text-[10px] font-black uppercase hover:bg-red-600 transition-all shadow-lg">Borrar</button>
+                      <button onClick={() => deleteStaffApplicationFromDB(app.id).then(loadData)} className="bg-red-600/20 text-red-400 p-2 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-lg">Borrar</button>
                    </div>
                  </div>
                  

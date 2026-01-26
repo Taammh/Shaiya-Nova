@@ -13,15 +13,18 @@ const isValidSupabaseUrl = (url: string) => {
 };
 
 export const getSupabase = (): { client: SupabaseClient, isPlaceholder: boolean } => {
-  const dynamicUrl = localStorage.getItem('nova_setting_SUPABASE_URL');
-  const dynamicKey = localStorage.getItem('nova_setting_SUPABASE_ANON_KEY');
+  // 1. Prioridad Máxima: Variables de Entorno Reales (Vercel)
+  // 2. Prioridad Media: LocalStorage (Sincronización manual)
+  // 3. Fallback: Placeholder
   
   const env = (window as any).process?.env || {};
-  const url = dynamicUrl || env.SUPABASE_URL || '';
-  const key = dynamicKey || env.SUPABASE_ANON_KEY || '';
+  
+  const url = env.SUPABASE_URL || localStorage.getItem('nova_setting_SUPABASE_URL') || '';
+  const key = env.SUPABASE_ANON_KEY || localStorage.getItem('nova_setting_SUPABASE_ANON_KEY') || '';
 
   if (!url || !key || !isValidSupabaseUrl(url)) {
     if (!supabaseInstance) {
+      // Cliente "fantasma" para evitar errores si no hay conexión
       supabaseInstance = createClient('https://xyz.supabase.co', 'dummy-key');
     }
     return { client: supabaseInstance, isPlaceholder: true };
@@ -48,7 +51,7 @@ export const uploadFile = async (file: File, folder: string = 'items'): Promise<
 
   if (error) {
     console.error("Upload error:", error);
-    throw new Error("Error al subir archivo. ¿Creaste el bucket 'nova-assets' en Supabase y lo pusiste público?");
+    throw new Error("Error al subir archivo.");
   }
 
   const { data: { publicUrl } } = client.storage
@@ -75,36 +78,11 @@ const mapItemForDB = (item: any) => {
   };
 };
 
-export const pushLocalItemsToCloud = async () => {
-  const localItemsRaw = localStorage.getItem('nova_local_items');
-  const localDropsRaw = localStorage.getItem('nova_local_drops');
-  
-  const { client, isPlaceholder } = getSupabase();
-  if (isPlaceholder) throw new Error("Portal no conectado a la nube.");
-
-  let count = 0;
-
-  if (localItemsRaw) {
-    const localItems = JSON.parse(localItemsRaw);
-    const itemsToUpload = localItems.map(mapItemForDB);
-    await client.from('items').upsert(itemsToUpload, { onConflict: 'id' });
-    count += localItems.length;
-  }
-
-  if (localDropsRaw) {
-    const localDrops = JSON.parse(localDropsRaw);
-    await client.from('drop_lists').upsert(localDrops, { onConflict: 'id' });
-    count += localDrops.length;
-  }
-
-  return { success: true, count };
-};
-
 export const getItemsFromDB = async () => {
+  const { client, isPlaceholder } = getSupabase();
   const localItemsRaw = localStorage.getItem('nova_local_items');
   const localItems = localItemsRaw ? JSON.parse(localItemsRaw) : [];
-  const { client, isPlaceholder } = getSupabase();
-  
+
   if (isPlaceholder) return localItems;
   
   try {
@@ -117,10 +95,10 @@ export const getItemsFromDB = async () => {
 };
 
 export const getDropListsFromDB = async () => {
+  const { client, isPlaceholder } = getSupabase();
   const localDropsRaw = localStorage.getItem('nova_local_drops');
   const localDrops = localDropsRaw ? JSON.parse(localDropsRaw) : [];
-  const { client, isPlaceholder } = getSupabase();
-  
+
   if (isPlaceholder) return localDrops;
   
   try {
@@ -134,10 +112,6 @@ export const getDropListsFromDB = async () => {
 
 export const addDropListToDB = async (drop: any) => {
   const newDrop = { ...drop, id: drop.id || `drop-${Date.now()}`, created_at: new Date().toISOString() };
-  const localDropsRaw = localStorage.getItem('nova_local_drops');
-  const localDrops = localDropsRaw ? JSON.parse(localDropsRaw) : [];
-  localStorage.setItem('nova_local_drops', JSON.stringify([newDrop, ...localDrops]));
-  
   const { client, isPlaceholder } = getSupabase();
   if (!isPlaceholder) {
     await client.from('drop_lists').insert([newDrop]);
@@ -146,11 +120,6 @@ export const addDropListToDB = async (drop: any) => {
 };
 
 export const updateDropListInDB = async (drop: any) => {
-  const localDropsRaw = localStorage.getItem('nova_local_drops');
-  let localDrops = localDropsRaw ? JSON.parse(localDropsRaw) : [];
-  localDrops = localDrops.map((i: any) => i.id === drop.id ? drop : i);
-  localStorage.setItem('nova_local_drops', JSON.stringify(localDrops));
-  
   const { client, isPlaceholder } = getSupabase();
   if (!isPlaceholder) {
     await client.from('drop_lists').update(drop).eq('id', drop.id);
@@ -159,10 +128,6 @@ export const updateDropListInDB = async (drop: any) => {
 };
 
 export const deleteDropListFromDB = async (id: string) => {
-  const localDropsRaw = localStorage.getItem('nova_local_drops');
-  let localDrops = localDropsRaw ? JSON.parse(localDropsRaw) : [];
-  localStorage.setItem('nova_local_drops', JSON.stringify(localDrops.filter((i: any) => i.id !== id)));
-  
   const { client, isPlaceholder } = getSupabase();
   if (!isPlaceholder) {
     await client.from('drop_lists').delete().eq('id', id);
@@ -171,10 +136,6 @@ export const deleteDropListFromDB = async (id: string) => {
 
 export const addItemToDB = async (item: any) => {
   const newItem = { ...item, id: item.id || `item-${Date.now()}`, created_at: new Date().toISOString() };
-  const localItemsRaw = localStorage.getItem('nova_local_items');
-  const localItems = localItemsRaw ? JSON.parse(localItemsRaw) : [];
-  localStorage.setItem('nova_local_items', JSON.stringify([newItem, ...localItems]));
-  
   const { client, isPlaceholder } = getSupabase();
   if (!isPlaceholder) {
     await client.from('items').insert([mapItemForDB(newItem)]);
@@ -183,11 +144,6 @@ export const addItemToDB = async (item: any) => {
 };
 
 export const updateItemInDB = async (item: any) => {
-  const localItemsRaw = localStorage.getItem('nova_local_items');
-  let localItems = localItemsRaw ? JSON.parse(localItemsRaw) : [];
-  localItems = localItems.map((i: any) => i.id === item.id ? item : i);
-  localStorage.setItem('nova_local_items', JSON.stringify(localItems));
-  
   const { client, isPlaceholder } = getSupabase();
   if (!isPlaceholder) {
     await client.from('items').update(mapItemForDB(item)).eq('id', item.id);
@@ -196,10 +152,6 @@ export const updateItemInDB = async (item: any) => {
 };
 
 export const deleteItemFromDB = async (id: string) => {
-  const localItemsRaw = localStorage.getItem('nova_local_items');
-  let localItems = localItemsRaw ? JSON.parse(localItemsRaw) : [];
-  localStorage.setItem('nova_local_items', JSON.stringify(localItems.filter((i: any) => i.id !== id)));
-  
   const { client, isPlaceholder } = getSupabase();
   if (!isPlaceholder) {
     await client.from('items').delete().eq('id', id);
@@ -235,6 +187,13 @@ export const deleteStaffApplicationFromDB = async (id: string) => {
 };
 
 export const getSetting = async (key: string) => {
+  const env = (window as any).process?.env || {};
+  
+  // Mapeo de llaves de entorno a settings
+  if (key === 'SUPABASE_URL' && env.SUPABASE_URL) return env.SUPABASE_URL;
+  if (key === 'SUPABASE_ANON_KEY' && env.SUPABASE_ANON_KEY) return env.SUPABASE_ANON_KEY;
+  if (key === 'API_KEY' && env.API_KEY) return env.API_KEY;
+
   const localVal = localStorage.getItem(`nova_setting_${key}`);
   if (localVal) return localVal;
   

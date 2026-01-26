@@ -10,6 +10,7 @@ interface ItemCardProps {
 const ItemCard: React.FC<ItemCardProps> = ({ item }) => {
   const [lore, setLore] = useState<string | null>(null);
   const [isLoadingLore, setIsLoadingLore] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   const handleRevealLore = async () => {
     if (lore) return;
@@ -40,12 +41,20 @@ const ItemCard: React.FC<ItemCardProps> = ({ item }) => {
   const rarityStyle = getRarityStyle(item.rarity);
 
   return (
-    <div className={`glass-panel border-2 ${rarityStyle} hover:scale-105 transition-all duration-500 group rounded-[2rem] overflow-hidden shadow-xl`}>
-      <div className="relative h-60 overflow-hidden bg-black/40">
+    <div className={`glass-panel border-2 ${rarityStyle} hover:scale-105 transition-all duration-500 group rounded-[2rem] overflow-hidden shadow-xl animate-fade-in`}>
+      <div className="relative h-64 overflow-hidden bg-black/40">
+        {/* Placeholder mientras carga */}
+        {!imageLoaded && (
+          <div className="absolute inset-0 bg-white/5 animate-pulse flex items-center justify-center">
+            <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Invocando...</span>
+          </div>
+        )}
         <img 
           src={item.image} 
           alt={item.name} 
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 opacity-90 group-hover:opacity-100"
+          loading="lazy"
+          onLoad={() => setImageLoaded(true)}
+          className={`w-full h-full object-cover group-hover:scale-110 transition-all duration-1000 ${imageLoaded ? 'opacity-90' : 'opacity-0'} group-hover:opacity-100`}
         />
         {isPromo && (
           <div className="absolute top-0 left-0 bg-red-600 text-white font-black text-[10px] px-5 py-1.5 uppercase tracking-widest shadow-2xl transform -rotate-12 translate-x-[-12px] translate-y-[12px] z-10">

@@ -8,12 +8,13 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=MedievalSharp&display=swap" rel="stylesheet">
     <script>
+        // Esta sección permite que Vercel inyecte las llaves directamente al dominio
         window.process = { 
             env: { 
                 NODE_ENV: 'production',
-                SUPABASE_URL: '',
-                SUPABASE_ANON_KEY: '',
-                API_KEY: ''
+                SUPABASE_URL: '', // Se llenará desde las variables de Vercel
+                SUPABASE_ANON_KEY: '', // Se llenará desde las variables de Vercel
+                API_KEY: '' // Llave de Gemini
             } 
         };
     </script>
@@ -63,11 +64,15 @@
     ::-webkit-scrollbar-track { background: #050507; }
     ::-webkit-scrollbar-thumb { background: #d4af37; border-radius: 4px; }
     
-    /* Evitar que el fondo se repita en móviles */
     @media (max-width: 768px) {
         .bg-shaiya-epic {
             background-attachment: scroll;
         }
+    }
+
+    /* Mejora de rendimiento para imágenes */
+    img {
+        content-visibility: auto;
     }
 </style>
 </head>

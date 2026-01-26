@@ -55,17 +55,9 @@ const App: React.FC = () => {
             }
           });
         }
-
-        // Sincronizar datos locales si existen en el link
-        if (decoded.items) {
-          localStorage.setItem('nova_local_items', JSON.stringify(decoded.items));
-        }
-        if (decoded.drops) {
-          localStorage.setItem('nova_local_drops', JSON.stringify(decoded.drops));
-        }
         
         window.history.replaceState({}, document.title, window.location.pathname);
-        alert("¡EL REINO HA SIDO SINCRONIZADO CON ÉXITO! Configuración y base de datos restauradas.");
+        alert("¡EL REINO HA SIDO VINCULADO! Conectando a la base de datos de NOVA...");
         window.location.reload(); 
         return;
       } catch (e) { 

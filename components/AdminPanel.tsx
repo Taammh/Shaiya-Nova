@@ -74,16 +74,16 @@ const AdminPanel: React.FC = () => {
   useEffect(() => { loadData(); loadConfig(); }, [activeSubTab]);
 
   const generateMasterLink = () => {
+    // Solo enviamos la configuración (URL, KEY, etc) para que el link sea corto.
+    // Los datos se cargarán automáticamente desde la nueva base de datos vinculada.
     const syncObj = { 
-      config: config,
-      items: itemsList,
-      drops: dropsList
+      config: config
     };
     const jsonStr = JSON.stringify(syncObj);
     const safeBase64 = btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode(parseInt(p1, 16))));
     const url = `${window.location.origin}${window.location.pathname}?sync=${encodeURIComponent(safeBase64)}`;
     navigator.clipboard.writeText(url);
-    alert("¡LINK MAESTRO GENERADO! Se han incluido las llaves y todo el historial de drops e items para la sincronización.");
+    alert("¡LINK MAESTRO GENERADO! Se han sincronizado las llaves de acceso. Al abrirlo en otro dispositivo, este se conectará a la misma base de datos y cargará todo automáticamente.");
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
@@ -422,7 +422,7 @@ const AdminPanel: React.FC = () => {
           <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-6">
             <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Sincronización de Reino</h3>
             <button onClick={generateMasterLink} className="w-full bg-[#d4af37] text-black font-black py-4 rounded-xl uppercase tracking-widest text-[10px] shadow-lg hover:brightness-110">Generar Link Maestro (Sincronizar)</button>
-            <p className="text-[8px] text-gray-500 uppercase text-center tracking-widest">Al abrir este link en otro navegador, se conectará automáticamente con estas llaves.</p>
+            <p className="text-[8px] text-gray-500 uppercase text-center tracking-widest">Este link solo sincroniza las llaves de acceso. Los datos se cargarán de Supabase.</p>
           </div>
 
           <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-6">

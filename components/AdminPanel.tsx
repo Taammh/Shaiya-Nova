@@ -23,9 +23,11 @@ const AdminPanel: React.FC = () => {
 
   const [activeMobIdx, setActiveMobIdx] = useState<number | null>(null);
   const [drawMode, setDrawMode] = useState<'point' | 'area'>('point');
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [drawingStart, setDrawingStart] = useState<{x: number, y: number} | null>(null);
+  const [tempRadius, setTempRadius] = useState<number>(0);
   const [uploadTarget, setUploadTarget] = useState<{ mobIdx: number, dropIdx?: number } | null>(null);
 
-  // Estados iniciales limpios
   const initialItem: Partial<GameItem> = {
     name: '', category: Category.MOUNT, image: '', description: '', 
     faction: Faction.LIGHT, item_class: 'Luchador/Defensor', gender: Gender.BOTH, price: '', stats: '', rarity: 'Common'
@@ -95,6 +97,65 @@ const AdminPanel: React.FC = () => {
     finally { setIsUploading(false); }
   };
 
+  // CONTROLADORES DE DIBUJO EN MAPA
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (activeMobIdx === null || !newDrop.mobs) {
+      return alert("Primero selecciona una Entidad (Mob) de la lista de la derecha para marcar su posición.");
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+    if (drawMode === 'point') {
+      const newPoint: MapPoint = { 
+        x, 
+        y, 
+        color: newDrop.mobs[activeMobIdx].mapColor, 
+        label: newDrop.mobs[activeMobIdx].name, 
+        type: 'point' 
+      };
+      setNewDrop(prev => {
+        const mobs = [...(prev.mobs || [])];
+        mobs[activeMobIdx] = { ...mobs[activeMobIdx], points: [...(mobs[activeMobIdx].points || []), newPoint] };
+        return { ...prev, mobs };
+      });
+    } else {
+      setIsDrawing(true);
+      setDrawingStart({ x, y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDrawing || !drawingStart) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const dx = x - drawingStart.x;
+    const dy = y - drawingStart.y;
+    setTempRadius(Math.sqrt(dx * dx + dy * dy));
+  };
+
+  const handleMouseUp = () => {
+    if (isDrawing && drawingStart && activeMobIdx !== null && newDrop.mobs) {
+      const newPoint: MapPoint = { 
+        x: drawingStart.x, 
+        y: drawingStart.y, 
+        color: newDrop.mobs[activeMobIdx].mapColor, 
+        label: newDrop.mobs[activeMobIdx].name, 
+        type: 'area', 
+        radius: tempRadius 
+      };
+      setNewDrop(prev => {
+        const mobs = [...(prev.mobs || [])];
+        mobs[activeMobIdx] = { ...mobs[activeMobIdx], points: [...(mobs[activeMobIdx].points || []), newPoint] };
+        return { ...prev, mobs };
+      });
+    }
+    setIsDrawing(false);
+    setDrawingStart(null);
+    setTempRadius(0);
+  };
+
   const handleAddItem = async () => {
     if (!newItem.name || !newItem.image) return alert("Faltan datos.");
     setIsSaving(true);
@@ -143,7 +204,6 @@ const AdminPanel: React.FC = () => {
               </div>
             </div>
 
-            {/* Campos Dinámicos para Trajes */}
             {(newItem.category === Category.COSTUME || newItem.category === Category.PROMOTION) && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 pt-6 border-t border-white/5">
                 <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newItem.faction} onChange={e => setNewItem({...newItem, faction: e.target.value as Faction})}>
@@ -196,95 +256,100 @@ const AdminPanel: React.FC = () => {
         <div className="space-y-10 animate-fade-in">
           <div className="glass-panel p-8 rounded-[2.5rem] border-[#d4af37]/20 shadow-2xl">
             <h2 className="text-2xl font-shaiya text-[#d4af37] mb-8 text-center uppercase">{editingId ? 'Editar Mapa/Boss' : 'Configuración de Drop'}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <input placeholder="Nombre Mapa" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white outline-none" value={newDrop.name} onChange={e => setNewDrop({...newDrop, name: e.target.value})} />
-              <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newDrop.category} onChange={e => setNewDrop({...newDrop, category: e.target.value as any})}>
-                <option value="Mapa">Categoría: Mapa</option><option value="Boss">Categoría: Boss</option>
-              </select>
-              <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newDrop.faction} onChange={e => setNewDrop({...newDrop, faction: e.target.value as Faction})}>
-                <option value={Faction.LIGHT}>Facción: Luz</option><option value={Faction.FURY}>Facción: Furia</option><option value={Faction.NEUTRAL}>Neutral</option>
-              </select>
-              <div className="flex gap-2">
-                <input placeholder="Imagen Fondo" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={newDrop.image} onChange={e => setNewDrop({...newDrop, image: e.target.value})} />
-                <button onClick={() => dropFileRef.current?.click()} className="bg-[#d4af37] text-black px-4 rounded-xl font-black text-[10px]">UP</button>
-              </div>
-            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+              {/* Columna Izquierda: Mapa e Imagen */}
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <input placeholder="Nombre Mapa" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white outline-none" value={newDrop.name} onChange={e => setNewDrop({...newDrop, name: e.target.value})} />
+                  <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newDrop.category} onChange={e => setNewDrop({...newDrop, category: e.target.value as any})}>
+                    <option value="Mapa">Categoría: Mapa</option><option value="Boss">Categoría: Boss</option>
+                  </select>
+                </div>
+                
+                <div className="flex gap-2">
+                  <input placeholder="Imagen Fondo" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={newDrop.image} onChange={e => setNewDrop({...newDrop, image: e.target.value})} />
+                  <button onClick={() => dropFileRef.current?.click()} className="bg-[#d4af37] text-black px-6 rounded-xl font-black text-[10px]">SUBIR MAPA</button>
+                </div>
 
-            {/* Editor de Entidades (Mobs) */}
-            <div className="space-y-6 pt-6 border-t border-white/5">
-              <div className="flex justify-between items-center">
-                <h3 className="text-white font-shaiya text-lg">ENTIDADES DEL MAPA ({newDrop.mobs?.length || 0})</h3>
-                <button onClick={() => { const m: MobEntry = { id: `mob-${Date.now()}`, name: 'Nueva Entidad', level: '1', image: '', mapColor: '#d4af37', drops: [], points: [] }; setNewDrop(p => ({ ...p, mobs: [...(p.mobs || []), m] })); }} className="bg-green-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">+ AGREGAR ENTIDAD</button>
-              </div>
+                <div className="flex gap-2">
+                   <button onClick={() => setDrawMode('point')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase border transition-all ${drawMode === 'point' ? 'bg-[#d4af37] text-black shadow-lg shadow-[#d4af37]/20' : 'bg-black/40 text-gray-500 border-white/5'}`}>Modo Punto</button>
+                   <button onClick={() => setDrawMode('area')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase border transition-all ${drawMode === 'area' ? 'bg-[#d4af37] text-black shadow-lg shadow-[#d4af37]/20' : 'bg-black/40 text-gray-500 border-white/5'}`}>Modo Área</button>
+                   <button onClick={() => {
+                     if (activeMobIdx !== null && newDrop.mobs) {
+                       const ms = [...newDrop.mobs];
+                       ms[activeMobIdx].points = [];
+                       setNewDrop({...newDrop, mobs: ms});
+                     }
+                   }} className="bg-red-900/40 text-red-400 px-4 rounded-xl text-[8px] font-black uppercase border border-red-900/20">Limpiar Puntos</button>
+                </div>
 
-              <div className="space-y-4">
-                {newDrop.mobs?.map((mob, mIdx) => (
-                  <div key={mob.id} className={`p-6 rounded-3xl border transition-all ${activeMobIdx === mIdx ? 'border-[#d4af37] bg-black/40' : 'border-white/5 bg-black/20'}`}>
-                    <div className="flex flex-wrap items-center gap-4 mb-6">
-                      <div className="relative group">
-                        <img src={mob.image || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-16 h-16 rounded-2xl border-2 border-[#d4af37]/30 bg-black" />
-                        <button onClick={() => { setUploadTarget({ mobIdx: mIdx }); mobFileRef.current?.click(); }} className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[8px] font-black uppercase text-white rounded-2xl">CAMBIAR</button>
+                {newDrop.image && (
+                  <div className="relative rounded-[2rem] overflow-hidden border-2 border-white/10 bg-black cursor-crosshair group shadow-2xl" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
+                    <img src={newDrop.image} className="w-full h-auto opacity-70 pointer-events-none select-none" />
+                    {/* Renderizado de puntos guardados */}
+                    {newDrop.mobs?.map((mob, mIdx) => mob.points?.map((p, pIdx) => (
+                      <div key={`${mIdx}-${pIdx}`} className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${p.type === 'area' ? 'border-2 rounded-full' : 'w-3 h-3 rounded-full border border-white shadow-xl'}`} 
+                           style={{ left: `${p.x}%`, top: `${p.y}%`, backgroundColor: p.type === 'area' ? `${p.color}44` : p.color, borderColor: p.color, width: p.type === 'area' ? `${p.radius! * 2}%` : '12px', height: p.type === 'area' ? `${p.radius! * 2}%` : '12px', aspectRatio: '1/1' }}>
                       </div>
-                      <input placeholder="Nombre Entidad" className="bg-black/60 border border-white/10 p-3 rounded-xl text-white text-sm" value={mob.name} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].name = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
-                      <input placeholder="Nivel" className="w-16 bg-black/60 border border-white/10 p-3 rounded-xl text-white text-sm text-center" value={mob.level} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].level = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
-                      <input type="color" className="w-10 h-10 rounded-lg bg-transparent cursor-pointer" value={mob.mapColor} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].mapColor = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} title="Color en el mapa" />
-                      
-                      <button onClick={() => setActiveMobIdx(mIdx === activeMobIdx ? null : mIdx)} className="ml-auto text-[#d4af37] text-[10px] font-black uppercase">{mIdx === activeMobIdx ? 'OCULTAR DROPS' : 'EDITAR DROPS'}</button>
-                      <button onClick={() => { const ms = [...(newDrop.mobs || [])]; ms.splice(mIdx, 1); setNewDrop({...newDrop, mobs: ms}); }} className="text-red-500 ml-2">🗑️</button>
-                    </div>
-
-                    {activeMobIdx === mIdx && (
-                      <div className="space-y-4 pt-4 border-t border-white/5">
-                        <div className="flex justify-between items-center mb-2">
-                          <p className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest">TABLA DE DROP ({mob.drops?.length || 0})</p>
-                          <button onClick={() => { 
-                            const ms = [...(newDrop.mobs || [])];
-                            const d: DropEntry = { itemName: 'Nombre Item', itemImage: '', rate: '10%', rarity: 'Common' };
-                            ms[mIdx].drops = [...(ms[mIdx].drops || []), d];
-                            setNewDrop({...newDrop, mobs: ms});
-                          }} className="text-white bg-white/5 px-4 py-2 rounded-lg text-[9px] font-black uppercase border border-white/5 hover:bg-white/10">+ NUEVO DROP</button>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {mob.drops?.map((drop, dIdx) => (
-                            <div key={dIdx} className="bg-black/60 p-3 rounded-2xl border border-white/5 flex items-center gap-3">
-                              <div className="relative group shrink-0">
-                                <img src={drop.itemImage || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-10 h-10 rounded-lg bg-black border border-white/10" />
-                                <button onClick={() => { setUploadTarget({ mobIdx: mIdx, dropIdx: dIdx }); dropItemFileRef.current?.click(); }} className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[7px] font-black uppercase text-white rounded-lg">UP</button>
-                              </div>
-                              <input placeholder="Item" className="flex-grow bg-transparent border-b border-white/10 text-white text-[10px] outline-none" value={drop.itemName} onChange={e => {
-                                const ms = [...(newDrop.mobs || [])];
-                                ms[mIdx].drops[dIdx].itemName = e.target.value;
-                                setNewDrop({...newDrop, mobs: ms});
-                              }} />
-                              <input placeholder="Rate %" className="w-12 bg-transparent border-b border-white/10 text-blue-400 text-[10px] outline-none text-center" value={drop.rate} onChange={e => {
-                                const ms = [...(newDrop.mobs || [])];
-                                ms[mIdx].drops[dIdx].rate = e.target.value;
-                                setNewDrop({...newDrop, mobs: ms});
-                              }} />
-                              <select className="bg-black/80 text-white text-[10px] rounded-lg p-1 outline-none" value={drop.rarity} onChange={e => {
-                                const ms = [...(newDrop.mobs || [])];
-                                ms[mIdx].drops[dIdx].rarity = e.target.value as ItemRarity;
-                                setNewDrop({...newDrop, mobs: ms});
-                              }}>
-                                {['Common', 'Noble', 'Atroz', 'Legendary', 'Diosa', 'Special', 'Unique'].map(r => <option key={r} value={r}>{r}</option>)}
-                              </select>
-                              <button onClick={() => {
-                                const ms = [...(newDrop.mobs || [])];
-                                ms[mIdx].drops.splice(dIdx, 1);
-                                setNewDrop({...newDrop, mobs: ms});
-                              }} className="text-red-800 text-xs">×</button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                    )))}
+                    {/* Dibujo Temporal */}
+                    {isDrawing && drawingStart && (
+                      <div className="absolute border-2 border-white/50 rounded-full bg-white/20 pointer-events-none transform -translate-x-1/2 -translate-y-1/2" style={{ left: `${drawingStart.x}%`, top: `${drawingStart.y}%`, width: `${tempRadius * 2}%`, height: `${tempRadius * 2}%` }}></div>
                     )}
                   </div>
-                ))}
+                )}
+                <p className="text-[9px] text-gray-500 uppercase tracking-widest text-center">Toca el mapa para posicionar a la Entidad seleccionada</p>
+              </div>
+
+              {/* Columna Derecha: Mobs y Drops */}
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-white font-shaiya text-lg uppercase tracking-widest">Entidades del Mapa</h3>
+                  <button onClick={() => { const m: MobEntry = { id: `mob-${Date.now()}`, name: 'Nueva Entidad', level: '1', image: '', mapColor: '#d4af37', drops: [], points: [] }; setNewDrop(p => ({ ...p, mobs: [...(p.mobs || []), m] })); }} className="bg-green-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest">+ AGREGAR ENTIDAD</button>
+                </div>
+
+                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scroll">
+                  {newDrop.mobs?.map((mob, mIdx) => (
+                    <div key={mob.id} className={`p-5 rounded-3xl border transition-all cursor-pointer ${activeMobIdx === mIdx ? 'border-[#d4af37] bg-[#d4af37]/10' : 'border-white/5 bg-black/40'}`} onClick={() => setActiveMobIdx(mIdx)}>
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="relative group shrink-0">
+                          <img src={mob.image || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-14 h-14 rounded-2xl border-2 border-[#d4af37]/30 bg-black" />
+                          <button onClick={(e) => { e.stopPropagation(); setUploadTarget({ mobIdx: mIdx }); mobFileRef.current?.click(); }} className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[7px] font-black uppercase text-white rounded-2xl">UP</button>
+                        </div>
+                        <div className="flex-grow">
+                           <input placeholder="Nombre" className="bg-transparent border-b border-white/10 text-white text-sm outline-none w-full mb-1 font-bold" value={mob.name} onClick={e => e.stopPropagation()} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].name = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
+                           <div className="flex items-center gap-2">
+                             <input placeholder="Nvl" className="w-10 bg-transparent border-b border-white/10 text-gray-400 text-xs text-center outline-none" value={mob.level} onClick={e => e.stopPropagation()} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].level = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
+                             <input type="color" className="w-5 h-5 rounded-full bg-transparent cursor-pointer" value={mob.mapColor} onClick={e => e.stopPropagation()} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].mapColor = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
+                           </div>
+                        </div>
+                        <button onClick={(e) => { e.stopPropagation(); const ms = [...(newDrop.mobs || [])]; ms.splice(mIdx, 1); setNewDrop({...newDrop, mobs: ms}); if(activeMobIdx === mIdx) setActiveMobIdx(null); }} className="text-red-900 opacity-40 hover:opacity-100">🗑️</button>
+                      </div>
+
+                      {activeMobIdx === mIdx && (
+                        <div className="space-y-3 pt-3 border-t border-white/5 animate-fade-in">
+                          {mob.drops?.map((drop, dIdx) => (
+                            <div key={dIdx} className="bg-black/60 p-2 rounded-xl border border-white/5 flex items-center gap-2">
+                               <div className="relative group shrink-0">
+                                 <img src={drop.itemImage || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-8 h-8 rounded-lg bg-black border border-white/10" />
+                                 <button onClick={(e) => { e.stopPropagation(); setUploadTarget({ mobIdx: mIdx, dropIdx: dIdx }); dropItemFileRef.current?.click(); }} className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[6px] font-black text-white rounded-lg">UP</button>
+                               </div>
+                               <input placeholder="Item" className="flex-grow bg-transparent text-white text-[9px] outline-none" value={drop.itemName} onClick={e => e.stopPropagation()} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops[dIdx].itemName = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
+                               <input placeholder="%" className="w-8 bg-transparent text-blue-400 text-[9px] outline-none text-center" value={drop.rate} onClick={e => e.stopPropagation()} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops[dIdx].rate = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
+                               <button onClick={(e) => { e.stopPropagation(); const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops.splice(dIdx, 1); setNewDrop({...newDrop, mobs: ms}); }} className="text-red-800 text-xs">×</button>
+                            </div>
+                          ))}
+                          <button onClick={(e) => { e.stopPropagation(); const ms = [...(newDrop.mobs || [])]; const d: DropEntry = { itemName: 'Nombre Item', itemImage: '', rate: '10%', rarity: 'Common' }; ms[mIdx].drops = [...(ms[mIdx].drops || []), d]; setNewDrop({...newDrop, mobs: ms}); }} className="w-full bg-white/5 py-2 rounded-xl text-[8px] font-black uppercase border border-white/5 hover:bg-white/10">+ NUEVO DROP</button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <button onClick={handleAddDrop} disabled={isSaving} className="w-full mt-10 bg-white text-black font-black py-5 rounded-2xl uppercase tracking-[6px] hover:brightness-110">
+            <button onClick={handleAddDrop} disabled={isSaving} className="w-full mt-12 bg-white text-black font-black py-6 rounded-2xl uppercase tracking-[10px] hover:brightness-110 shadow-2xl transition-all">
               {isSaving ? 'Inscribiendo Pergamino...' : 'Confirmar Registro Total'}
             </button>
           </div>
@@ -293,14 +358,14 @@ const AdminPanel: React.FC = () => {
             <h3 className="text-[#d4af37] font-shaiya text-xl mb-6 uppercase">Historial de Drop Lists</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {dropsList.map(drop => (
-                <div key={drop.id} className="bg-black/60 border border-white/5 rounded-[1.5rem] overflow-hidden group">
+                <div key={drop.id} className="bg-black/60 border border-white/5 rounded-[1.5rem] overflow-hidden group hover:border-[#d4af37]/30 transition-all">
                   <img src={drop.image} className="w-full h-32 object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
                   <div className="p-4">
                     <h4 className="text-white font-shaiya text-lg mb-1">{drop.name}</h4>
                     <p className="text-gray-500 text-[9px] uppercase font-black tracking-widest">{drop.category} • {drop.faction}</p>
                     <div className="flex justify-between mt-4">
-                       <button onClick={() => { setNewDrop(drop); setEditingId(drop.id); window.scrollTo({top:0, behavior:'smooth'}); }} className="text-[#d4af37] font-black text-[10px]">EDITAR</button>
-                       <button onClick={() => { if(confirm('¿Eliminar?')) deleteDropListFromDB(drop.id).then(loadData); }} className="text-red-500 font-black text-[10px]">BORRAR</button>
+                       <button onClick={() => { setNewDrop(drop); setEditingId(drop.id); window.scrollTo({top:0, behavior:'smooth'}); }} className="text-[#d4af37] font-black text-[10px] hover:underline">EDITAR</button>
+                       <button onClick={() => { if(confirm('¿Eliminar?')) deleteDropListFromDB(drop.id).then(loadData); }} className="text-red-500 font-black text-[10px] hover:underline">BORRAR</button>
                     </div>
                   </div>
                 </div>

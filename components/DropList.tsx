@@ -46,9 +46,7 @@ const DropList: React.FC = () => {
     return d.faction === selectedFaction || d.faction === Faction.NEUTRAL;
   });
 
-  // Estilo de borde mejorado con el grosor y color solicitado
   const getRarityBorder = (rarity: ItemRarity) => {
-    // Usamos border-[3px] para el grosor solicitado y colores sólidos
     const baseStyle = "border-[3px] rounded-2xl overflow-hidden shadow-2xl transition-all group-hover:scale-105";
     
     switch (rarity) {
@@ -61,7 +59,9 @@ const DropList: React.FC = () => {
       case 'Diosa': 
         return `${baseStyle} border-[#d4af37] shadow-[0_0_20px_rgba(212,175,55,0.4)]`;
       case 'Special': 
-        return `${baseStyle} border-purple-900 shadow-[0_0_15px_rgba(88,28,135,0.5)]`; // Morado Oscuro Sólido
+        return `${baseStyle} border-purple-900 shadow-[0_0_15px_rgba(88,28,135,0.5)]`;
+      case 'Unique': 
+        return `${baseStyle} border-orange-600 shadow-[0_0_15px_rgba(234,88,12,0.5)]`; // Naranja Sólido
       default: 
         return `${baseStyle} border-white/60 shadow-none`; // Common
     }
@@ -69,7 +69,7 @@ const DropList: React.FC = () => {
 
   if (selectedEntity) {
     return (
-      <div className="max-w-7xl mx-auto space-y-12 animate-fade-in pb-24">
+      <div className="max-w-5xl mx-auto space-y-10 animate-fade-in pb-24">
         <button 
           onClick={() => setSelectedEntity(null)} 
           className="text-[#d4af37] font-black uppercase tracking-widest text-[10px] flex items-center gap-2 hover:translate-x-[-5px] transition-all bg-black/40 px-6 py-3 rounded-full border border-white/5"
@@ -77,29 +77,29 @@ const DropList: React.FC = () => {
           ← Regresar a la selección
         </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="relative rounded-[2.5rem] overflow-hidden border-2 border-[#d4af37]/30 shadow-[0_0_50px_rgba(0,0,0,0.5)] bg-black">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+          <div className="lg:col-span-3 space-y-6">
+            <div className="relative rounded-[2rem] overflow-hidden border-2 border-[#d4af37]/30 shadow-[0_0_30px_rgba(0,0,0,0.5)] bg-black max-w-2xl">
               <img src={selectedEntity.image} className="w-full h-auto block opacity-80" alt={selectedEntity.name} />
               {selectedEntity.mobs.map((mob) => 
                 mob.points?.map((point, pIdx) => (
                   <div 
                     key={`${mob.id}-${pIdx}`}
-                    className="absolute w-5 h-5 rounded-full border-2 border-white shadow-[0_0_15px_rgba(255,255,255,0.6)] transform -translate-x-1/2 -translate-y-1/2 cursor-help group/point animate-pulse"
+                    className="absolute w-4 h-4 rounded-full border-2 border-white shadow-[0_0_10px_rgba(255,255,255,0.6)] transform -translate-x-1/2 -translate-y-1/2 cursor-help group/point animate-pulse"
                     style={{ left: `${point.x}%`, top: `${point.y}%`, backgroundColor: mob.mapColor }}
                   >
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-3 py-1 bg-black/90 text-white text-[9px] font-black uppercase rounded-lg whitespace-nowrap opacity-0 group-hover/point:opacity-100 transition-opacity border border-[#d4af37]/30">
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-2 py-1 bg-black/90 text-white text-[8px] font-black uppercase rounded-lg whitespace-nowrap opacity-0 group-hover/point:opacity-100 transition-opacity border border-[#d4af37]/30">
                       {mob.name}
                     </div>
                   </div>
                 ))
               )}
             </div>
-            <div className="glass-panel p-8 rounded-[2rem]">
+            <div className="glass-panel p-6 rounded-[2rem] max-w-2xl">
               <div className="flex justify-between items-start mb-2">
-                <h2 className="text-4xl font-shaiya text-[#d4af37]">{selectedEntity.name}</h2>
+                <h2 className="text-3xl font-shaiya text-[#d4af37]">{selectedEntity.name}</h2>
                 {selectedEntity.faction && (
-                   <span className={`px-4 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${
+                   <span className={`px-3 py-1 rounded-lg text-[7px] font-black uppercase tracking-widest border ${
                      selectedEntity.faction === Faction.LIGHT ? 'bg-blue-600/20 border-blue-500/30 text-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.2)]' :
                      selectedEntity.faction === Faction.FURY ? 'bg-red-600/20 border-red-500/30 text-red-400 shadow-[0_0_10px_rgba(220,38,38,0.2)]' : 'bg-gray-600/20 border-white/10 text-gray-400'
                    }`}>
@@ -107,20 +107,20 @@ const DropList: React.FC = () => {
                    </span>
                 )}
               </div>
-              <p className="text-gray-400 text-sm italic leading-relaxed">{selectedEntity.description}</p>
+              <p className="text-gray-400 text-xs italic leading-relaxed">{selectedEntity.description}</p>
             </div>
           </div>
 
-          <div className="space-y-6">
-            <h3 className="text-[#d4af37] font-black uppercase text-xs tracking-[4px] px-2 border-l-2 border-[#d4af37] ml-2">Leyenda de zona</h3>
-            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scroll">
+          <div className="lg:col-span-2 space-y-6">
+            <h3 className="text-[#d4af37] font-black uppercase text-[10px] tracking-[4px] px-2 border-l-2 border-[#d4af37] ml-2">Habitantes</h3>
+            <div className="space-y-3 max-h-[450px] overflow-y-auto pr-2 custom-scroll">
               {selectedEntity.mobs.map((mob) => (
-                <div key={mob.id} className="bg-black/40 border border-white/5 p-4 rounded-2xl flex items-center gap-4 hover:border-[#d4af37]/30 transition-all group">
-                  <div className="w-1.5 h-12 rounded-full shrink-0" style={{ backgroundColor: mob.mapColor }}></div>
-                  <img src={mob.image || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-14 h-14 rounded-xl object-cover border border-white/10" />
+                <div key={mob.id} className="bg-black/40 border border-white/5 p-3 rounded-2xl flex items-center gap-3 hover:border-[#d4af37]/30 transition-all group">
+                  <div className="w-1 h-10 rounded-full shrink-0" style={{ backgroundColor: mob.mapColor }}></div>
+                  <img src={mob.image || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-12 h-12 rounded-xl object-cover border border-white/10" />
                   <div>
-                    <h4 className="text-white font-shaiya text-lg">{mob.name}</h4>
-                    <p className="text-[10px] text-gray-500 uppercase font-black">Nivel {mob.level}</p>
+                    <h4 className="text-white font-shaiya text-base">{mob.name}</h4>
+                    <p className="text-[9px] text-gray-500 uppercase font-black">Nivel {mob.level}</p>
                   </div>
                 </div>
               ))}
@@ -128,42 +128,42 @@ const DropList: React.FC = () => {
           </div>
         </div>
 
-        <div className="space-y-10 pt-10 border-t border-white/5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="space-y-8 pt-8 border-t border-white/5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {selectedEntity.mobs.map((mob) => (
-              <div key={mob.id} className="glass-panel rounded-[2.5rem] overflow-hidden border border-white/10 shadow-xl">
-                <div className="flex p-6 gap-6 bg-white/5 border-b border-white/5">
+              <div key={mob.id} className="glass-panel rounded-[2rem] overflow-hidden border border-white/10 shadow-lg">
+                <div className="flex p-5 gap-5 bg-white/5 border-b border-white/5">
                   <div className="relative">
-                     {/* Borde del Mob rediseñado según la captura */}
-                     <div className="relative w-28 h-28 p-1 rounded-2xl border-[3px] border-white/20 bg-black shadow-2xl">
+                     <div className="relative w-24 h-24 p-1 rounded-2xl border-[3px] border-white/20 bg-black shadow-2xl">
                         <img src={mob.image} className="w-full h-full rounded-xl object-cover" />
-                        <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full border-[3px] border-white bg-white/20 shadow-xl z-10" style={{ backgroundColor: mob.mapColor }}></div>
+                        <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-[3px] border-white bg-white/20 shadow-xl z-10" style={{ backgroundColor: mob.mapColor }}></div>
                      </div>
                   </div>
                   <div className="flex-grow flex flex-col justify-center">
-                    <h3 className="text-3xl font-shaiya text-white leading-none">{mob.name}</h3>
-                    <span className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest mt-2">Nivel {mob.level}</span>
+                    <h3 className="text-2xl font-shaiya text-white leading-none">{mob.name}</h3>
+                    <span className="text-[#d4af37] text-[9px] font-black uppercase tracking-widest mt-1.5">Nivel {mob.level}</span>
                   </div>
                 </div>
-                <div className="p-6">
-                  <div className="grid grid-cols-1 gap-4">
+                <div className="p-5">
+                  <div className="grid grid-cols-1 gap-3">
                     {mob.drops.map((drop, dIdx) => (
-                      <div key={dIdx} className="flex items-center gap-4 bg-black/60 p-3 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group">
-                        <div className={`w-14 h-14 bg-black flex items-center justify-center p-0.5 ${getRarityBorder(drop.rarity)}`}>
+                      <div key={dIdx} className="flex items-center gap-3 bg-black/60 p-2.5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group">
+                        <div className={`w-12 h-12 bg-black flex items-center justify-center p-0.5 shrink-0 ${getRarityBorder(drop.rarity)}`}>
                            <img src={drop.itemImage || "https://api.dicebear.com/7.x/pixel-art/svg?seed=item"} className="w-full h-full object-contain" />
                         </div>
-                        <div className="flex-grow">
-                          <p className="text-gray-200 text-sm font-bold uppercase tracking-tight">{drop.itemName}</p>
-                          <p className={`text-[8px] font-black uppercase tracking-widest ${
+                        <div className="flex-grow overflow-hidden">
+                          <p className="text-gray-200 text-xs font-bold uppercase tracking-tight truncate">{drop.itemName}</p>
+                          <p className={`text-[7px] font-black uppercase tracking-widest ${
                             drop.rarity === 'Noble' ? 'text-sky-400' :
                             drop.rarity === 'Atroz' ? 'text-blue-500' :
                             drop.rarity === 'Legendary' ? 'text-green-500' :
                             drop.rarity === 'Diosa' ? 'text-[#d4af37]' :
-                            drop.rarity === 'Special' ? 'text-purple-500' : 'text-gray-500'
-                          }`}>{drop.rarity}</p>
+                            drop.rarity === 'Special' ? 'text-purple-500' : 
+                            drop.rarity === 'Unique' ? 'text-orange-500' : 'text-gray-500'
+                          }`}>{drop.rarity === 'Unique' ? 'Especial (Naranja)' : drop.rarity === 'Special' ? 'Especial (Morada)' : drop.rarity}</p>
                         </div>
-                        <div className="px-5 py-2 bg-black/80 rounded-xl border border-white/10 shadow-inner">
-                           <span className="text-[#d4af37] font-mono font-black text-xs">{drop.rate}</span>
+                        <div className="px-3 py-1.5 bg-black/80 rounded-xl border border-white/10 shadow-inner shrink-0">
+                           <span className="text-[#d4af37] font-mono font-black text-[10px]">{drop.rate}</span>
                         </div>
                       </div>
                     ))}

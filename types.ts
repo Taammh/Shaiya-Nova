@@ -47,7 +47,7 @@ export interface MapPoint {
   label: string;
 }
 
-export type ItemRarity = 'Common' | 'Noble' | 'Atroz' | 'Legendary' | 'Diosa' | 'Special';
+export type ItemRarity = 'Common' | 'Noble' | 'Atroz' | 'Legendary' | 'Diosa' | 'Special' | 'Unique';
 
 export interface DropEntry {
   itemName: string;

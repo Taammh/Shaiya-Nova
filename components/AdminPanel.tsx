@@ -437,7 +437,8 @@ const AdminPanel: React.FC = () => {
                                   <option value="Atroz">Rareza: Atroz</option>
                                   <option value="Legendary">Rareza: Legendario</option>
                                   <option value="Diosa">Rareza: Diosa</option>
-                                  <option value="Special">Rareza: Especial</option>
+                                  <option value="Special">Rareza: Especial (Morada)</option>
+                                  <option value="Unique">Rareza: Especial (Naranja)</option>
                                 </select>
                               </div>
                             ))}

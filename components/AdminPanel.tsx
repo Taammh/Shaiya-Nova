@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Category, Faction, GameItem, CLASSES_BY_FACTION, Gender, StaffApplication, DropMap, MobEntry, DropEntry, MapPoint, ItemRarity } from '../types';
 import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting, getStaffApplications, updateStaffApplicationStatus, pushLocalItemsToCloud, deleteStaffApplicationFromDB, uploadFile, getDropListsFromDB, addDropListToDB, updateDropListInDB, deleteDropListFromDB } from '../services/supabaseClient';
+import { zlibSync, strToU8 } from 'fflate';
 
 const AdminPanel: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'items' | 'drops' | 'apps' | 'settings'>('items');
@@ -256,7 +257,6 @@ const AdminPanel: React.FC = () => {
   };
 
   const generateMasterLink = () => {
-    // REQUISITO TÉCNICO: Sincronización total de localItems y localDrops (Historial incluido)
     const localItemsStr = localStorage.getItem('nova_local_items');
     const localDropsStr = localStorage.getItem('nova_local_drops');
     
@@ -266,11 +266,26 @@ const AdminPanel: React.FC = () => {
       localDrops: localDropsStr ? JSON.parse(localDropsStr) : []
     };
     
-    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(dataToSync))));
-    const url = `${window.location.origin}${window.location.pathname}?sync=${encoded}`;
+    const jsonStr = JSON.stringify(dataToSync);
     
-    navigator.clipboard.writeText(url);
-    alert("¡LINK MAESTRO GENERADO! Incluye Reliquias, Mapas, Jefes y toda su configuración.");
+    // COMPRESIÓN PARA COMPATIBILIDAD CON ACORTADORES
+    try {
+      const compressed = zlibSync(strToU8(jsonStr), { level: 9 });
+      // Convertir Uint8Array a Base64 de forma segura
+      const base64 = btoa(String.fromCharCode.apply(null, Array.from(compressed)));
+      // Codificar para URL
+      const url = `${window.location.origin}${window.location.pathname}?sync=${encodeURIComponent(base64)}&z=1`;
+      
+      navigator.clipboard.writeText(url);
+      alert("¡LINK MAESTRO OPTIMIZADO! Ahora es mucho más corto y compatible con acortadores de URL.");
+    } catch (e) {
+      console.error("Fallo de compresión:", e);
+      // Fallback a base64 normal si falla fflate
+      const fallback = btoa(unescape(encodeURIComponent(jsonStr)));
+      const url = `${window.location.origin}${window.location.pathname}?sync=${encodeURIComponent(fallback)}`;
+      navigator.clipboard.writeText(url);
+      alert("Link Maestro generado (Sin compresión).");
+    }
   };
 
   return (
@@ -416,7 +431,6 @@ const AdminPanel: React.FC = () => {
                             <div className="flex gap-2">
                                <button onClick={e => { e.stopPropagation(); duplicateMob(mIdx); }} title="Duplicar Entidad" className="bg-blue-600/20 text-blue-400 p-2 rounded-lg hover:bg-blue-600 hover:text-white transition-all">👯</button>
                                <button onClick={e => { e.stopPropagation(); clearMobPoints(mIdx); }} title="Limpiar Zona/Puntos" className="bg-orange-600/20 text-orange-400 p-2 rounded-lg hover:bg-orange-600 hover:text-white transition-all">🧹</button>
-                               {/* BOTÓN SOLICITADO: Eliminar Entidad (Mob/Boss) */}
                                <button onClick={e => { e.stopPropagation(); removeMobFromCreation(mIdx); }} title="Eliminar Entidad" className="bg-red-600/20 text-red-400 p-2 rounded-lg hover:bg-red-600 hover:text-white transition-all">🗑️</button>
                                <input type="color" className="w-8 h-8 cursor-pointer rounded overflow-hidden" value={mob.mapColor} onClick={e => e.stopPropagation()} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].mapColor = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
                             </div>

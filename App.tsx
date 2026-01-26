@@ -9,6 +9,7 @@ import DropList from './components/DropList';
 import { getItemsFromDB, getSetting } from './services/supabaseClient';
 import { ITEMS as STATIC_ITEMS } from './constants';
 import { Category, Faction, CLASSES_BY_FACTION, GameItem, Gender } from './types';
+import { unzlibSync, strFromU8 } from 'fflate';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('promotions');
@@ -39,11 +40,29 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const syncData = urlParams.get('sync');
+    const rawSyncData = urlParams.get('sync');
+    const isZlib = urlParams.get('z') === '1';
     
-    if (syncData) {
+    if (rawSyncData) {
       try {
-        const decoded = JSON.parse(decodeURIComponent(escape(atob(syncData))));
+        let decodedData: any;
+        const decodedUri = decodeURIComponent(rawSyncData);
+        
+        if (isZlib) {
+          // PROCESAR LINK COMPRIMIDO
+          const binary = atob(decodedUri);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          const decompressed = unzlibSync(bytes);
+          decodedData = JSON.parse(strFromU8(decompressed));
+        } else {
+          // PROCESAR LINK LEGACY (Solo Base64)
+          decodedData = JSON.parse(decodeURIComponent(escape(atob(decodedUri))));
+        }
+        
+        const decoded = decodedData;
         
         // Sincronizar Ajustes Críticos
         if (decoded.webhookSupport) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', decoded.webhookSupport);
@@ -62,7 +81,7 @@ const App: React.FC = () => {
         if (decoded.mapPortalBg) localStorage.setItem('nova_setting_MAP_PORTAL_BG', decoded.mapPortalBg);
         if (decoded.bossPortalBg) localStorage.setItem('nova_setting_BOSS_PORTAL_BG', decoded.bossPortalBg);
 
-        // Sincronizar Base de Datos Local (Reliquias y Historial de Drops solicitado)
+        // Sincronizar Base de Datos Local
         if (decoded.localItems && Array.isArray(decoded.localItems)) {
           localStorage.setItem('nova_local_items', JSON.stringify(decoded.localItems));
         }
@@ -71,10 +90,11 @@ const App: React.FC = () => {
         }
 
         window.history.replaceState({}, document.title, window.location.pathname);
-        alert("¡EL REINO HA SIDO SINCRONIZADO! Historial de reliquias y drops restaurado.");
+        alert("¡EL REINO HA SIDO SINCRONIZADO! Los datos comprimidos se han restaurado correctamente.");
         window.location.reload(); 
       } catch (e) {
-        console.error("Fallo en el ritual de sincronización:", e);
+        console.error("Fallo en el ritual de sincronización (Posible URL truncada o corrupta):", e);
+        alert("Error de sincronización. Asegúrate de que el enlace sea completo.");
       }
     }
 

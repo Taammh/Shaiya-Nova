@@ -45,6 +45,8 @@ export interface MapPoint {
   y: number; // Porcentaje 0-100
   color: string;
   label: string;
+  type?: 'point' | 'area';
+  radius?: number; // Porcentaje del ancho del mapa
 }
 
 export type ItemRarity = 'Common' | 'Noble' | 'Atroz' | 'Legendary' | 'Diosa' | 'Special' | 'Unique';

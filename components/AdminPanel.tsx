@@ -120,14 +120,16 @@ const AdminPanel: React.FC = () => {
       else if (type === 'mob' && uploadTarget) {
         setNewDrop(prev => {
           const mobs = [...(prev.mobs || [])];
-          mobs[uploadTarget.mobIdx].image = publicUrl;
+          mobs[uploadTarget.mobIdx] = { ...mobs[uploadTarget.mobIdx], image: publicUrl };
           return { ...prev, mobs };
         });
       }
       else if (type === 'dropItem' && uploadTarget && uploadTarget.dropIdx !== undefined) {
         setNewDrop(prev => {
           const mobs = [...(prev.mobs || [])];
-          mobs[uploadTarget.mobIdx].drops[uploadTarget.dropIdx!].itemImage = publicUrl;
+          const drops = [...mobs[uploadTarget.mobIdx].drops];
+          drops[uploadTarget.dropIdx!] = { ...drops[uploadTarget.dropIdx!], itemImage: publicUrl };
+          mobs[uploadTarget.mobIdx] = { ...mobs[uploadTarget.mobIdx], drops };
           return { ...prev, mobs };
         });
       }
@@ -144,7 +146,7 @@ const AdminPanel: React.FC = () => {
     };
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
     const link = `${window.location.origin}${window.location.pathname}?sync=${encoded}`;
-    navigator.clipboard.writeText(link).then(() => alert("¡LINK MAESTRO GENERADO Y COPIADO! Sincronización total lista."));
+    navigator.clipboard.writeText(link).then(() => alert("¡LINK MAESTRO GENERADO Y COPIADO!"));
   };
 
   const saveConfigField = async (key: string, value: string, settingKey: string) => {
@@ -179,7 +181,7 @@ const AdminPanel: React.FC = () => {
   };
 
   const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (activeMobIdx === null) return alert("Selecciona una entidad del bestiario primero para marcar su posición.");
+    if (activeMobIdx === null) return alert("Selecciona una entidad del bestiario primero.");
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
@@ -208,18 +210,18 @@ const AdminPanel: React.FC = () => {
       ...prev,
       mobs: [...(prev.mobs || []), mob]
     }));
-    setActiveMobIdx(newDrop.mobs?.length || 0);
+    setActiveMobIdx((newDrop.mobs?.length || 0));
   };
 
   const addDropToMob = (mIdx: number) => {
-    const newDropEntry: DropEntry = {
-      itemName: 'Nuevo Item',
-      itemImage: '',
-      rate: '1%',
-      rarity: 'Common'
-    };
     setNewDrop(prev => {
       const mobs = [...(prev.mobs || [])];
+      const newDropEntry: DropEntry = {
+        itemName: 'Nuevo Item',
+        itemImage: '',
+        rate: '1%',
+        rarity: 'Common'
+      };
       mobs[mIdx].drops = [...mobs[mIdx].drops, newDropEntry];
       return { ...prev, mobs };
     });
@@ -237,32 +239,27 @@ const AdminPanel: React.FC = () => {
 
       {activeSubTab === 'settings' ? (
         <div className="space-y-12 animate-fade-in">
-          {/* SINCRONIZACIÓN TOTAL */}
           <div className="glass-panel p-16 rounded-[3rem] border border-[#d4af37]/40 text-center space-y-8 shadow-[0_0_60px_rgba(0,0,0,0.5)] relative overflow-hidden">
              <div className="absolute inset-0 border-[2px] border-dashed border-[#d4af37]/20 rounded-[3rem] m-2 pointer-events-none"></div>
              <h2 className="text-4xl font-shaiya text-[#d4af37] uppercase tracking-[8px]">Sincronización Total</h2>
-             <p className="text-gray-400 text-[10px] uppercase tracking-[4px] max-w-2xl mx-auto">Genera un enlace único con tus 15 ajustes (Logo, Fondo, Webhooks, Portales y Supabase).</p>
+             <p className="text-gray-400 text-[10px] uppercase tracking-[4px] max-w-2xl mx-auto">Genera un enlace único con tus ajustes.</p>
              <button onClick={generateMasterLink} className="bg-white text-black font-black px-12 py-5 rounded-2xl uppercase tracking-[6px] hover:bg-[#d4af37] transition-all shadow-2xl flex items-center gap-3 mx-auto">
                 <span className="text-xl">🔗</span> GENERAR LINK MAESTRO
              </button>
           </div>
 
           <h2 className="text-3xl font-shaiya text-white text-center uppercase tracking-[10px]">Branding del Reino</h2>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-             {/* LOGO */}
              <div className="glass-panel p-10 rounded-[2.5rem] border border-white/10 space-y-6">
                 <h3 className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest">Logo Principal</h3>
                 <div className="flex gap-4 items-center">
-                   <div className="w-20 h-20 bg-black/60 rounded-xl border border-white/10 p-2 shrink-0">
+                   <div className="w-20 h-20 bg-black/60 rounded-xl border border-white/10 p-2 shrink-0 overflow-hidden">
                       <img src={config.siteLogo || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-full h-full object-contain" />
                    </div>
                    <button onClick={() => logoFileRef.current?.click()} className="flex-grow bg-white/5 border border-white/10 text-white font-black py-4 rounded-xl uppercase tracking-widest hover:bg-[#d4af37] hover:text-black transition-all">Subir Logo</button>
                 </div>
                 <input type="file" ref={logoFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logo')} />
              </div>
-
-             {/* FONDO */}
              <div className="glass-panel p-10 rounded-[2.5rem] border border-white/10 space-y-6">
                 <h3 className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest">Fondo Épico</h3>
                 <div className="flex gap-4 items-center">
@@ -273,8 +270,6 @@ const AdminPanel: React.FC = () => {
                 </div>
                 <input type="file" ref={bgFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'bg')} />
              </div>
-
-             {/* PORTAL MAPA */}
              <div className="glass-panel p-10 rounded-[2.5rem] border border-white/10 space-y-6">
                 <h3 className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest">Imagen Portal "Por Mapa"</h3>
                 <div className="flex gap-4 items-center">
@@ -285,8 +280,6 @@ const AdminPanel: React.FC = () => {
                 </div>
                 <input type="file" ref={mapPortalFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'mapPortal')} />
              </div>
-
-             {/* PORTAL BOSS */}
              <div className="glass-panel p-10 rounded-[2.5rem] border border-white/10 space-y-6">
                 <h3 className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest">Imagen Portal "Por Boss"</h3>
                 <div className="flex gap-4 items-center">
@@ -298,9 +291,7 @@ const AdminPanel: React.FC = () => {
                 <input type="file" ref={bossPortalFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'bossPortal')} />
              </div>
           </div>
-
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-             {/* WEBHOOKS Y DISCORD */}
              <div className="glass-panel p-10 rounded-[3rem] border border-white/10 space-y-6">
                 <h3 className="text-white text-lg font-shaiya uppercase border-b border-white/10 pb-4">Webhooks y Discord</h3>
                 <div className="space-y-4">
@@ -314,8 +305,6 @@ const AdminPanel: React.FC = () => {
                    </div>
                 </div>
              </div>
-
-             {/* SUPABASE Y ROLES */}
              <div className="glass-panel p-10 rounded-[3rem] border border-white/10 space-y-6">
                 <h3 className="text-white text-lg font-shaiya uppercase border-b border-white/10 pb-4">Supabase y Roles</h3>
                 <div className="space-y-4">
@@ -336,13 +325,11 @@ const AdminPanel: React.FC = () => {
         <div className="space-y-12 animate-fade-in">
            <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/30 shadow-2xl">
             <h2 className="text-3xl font-shaiya text-[#d4af37] mb-10 text-center uppercase tracking-widest">{editingId ? 'Reforjar Pergamino de Drop' : 'Nueva Guía Táctica'}</h2>
-            
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
               <div className="space-y-8">
                 <div className="space-y-4">
                   <h3 className="text-white text-[10px] font-black uppercase tracking-[4px] ml-2">Configuración Base</h3>
                   <input placeholder="Nombre (Ej: Pantano Infernal)" className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none focus:border-[#d4af37]" value={newDrop.name} onChange={e => setNewDrop({...newDrop, name: e.target.value})} />
-                  
                   <div className="grid grid-cols-2 gap-4">
                     <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none cursor-pointer" value={newDrop.category} onChange={e => setNewDrop({...newDrop, category: e.target.value as any})}>
                       <option value="Mapa">Tipo: Mapa / Región</option>
@@ -356,20 +343,18 @@ const AdminPanel: React.FC = () => {
                       </select>
                     )}
                   </div>
-
                   <div className="flex gap-4">
                     <input placeholder="Imagen URL del Mapa" className="flex-grow bg-black/60 border border-white/10 p-5 rounded-2xl text-white text-xs" value={newDrop.image} onChange={e => setNewDrop({...newDrop, image: e.target.value})} />
                     <button onClick={() => dropFileRef.current?.click()} className="bg-[#d4af37] text-black px-6 rounded-2xl font-black uppercase text-[10px] hover:bg-white transition-all shadow-lg">Subir</button>
                     <input type="file" ref={dropFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'drop')} />
                   </div>
-                  <textarea placeholder="Breve descripción o guía para los jugadores..." className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white h-32 resize-none outline-none focus:border-[#d4af37]" value={newDrop.description} onChange={e => setNewDrop({...newDrop, description: e.target.value})} />
+                  <textarea placeholder="Descripción táctica..." className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white h-32 resize-none outline-none focus:border-[#d4af37]" value={newDrop.description} onChange={e => setNewDrop({...newDrop, description: e.target.value})} />
                 </div>
-
                 {newDrop.image && (
                   <div className="space-y-4 animate-fade-in">
                     <div className="flex justify-between items-end px-2">
                        <h3 className="text-[#d4af37] text-[10px] font-black uppercase tracking-[4px]">Marcado de GPS</h3>
-                       <p className="text-gray-500 text-[9px] uppercase font-bold italic">Selecciona un mob y haz clic en el mapa para marcarlo</p>
+                       <p className="text-gray-500 text-[9px] uppercase font-bold italic">Haz clic en el mapa para marcar</p>
                     </div>
                     <div className="relative rounded-[2rem] overflow-hidden border border-white/10 cursor-crosshair bg-black group" onClick={handleMapClick}>
                       <img src={newDrop.image} className="w-full h-auto opacity-70 group-hover:opacity-90 transition-opacity" />
@@ -386,36 +371,97 @@ const AdminPanel: React.FC = () => {
                   </div>
                 )}
               </div>
-
               <div className="space-y-8">
                 <div className="flex justify-between items-center px-2">
                   <h3 className="text-white text-[10px] font-black uppercase tracking-[4px]">Bestiario del Mapa</h3>
-                  <button onClick={addMob} className="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase">+ Nueva Entidad</button>
+                  <button onClick={addMob} className="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg transition-all">+ Nueva Entidad</button>
                 </div>
                 <div className="space-y-6 max-h-[800px] overflow-y-auto pr-3 custom-scroll">
                   {newDrop.mobs?.map((mob, mIdx) => (
-                    <div key={mob.id} className={`p-6 rounded-[2rem] border-2 transition-all ${activeMobIdx === mIdx ? 'bg-[#d4af37]/10 border-[#d4af37]' : 'bg-black/60 border-white/5'}`} onClick={() => setActiveMobIdx(mIdx)}>
-                       <div className="flex gap-4">
-                         <input placeholder="Nombre" className="w-full bg-black/40 border border-white/5 p-3 rounded-xl text-white text-sm" value={mob.name} onChange={e => {
-                            const mobs = [...(newDrop.mobs || [])];
-                            mobs[mIdx].name = e.target.value;
-                            setNewDrop({...newDrop, mobs});
-                          }} />
-                          <input type="color" className="w-16 h-11 bg-transparent rounded-xl cursor-pointer" value={mob.mapColor} onChange={e => {
-                             const mobs = [...(newDrop.mobs || [])];
-                             mobs[mIdx].mapColor = e.target.value;
-                             setNewDrop({...newDrop, mobs});
-                          }} />
+                    <div key={mob.id} className={`p-6 rounded-[2.5rem] border-2 transition-all ${activeMobIdx === mIdx ? 'bg-[#d4af37]/10 border-[#d4af37]' : 'bg-black/60 border-white/5'}`} onClick={() => setActiveMobIdx(mIdx)}>
+                       <div className="flex gap-4 items-center mb-4">
+                         <div className="relative group/mobimg w-16 h-16 shrink-0 bg-black/80 rounded-xl border border-white/10 overflow-hidden cursor-pointer" onClick={(e) => { e.stopPropagation(); setUploadTarget({mobIdx: mIdx}); mobFileRef.current?.click(); }}>
+                            {mob.image ? <img src={mob.image} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-gray-500 uppercase font-black">Subir</div>}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/mobimg:opacity-100 flex items-center justify-center text-[6px] text-white font-black">CAMBIAR</div>
+                         </div>
+                         <div className="flex-grow space-y-2">
+                            <input placeholder="Nombre de la Entidad" className="w-full bg-black/40 border border-white/5 p-3 rounded-xl text-white text-sm outline-none focus:border-[#d4af37]" value={mob.name} onChange={e => {
+                                const mobs = [...(newDrop.mobs || [])];
+                                mobs[mIdx].name = e.target.value;
+                                setNewDrop({...newDrop, mobs});
+                            }} />
+                            <div className="flex items-center gap-3">
+                               <input placeholder="Nivel" className="w-20 bg-black/40 border border-white/5 p-2 rounded-xl text-white text-xs outline-none" value={mob.level} onChange={e => {
+                                  const mobs = [...(newDrop.mobs || [])];
+                                  mobs[mIdx].level = e.target.value;
+                                  setNewDrop({...newDrop, mobs});
+                               }} />
+                               <input type="color" className="w-full h-8 bg-transparent rounded-lg cursor-pointer" value={mob.mapColor} onChange={e => {
+                                  const mobs = [...(newDrop.mobs || [])];
+                                  mobs[mIdx].mapColor = e.target.value;
+                                  setNewDrop({...newDrop, mobs});
+                               }} />
+                            </div>
+                         </div>
                        </div>
-                       <button onClick={(e) => { e.stopPropagation(); addDropToMob(mIdx); }} className="mt-4 text-green-400 text-[10px] font-black uppercase hover:underline">+ Añadir Item Drop</button>
+                       <div className="space-y-3 pt-4 border-t border-white/5">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-[9px] text-gray-500 font-black uppercase tracking-widest">Objetos de Botín</span>
+                            <button onClick={(e) => { e.stopPropagation(); addDropToMob(mIdx); }} className="text-green-500 text-[9px] font-black uppercase hover:underline">+ Añadir Item Drop</button>
+                          </div>
+                          <div className="space-y-2">
+                            {mob.drops.map((drop, dIdx) => (
+                              <div key={dIdx} className="bg-black/60 p-3 rounded-2xl border border-white/5 flex items-center gap-3 group/dropentry">
+                                <div className="w-10 h-10 bg-black/80 rounded-lg border border-white/10 flex items-center justify-center overflow-hidden cursor-pointer relative group/dropimg" onClick={(e) => { e.stopPropagation(); setUploadTarget({mobIdx: mIdx, dropIdx: dIdx}); dropItemFileRef.current?.click(); }}>
+                                  {drop.itemImage ? <img src={drop.itemImage} className="w-full h-full object-contain" /> : <span className="text-[6px] text-gray-700">FOTO</span>}
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/dropimg:opacity-100 flex items-center justify-center text-[6px] text-white">SUBIR</div>
+                                </div>
+                                <input placeholder="Nombre Item" className="flex-grow bg-transparent border-none text-white text-xs outline-none font-bold" value={drop.itemName} onChange={e => {
+                                   const mobs = [...(newDrop.mobs || [])];
+                                   mobs[mIdx].drops[dIdx].itemName = e.target.value;
+                                   setNewDrop({...newDrop, mobs});
+                                }} />
+                                <input placeholder="%" className="w-16 bg-black/40 border border-white/5 rounded-lg p-2 text-[#d4af37] text-[10px] text-center" value={drop.rate} onChange={e => {
+                                   const mobs = [...(newDrop.mobs || [])];
+                                   mobs[mIdx].drops[dIdx].rate = e.target.value;
+                                   setNewDrop({...newDrop, mobs});
+                                }} />
+                                <button onClick={(e) => { e.stopPropagation(); const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops.splice(dIdx, 1); setNewDrop({...newDrop, mobs: ms}); }} className="text-red-500/30 hover:text-red-500 text-[10px]">✕</button>
+                              </div>
+                            ))}
+                          </div>
+                       </div>
+                       <button onClick={(e) => { e.stopPropagation(); if(confirm('¿Eliminar mob?')) { const ms = [...(newDrop.mobs || [])]; ms.splice(mIdx, 1); setNewDrop({...newDrop, mobs: ms}); } }} className="w-full mt-4 text-red-500/50 text-[8px] font-black uppercase hover:text-red-500 transition-colors">Eliminar Entidad</button>
                     </div>
                   ))}
+                  {(!newDrop.mobs || newDrop.mobs.length === 0) && <div className="text-center py-20 bg-black/40 border border-dashed border-white/10 rounded-[2rem] text-gray-700 font-shaiya text-xl uppercase italic">Territorio sin habitantes</div>}
                 </div>
               </div>
             </div>
-            <button onClick={handleAddDrop} disabled={isSaving || isUploading} className="w-full mt-12 bg-white text-black font-black py-6 rounded-[2rem] uppercase tracking-[10px] hover:bg-[#d4af37] transition-all">
-               Guardar Cambios
+            <button onClick={handleAddDrop} disabled={isSaving || isUploading} className="w-full mt-12 bg-white text-black font-black py-6 rounded-[2rem] uppercase tracking-[10px] hover:bg-[#d4af37] transition-all shadow-2xl disabled:opacity-50">
+               {editingId ? 'Confirmar Actualización' : 'Sellar Guía de Drop'}
             </button>
+          </div>
+          <div className="glass-panel p-8 rounded-[3rem] border border-white/5">
+             <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="border-b border-white/10 text-[10px] font-black uppercase text-[#d4af37]">
+                  <tr><th className="p-6">Mapa / Boss</th><th className="p-6">Categoría</th><th className="p-6 text-right">Acción</th></tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {dropsList.map(drop => (
+                    <tr key={drop.id} className="group hover:bg-white/5 transition-colors">
+                      <td className="p-6"><div className="flex items-center gap-5"><img src={drop.image} className="w-12 h-12 rounded-xl object-cover border border-white/10" /><span className="font-shaiya text-white text-2xl">{drop.name}</span></div></td>
+                      <td className="p-6 text-[10px] text-gray-500 uppercase font-black">{drop.category} {drop.faction && `(${drop.faction})`}</td>
+                      <td className="p-6 text-right">
+                        <button onClick={() => { setNewDrop(drop); setEditingId(drop.id); window.scrollTo({top:0, behavior:'smooth'}) }} className="p-3 text-[#d4af37] hover:bg-[#d4af37]/10 rounded-xl mr-3">✏️</button>
+                        <button onClick={() => { if(confirm('¿Eliminar?')) deleteDropListFromDB(drop.id).then(loadData) }} className="p-3 text-red-500 hover:bg-red-500/10 rounded-xl">🗑️</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       ) : activeSubTab === 'items' ? (
@@ -464,6 +510,8 @@ const AdminPanel: React.FC = () => {
 
       <input type="file" ref={mobFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'mob')} />
       <input type="file" ref={dropItemFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'dropItem')} />
+      <input type="file" ref={bossPortalFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'bossPortal')} />
+      <input type="file" ref={mapPortalFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'mapPortal')} />
     </div>
   );
 };

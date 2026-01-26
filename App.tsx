@@ -41,27 +41,25 @@ const App: React.FC = () => {
     if (sync) {
       try {
         let decoded: any;
-        if (version === '4') {
-          const binary = atob(decodeURIComponent(sync));
-          const jsonStr = decodeURIComponent(binary.split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-          const obj = JSON.parse(jsonStr);
-          decoded = { ...obj.config, localItems: obj.localItems, localDrops: obj.localDrops };
-        } else {
-          decoded = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(sync)))));
+        // Decodificación segura del Link Maestro
+        const binary = atob(decodeURIComponent(sync));
+        const jsonStr = decodeURIComponent(binary.split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+        decoded = JSON.parse(jsonStr);
+        
+        // Solo sincronizamos la configuración de los settings via URL para evitar URI_TOO_LONG
+        if (decoded.config) {
+          Object.entries(decoded.config).forEach(([k, v]) => {
+            if (v) localStorage.setItem(`nova_setting_${k}`, String(v));
+          });
         }
         
-        Object.entries(decoded).forEach(([k, v]) => {
-          if (v && k !== 'localItems' && k !== 'localDrops') {
-            localStorage.setItem(`nova_setting_${k}`, String(v));
-          }
-        });
-        if (decoded.localItems) localStorage.setItem('nova_local_items', JSON.stringify(decoded.localItems));
-        if (decoded.localDrops) localStorage.setItem('nova_local_drops', JSON.stringify(decoded.localDrops));
-
+        // Importante: Limpiamos la URL después de procesar
         window.history.replaceState({}, document.title, window.location.pathname);
-        alert("¡REINO SINCRONIZADO CON ÉXITO!");
+        alert("¡CONFIGURACIÓN DEL REINO SINCRONIZADA!");
         window.location.reload(); 
-      } catch (e) { console.error("Fallo de sincronización:", e); }
+      } catch (e) { 
+        console.error("Fallo de sincronización:", e);
+      }
     }
     fetchItems();
     fetchSettings();

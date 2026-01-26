@@ -12,6 +12,7 @@ const AdminPanel: React.FC = () => {
   const [appsList, setAppsList] = useState<StaffApplication[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
+  const [importJson, setImportJson] = useState('');
   
   const itemFileRef = useRef<HTMLInputElement>(null);
   const dropFileRef = useRef<HTMLInputElement>(null);
@@ -118,18 +119,42 @@ const AdminPanel: React.FC = () => {
   };
 
   const generateMasterLink = () => {
-    const li = localStorage.getItem('nova_local_items');
-    const ld = localStorage.getItem('nova_local_drops');
-    const syncObj = {
-      config: config,
-      localItems: li ? JSON.parse(li) : [],
-      localDrops: ld ? JSON.parse(ld) : []
-    };
+    // IMPORTANTE: Solo sincronizamos CONFIGURACIÓN en el URL para evitar el error URI_TOO_LONG
+    const syncObj = { config: config };
     const jsonStr = JSON.stringify(syncObj);
     const safeBase64 = btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode(parseInt(p1, 16))));
     const url = `${window.location.origin}${window.location.pathname}?sync=${encodeURIComponent(safeBase64)}&v=4`;
     navigator.clipboard.writeText(url);
-    alert("¡LINK MAESTRO GENERADO!");
+    alert("¡LINK DE CONFIGURACIÓN GENERADO! (No incluye ítems para evitar errores de longitud).");
+  };
+
+  const exportAllData = () => {
+    const li = localStorage.getItem('nova_local_items');
+    const ld = localStorage.getItem('nova_local_drops');
+    const exportObj = {
+      config,
+      localItems: li ? JSON.parse(li) : [],
+      localDrops: ld ? JSON.parse(ld) : []
+    };
+    navigator.clipboard.writeText(JSON.stringify(exportObj, null, 2));
+    alert("¡BASE DE DATOS COMPLETA COPIADA AL PORTAPAPELES!");
+  };
+
+  const handleImport = () => {
+    try {
+      const data = JSON.parse(importJson);
+      if (data.config) {
+        Object.entries(data.config).forEach(([k, v]) => {
+          if (v) localStorage.setItem(`nova_setting_${k}`, String(v));
+        });
+      }
+      if (data.localItems) localStorage.setItem('nova_local_items', JSON.stringify(data.localItems));
+      if (data.localDrops) localStorage.setItem('nova_local_drops', JSON.stringify(data.localDrops));
+      alert("¡IMPORTACIÓN EXITOSA! Reiniciando el reino...");
+      window.location.reload();
+    } catch {
+      alert("ERROR: El código JSON no es válido.");
+    }
   };
 
   const handleAddItem = async () => {
@@ -215,10 +240,28 @@ const AdminPanel: React.FC = () => {
         <div className="space-y-10 animate-fade-in">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6">
+              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Sincronización de Poder</h3>
+              <p className="text-gray-400 text-[10px] uppercase tracking-widest">Usa el Link Maestro para pasar llaves y webhooks. Para ítems pesados usa Exportar/Importar.</p>
+              <button onClick={generateMasterLink} className="w-full bg-[#d4af37] text-black font-black py-4 rounded-xl uppercase text-[10px] tracking-widest hover:brightness-110 transition-all">Generar Link Maestro (Keys)</button>
+              <button onClick={exportAllData} className="w-full bg-blue-600 text-white font-black py-4 rounded-xl uppercase text-[10px] tracking-widest hover:brightness-110 transition-all">Exportar Base de Datos (JSON)</button>
+              
+              <div className="space-y-4 pt-4 border-t border-white/5">
+                <textarea 
+                  placeholder="Pega aquí el código JSON de importación..." 
+                  className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-[10px] font-mono h-24"
+                  value={importJson}
+                  onChange={e => setImportJson(e.target.value)}
+                />
+                <button onClick={handleImport} className="w-full bg-green-600 text-white font-black py-4 rounded-xl uppercase text-[10px] tracking-widest">Importar Datos Manualmente</button>
+              </div>
+            </div>
+
+            <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6">
               <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Discord Webhooks</h3>
               <input placeholder="Webhook Soporte" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.webhookSupport} onChange={e => saveConfigField('webhookSupport', e.target.value, 'NOVA_WEBHOOK_URL')} />
               <input placeholder="Webhook Postulaciones" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.webhookApps} onChange={e => saveConfigField('webhookApps', e.target.value, 'NOVA_STAFF_APP_WEBHOOK')} />
             </div>
+
             <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6 md:col-span-2">
               <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Identidad del Reino</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -240,8 +283,15 @@ const AdminPanel: React.FC = () => {
                  </div>
               </div>
             </div>
+
+            <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6 md:col-span-2">
+              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Supabase Connect</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <input placeholder="Supabase URL" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.supabaseUrl} onChange={e => saveConfigField('supabaseUrl', e.target.value, 'SUPABASE_URL')} />
+                <input placeholder="Supabase Key" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.supabaseKey} onChange={e => saveConfigField('supabaseKey', e.target.value, 'SUPABASE_ANON_KEY')} />
+              </div>
+            </div>
           </div>
-          <button onClick={generateMasterLink} className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black py-6 rounded-[2rem] uppercase tracking-[5px] shadow-2xl">Generar Link Maestro Definitivo</button>
         </div>
       ) : activeSubTab === 'drops' ? (
         <div className="space-y-12 animate-fade-in">

@@ -68,6 +68,7 @@ const mapItemForDB = (item: any) => {
     gender: item.gender || 'Ambos',
     stats: item.stats || '',
     price: item.price || '',
+    rarity: item.rarity || 'Common',
     created_at: item.created_at || new Date().toISOString()
   };
 };
@@ -82,6 +83,7 @@ export const getItemsFromDB = async () => {
   try {
     const { data, error } = await client.from('items').select('*').order('created_at', { ascending: false });
     if (error) throw error;
+    // Si hay datos en la nube, los priorizamos
     return data && data.length > 0 ? data : localItems;
   } catch (err) { 
     return localItems; 
@@ -98,6 +100,7 @@ export const getDropListsFromDB = async () => {
   try {
     const { data, error } = await client.from('drop_lists').select('*').order('created_at', { ascending: false });
     if (error) throw error;
+    // Si hay datos en la nube, los priorizamos sobre los locales
     return data && data.length > 0 ? data : localDrops;
   } catch (err) { 
     return localDrops; 
@@ -116,7 +119,8 @@ export const addDropListToDB = async (drop: any) => {
   updateLocalDrops([newDrop, ...currentLocal]);
 
   if (!isPlaceholder) {
-    await client.from('drop_lists').insert([newDrop]);
+    const { error } = await client.from('drop_lists').insert([newDrop]);
+    if (error) console.error("Error guardando drop en nube:", error);
   }
   return newDrop;
 };

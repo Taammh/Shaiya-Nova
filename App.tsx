@@ -19,12 +19,18 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
+  const [siteBg, setSiteBg] = useState<string | null>(null);
 
   const fetchItems = async () => {
     try {
       const items = await getItemsFromDB();
       setCloudItems(items as GameItem[]);
     } catch (e) { console.error(e); } finally { setIsLoading(false); }
+  };
+
+  const fetchSettings = async () => {
+    const bg = await getSetting('SITE_BG_URL');
+    if (bg) setSiteBg(bg);
   };
 
   useEffect(() => {
@@ -36,22 +42,14 @@ const App: React.FC = () => {
       try {
         let decoded: any;
         if (version === '4') {
-          // Motor de decodificación seguro UTF-8
           const binary = atob(decodeURIComponent(sync));
           const jsonStr = decodeURIComponent(binary.split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
           const obj = JSON.parse(jsonStr);
-          
-          decoded = {
-            ...obj.config,
-            localItems: obj.localItems,
-            localDrops: obj.localDrops
-          };
+          decoded = { ...obj.config, localItems: obj.localItems, localDrops: obj.localDrops };
         } else {
-          // Retrocompatibilidad Base64
           decoded = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(sync)))));
         }
         
-        // Persistencia Segura
         Object.entries(decoded).forEach(([k, v]) => {
           if (v && k !== 'localItems' && k !== 'localDrops') {
             localStorage.setItem(`nova_setting_${k}`, String(v));
@@ -66,6 +64,7 @@ const App: React.FC = () => {
       } catch (e) { console.error("Fallo de sincronización:", e); }
     }
     fetchItems();
+    fetchSettings();
   }, []);
 
   const allItems = useMemo(() => [...STATIC_ITEMS, ...cloudItems], [cloudItems]);
@@ -90,8 +89,10 @@ const App: React.FC = () => {
     });
   }, [activeTab, selectedFaction, selectedClass, selectedGender, allItems]);
 
+  const dynamicBg = siteBg ? { backgroundImage: `linear-gradient(to bottom, rgba(5,5,7,0.8), rgba(5,5,7,0.6)), url('${siteBg}')` } : {};
+
   return (
-    <div className={`min-h-screen flex flex-col relative bg-shaiya-epic`}>
+    <div className={`min-h-screen flex flex-col relative ${siteBg ? '' : 'bg-shaiya-epic'}`} style={dynamicBg}>
       <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
       <main className="flex-grow container mx-auto px-4 py-12 relative z-10">
         {activeTab === 'droplist' && <DropList />}
@@ -111,14 +112,34 @@ const App: React.FC = () => {
           </div>
         )}
         {activeTab !== 'report' && activeTab !== 'admin' && activeTab !== 'staff_app' && activeTab !== 'droplist' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {filteredItems.map(item => <ItemCard key={item.id} item={item} />)}
+          <div className="space-y-12">
+            {activeTab === 'costumes' && (
+              <div className="max-w-4xl mx-auto glass-panel p-8 rounded-[2.5rem] flex flex-wrap gap-6 justify-center animate-fade-in">
+                <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs font-black uppercase" value={selectedFaction} onChange={e => setSelectedFaction(e.target.value as Faction)}>
+                  <option value={Faction.LIGHT}>Luz</option>
+                  <option value={Faction.FURY}>Furia</option>
+                </select>
+                <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs font-black uppercase" value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
+                  <option value="All">Todas las Clases</option>
+                  {(CLASSES_BY_FACTION[selectedFaction] || []).map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs font-black uppercase" value={selectedGender} onChange={e => setSelectedGender(e.target.value)}>
+                  <option value="All">Ambos Sexos</option>
+                  <option value={Gender.MALE}>Hombres</option>
+                  <option value={Gender.FEMALE}>Mujeres</option>
+                </select>
+              </div>
+            )}
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {filteredItems.map(item => <ItemCard key={item.id} item={item} />)}
+            </div>
           </div>
         )}
       </main>
       <footer className="py-12 text-center text-gray-500 border-t border-white/5 bg-black/40">
         <p className="font-shaiya text-xl tracking-widest text-white/40 mb-2">SHAIYA NOVA</p>
-        <p className="text-[9px] uppercase tracking-[5px] font-black opacity-30">© 2025 • Shaiya NOVA</p>
+        <p className="text-[9px] uppercase tracking-[5px] font-black opacity-30">© 2025 • El destino del reino está en tus manos</p>
       </footer>
     </div>
   );

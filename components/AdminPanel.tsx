@@ -11,6 +11,7 @@ const AdminPanel: React.FC = () => {
   const [dropsList, setDropsList] = useState<DropMap[]>([]);
   const [appsList, setAppsList] = useState<StaffApplication[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
   
   const itemFileRef = useRef<HTMLInputElement>(null);
   const dropFileRef = useRef<HTMLInputElement>(null);
@@ -209,7 +210,7 @@ const AdminPanel: React.FC = () => {
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(dataToSync))));
     const url = `${window.location.origin}${window.location.pathname}?sync=${encoded}`;
     navigator.clipboard.writeText(url);
-    alert("Link Maestro copiado al portapapeles.");
+    alert("Link Maestro copiado.");
   };
 
   return (
@@ -235,24 +236,6 @@ const AdminPanel: React.FC = () => {
               <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Infraestructura Real</h3>
               <input placeholder="Supabase URL" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.supabaseUrl} onChange={e => saveConfigField('supabaseUrl', e.target.value, 'SUPABASE_URL')} />
               <input placeholder="Supabase Anon Key" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.supabaseKey} onChange={e => saveConfigField('supabaseKey', e.target.value, 'SUPABASE_ANON_KEY')} />
-              <input placeholder="Discord Client ID" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.clientId} onChange={e => saveConfigField('clientId', e.target.value, 'DISCORD_CLIENT_ID')} />
-            </div>
-            <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6">
-              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">IDs de Roles (Staff)</h3>
-              <input placeholder="ID Rol GS" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.roleGs} onChange={e => saveConfigField('roleGs', e.target.value, 'ROLE_ID_GS')} />
-              <input placeholder="ID Rol Líder GS" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.roleLgs} onChange={e => saveConfigField('roleLgs', e.target.value, 'ROLE_ID_LGS')} />
-              <input placeholder="ID Rol GM" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.roleGm} onChange={e => saveConfigField('roleGm', e.target.value, 'ROLE_ID_GM')} />
-            </div>
-            <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6">
-              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Visual Branding</h3>
-              <div className="flex gap-4 items-center">
-                <input placeholder="URL Logo" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.siteLogo} onChange={e => saveConfigField('siteLogo', e.target.value, 'SITE_LOGO_URL')} />
-                <button onClick={() => logoFileRef.current?.click()} className="bg-white/10 p-4 rounded-xl text-white">📁</button>
-              </div>
-              <div className="flex gap-4 items-center">
-                <input placeholder="URL Fondo" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.siteBg} onChange={e => saveConfigField('siteBg', e.target.value, 'SITE_BG_URL')} />
-                <button onClick={() => bgFileRef.current?.click()} className="bg-white/10 p-4 rounded-xl text-white">📁</button>
-              </div>
             </div>
           </div>
           <button onClick={generateMasterLink} className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black py-6 rounded-[2rem] uppercase tracking-[5px] shadow-2xl">Generar Link Maestro de Sincronización</button>
@@ -352,25 +335,6 @@ const AdminPanel: React.FC = () => {
                {editingId ? 'Confirmar Reforja de Pergamino' : 'Sellar Guía de Drop'}
             </button>
           </div>
-          <div className="glass-panel p-8 rounded-[3rem] border border-white/5 mt-10">
-              <table className="w-full text-left">
-                <thead className="text-[#d4af37] text-[10px] uppercase font-black">
-                  <tr><th className="p-6">Mapa / Jefe</th><th className="p-6">Categoría</th><th className="p-6 text-right">Acción</th></tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {dropsList.map(drop => (
-                    <tr key={drop.id} className="text-white hover:bg-white/5 transition-colors">
-                      <td className="p-6 font-shaiya text-2xl">{drop.name}</td>
-                      <td className="p-6 uppercase text-[10px] text-gray-500 font-black">{drop.category} ({drop.faction})</td>
-                      <td className="p-6 text-right">
-                        <button onClick={() => { setNewDrop(drop); setEditingId(drop.id); window.scrollTo({top:0, behavior:'smooth'}) }} className="text-[#d4af37] mr-4 hover:scale-125 transition-transform">✏️</button>
-                        <button onClick={() => { if(confirm('¿Borrar registro?')) deleteDropListFromDB(drop.id).then(loadData) }} className="text-red-500 hover:scale-125 transition-transform">🗑️</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-          </div>
         </div>
       ) : activeSubTab === 'items' ? (
         <div className="space-y-10 animate-fade-in">
@@ -389,14 +353,22 @@ const AdminPanel: React.FC = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.item_class} onChange={e => setNewItem({...newItem, item_class: e.target.value})}>
-                <option value="All">Todas las Clases</option>
-                <option value="Luchador">Luchador / Guerrero</option>
-                <option value="Guardián">Guardián</option>
-                <option value="Explorador">Explorador / Cazador</option>
-                <option value="Tirador">Tirador / Animista</option>
-                <option value="Mago">Mago / Pagano</option>
-                <option value="Oráculo">Oráculo</option>
-                <option value="Oraculo/Pagano">Oráculo / Pagano</option>
+                {newItem.category === Category.COSTUME ? (
+                  <>
+                    {(CLASSES_BY_FACTION[newItem.faction as Faction] || []).map(c => <option key={c} value={c}>{c}</option>)}
+                  </>
+                ) : (
+                  <>
+                    <option value="All">Todas las Clases</option>
+                    <option value="Luchador">Luchador / Guerrero</option>
+                    <option value="Guardián">Guardián</option>
+                    <option value="Explorador">Explorador / Cazador</option>
+                    <option value="Tirador">Tirador / Animista</option>
+                    <option value="Mago">Mago / Pagano</option>
+                    <option value="Oráculo">Oráculo</option>
+                    <option value="Oraculo/Pagano">Oráculo / Pagano</option>
+                  </>
+                )}
               </select>
               <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.gender} onChange={e => setNewItem({...newItem, gender: e.target.value as any})}>
                 <option value={Gender.BOTH}>Género: Ambos</option>
@@ -407,37 +379,9 @@ const AdminPanel: React.FC = () => {
                 {['Common', 'Noble', 'Atroz', 'Legendary', 'Diosa', 'Special', 'Unique'].map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
-            <div className="flex gap-4 mb-6">
-               <input placeholder="URL Imagen Reliquia" className="flex-grow bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none text-xs" value={newItem.image} onChange={e => setNewItem({...newItem, image: e.target.value})} />
-               <button onClick={() => itemFileRef.current?.click()} className="bg-[#d4af37] text-black px-10 rounded-2xl font-black uppercase text-xs">SUBIR</button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-               <input placeholder="Estadísticas (Ej: STR +20)" className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.stats} onChange={e => setNewItem({...newItem, stats: e.target.value})} />
-               <input placeholder="Valor / Precio" className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.price} onChange={e => setNewItem({...newItem, price: e.target.value})} />
-            </div>
-            <textarea placeholder="Descripción antigua..." className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none mb-8 min-h-[100px]" value={newItem.description} onChange={e => setNewItem({...newItem, description: e.target.value})} />
-            <button onClick={handleAddItem} disabled={isSaving || isUploading} className="w-full bg-white text-black font-black py-6 rounded-[2.5rem] uppercase tracking-[8px] hover:bg-[#d4af37] transition-all shadow-xl">
-               {editingId ? 'Confirmar Reforja de Reliquia' : 'Manifestar Reliquia en el Reino'}
+            <button onClick={handleAddItem} className="w-full bg-white text-black font-black py-6 rounded-[2.5rem] uppercase tracking-[8px] hover:bg-[#d4af37] transition-all shadow-xl">
+               {editingId ? 'Confirmar Reforja' : 'Manifestar Reliquia'}
             </button>
-          </div>
-          <div className="glass-panel p-8 rounded-[3rem] border border-white/5 mt-10">
-             <table className="w-full text-left">
-                <thead className="text-[#d4af37] text-[10px] uppercase font-black">
-                  <tr><th className="p-6">Reliquia</th><th className="p-6">Categoría / Facción / Clase</th><th className="p-6 text-right">Acción</th></tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {itemsList.map(item => (
-                    <tr key={item.id} className="text-white hover:bg-white/5 transition-colors">
-                      <td className="p-6 font-shaiya text-2xl">{item.name}</td>
-                      <td className="p-6 text-[10px] uppercase font-black text-gray-500">{item.category} • {item.faction} • {item.item_class}</td>
-                      <td className="p-6 text-right">
-                        <button onClick={() => { setNewItem(item); setEditingId(item.id); window.scrollTo({top:0, behavior:'smooth'}) }} className="text-[#d4af37] mr-4 hover:scale-125 transition-transform">✏️</button>
-                        <button onClick={() => { if(confirm('¿Destruir reliquia?')) deleteItemFromDB(item.id).then(loadData) }} className="text-red-500 hover:scale-125 transition-transform">🗑️</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-             </table>
           </div>
         </div>
       ) : activeSubTab === 'apps' ? (
@@ -445,23 +389,40 @@ const AdminPanel: React.FC = () => {
            <h2 className="text-4xl font-shaiya text-white uppercase mb-12 text-center tracking-widest">Postulaciones del Staff</h2>
            <div className="space-y-6">
              {appsList.map(app => (
-               <div key={app.id} className="bg-black/60 p-8 rounded-[2.5rem] border border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 group hover:border-[#d4af37]/40 transition-all">
-                 <div className="flex gap-6 items-center">
-                   <img src={app.avatar_url} className="w-20 h-20 rounded-2xl border-2 border-[#d4af37]/30 shadow-lg" />
-                   <div>
-                     <p className="text-white font-shaiya text-3xl">{app.username}</p>
-                     <p className="text-[#d4af37] text-[10px] font-black uppercase tracking-[4px]">{app.position} • {app.status}</p>
+               <div key={app.id} className="bg-black/60 p-8 rounded-[2.5rem] border border-white/5 flex flex-col gap-6 group hover:border-[#d4af37]/40 transition-all">
+                 <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                   <div className="flex gap-6 items-center">
+                     <img src={app.avatar_url} className="w-20 h-20 rounded-2xl border-2 border-[#d4af37]/30 shadow-lg" />
+                     <div>
+                       <p className="text-white font-shaiya text-3xl">{app.username}</p>
+                       <p className="text-[#d4af37] text-[10px] font-black uppercase tracking-[4px]">{app.position} • {app.status}</p>
+                     </div>
+                   </div>
+                   <div className="flex gap-4">
+                      <button onClick={() => setExpandedAppId(expandedAppId === app.id ? null : app.id)} className="bg-white/10 text-white px-8 py-3 rounded-xl text-[10px] font-black uppercase hover:bg-white hover:text-black transition-all">
+                        {expandedAppId === app.id ? 'Ocultar Respuestas' : 'Ver Respuestas'}
+                      </button>
+                      <button onClick={() => updateStaffApplicationStatus(app.id, 'accepted').then(loadData)} className="bg-green-600/20 text-green-500 px-8 py-3 rounded-xl text-[10px] font-black uppercase hover:bg-green-600 transition-all shadow-lg">Aceptar</button>
+                      <button onClick={() => deleteStaffApplicationFromDB(app.id).then(loadData)} className="bg-red-600/20 text-red-500 px-8 py-3 rounded-xl text-[10px] font-black uppercase hover:bg-red-600 transition-all shadow-lg">Borrar</button>
                    </div>
                  </div>
-                 <div className="flex gap-4">
-                    <button onClick={() => updateStaffApplicationStatus(app.id, 'accepted').then(loadData)} className="bg-green-600/20 text-green-500 px-8 py-3 rounded-xl text-[10px] font-black uppercase hover:bg-green-600 hover:text-white transition-all shadow-lg">Aceptar</button>
-                    <button onClick={() => deleteStaffApplicationFromDB(app.id).then(loadData)} className="bg-red-600/20 text-red-500 px-8 py-3 rounded-xl text-[10px] font-black uppercase hover:bg-red-600 hover:text-white transition-all shadow-lg">Borrar</button>
-                 </div>
+                 
+                 {expandedAppId === app.id && (
+                   <div className="bg-black/40 p-8 rounded-[2rem] border border-white/5 space-y-6 animate-fade-in">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-[11px]">
+                         <div className="space-y-2"><p className="text-[#d4af37] font-black uppercase tracking-widest">Experiencia:</p><p className="text-gray-300 italic">"{app.answers.experience}"</p></div>
+                         <div className="space-y-2"><p className="text-[#d4af37] font-black uppercase tracking-widest">Motivación:</p><p className="text-gray-300 italic">"{app.answers.motivation}"</p></div>
+                         <div className="space-y-2"><p className="text-[#d4af37] font-black uppercase tracking-widest">Conflictos:</p><p className="text-gray-300 italic">"{app.answers.conflict}"</p></div>
+                         <div className="space-y-2"><p className="text-[#d4af37] font-black uppercase tracking-widest">Disponibilidad:</p><p className="text-gray-300 italic">{app.answers.availability}</p></div>
+                         <div className="md:col-span-2 space-y-2"><p className="text-[#d4af37] font-black uppercase tracking-widest">Aporte Único:</p><p className="text-gray-300 italic">"{app.answers.contribution}"</p></div>
+                      </div>
+                   </div>
+                 )}
                </div>
              ))}
              {appsList.length === 0 && (
                <div className="text-center py-20">
-                 <p className="text-gray-500 font-shaiya text-2xl uppercase opacity-30 italic">El registro de postulaciones está vacío por ahora...</p>
+                 <p className="text-gray-500 font-shaiya text-2xl uppercase opacity-30 italic">No hay postulaciones registradas...</p>
                </div>
              )}
            </div>

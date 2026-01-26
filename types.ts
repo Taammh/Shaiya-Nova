@@ -18,10 +18,10 @@ export enum Gender {
   BOTH = 'Ambos'
 }
 
-// Map of classes per faction for filtering costumes
+// Map of specific classes for Costumes as requested
 export const CLASSES_BY_FACTION: Record<Faction, string[]> = {
-  [Faction.LIGHT]: ['Luchador', 'Guardián', 'Explorador', 'Tirador', 'Mago', 'Oráculo', 'Oraculo/Pagano'],
-  [Faction.FURY]: ['Guerrero', 'Guardián', 'Cazador', 'Animista', 'Pagano', 'Oráculo', 'Oraculo/Pagano'],
+  [Faction.LIGHT]: ['Luchador/Defensor', 'Cura', 'Mago', 'Arquero/Ranger'],
+  [Faction.FURY]: ['Guerrero/Guardian', 'Cazador', 'Assesino', 'Oraculo/Pagano'],
   [Faction.NEUTRAL]: []
 };
 
@@ -38,7 +38,7 @@ export interface GameItem {
   classes?: string[];
   gender?: Gender;
   price?: string;
-  rarity?: ItemRarity; // Añadido para colorear items en la lista principal
+  rarity?: ItemRarity; 
 }
 
 export interface MapPoint {
@@ -66,7 +66,7 @@ export interface MobEntry {
   image: string;
   mapColor: string;
   drops: DropEntry[];
-  points: MapPoint[]; // Ubicaciones en el mapa
+  points: MapPoint[]; 
 }
 
 export interface DropMap {

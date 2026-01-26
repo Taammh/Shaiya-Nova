@@ -44,34 +44,24 @@ const App: React.FC = () => {
     if (syncData) {
       try {
         const decoded = JSON.parse(decodeURIComponent(escape(atob(syncData))));
-        
-        // Ajustes de Webhooks
         if (decoded.webhookSupport) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', decoded.webhookSupport);
         if (decoded.webhookApps) localStorage.setItem('nova_setting_NOVA_STAFF_APP_WEBHOOK', decoded.webhookApps);
         if (decoded.webhookWelcome) localStorage.setItem('nova_setting_NOVA_STAFF_WELCOME_WEBHOOK', decoded.webhookWelcome);
-        
-        // Ajustes de Discord
         if (decoded.clientId) localStorage.setItem('nova_setting_DISCORD_CLIENT_ID', decoded.clientId);
         if (decoded.botToken) localStorage.setItem('nova_setting_DISCORD_BOT_TOKEN', decoded.botToken);
         if (decoded.guildId) localStorage.setItem('nova_setting_DISCORD_GUILD_ID', decoded.guildId);
-        
-        // Ajustes de Roles
         if (decoded.roleGs) localStorage.setItem('nova_setting_ROLE_ID_GS', decoded.roleGs);
         if (decoded.roleLgs) localStorage.setItem('nova_setting_ROLE_ID_LGS', decoded.roleLgs);
         if (decoded.roleGm) localStorage.setItem('nova_setting_ROLE_ID_GM', decoded.roleGm);
-        
-        // Ajustes de Infraestructura
         if (decoded.supabaseUrl) localStorage.setItem('nova_setting_SUPABASE_URL', decoded.supabaseUrl);
         if (decoded.supabaseKey) localStorage.setItem('nova_setting_SUPABASE_ANON_KEY', decoded.supabaseKey);
-        
-        // Ajustes de Branding Visual
         if (decoded.siteLogo) localStorage.setItem('nova_setting_SITE_LOGO_URL', decoded.siteLogo);
         if (decoded.siteBg) localStorage.setItem('nova_setting_SITE_BG_URL', decoded.siteBg);
         if (decoded.mapPortalBg) localStorage.setItem('nova_setting_MAP_PORTAL_BG', decoded.mapPortalBg);
         if (decoded.bossPortalBg) localStorage.setItem('nova_setting_BOSS_PORTAL_BG', decoded.bossPortalBg);
 
         window.history.replaceState({}, document.title, window.location.pathname);
-        alert("¡REINO SINCRONIZADO! Todos los ajustes y visuales han sido restaurados.");
+        alert("¡REINO SINCRONIZADO!");
         window.location.reload(); 
       } catch (e) {
         console.error("Error en sincronización:", e);
@@ -101,18 +91,23 @@ const App: React.FC = () => {
 
       if (activeTab === 'costumes') {
         const matchesFaction = item.faction === selectedFaction;
-        let matchesClass = selectedClass === 'All' || item.item_class === 'All';
-        if (!matchesClass) {
-          if (selectedClass === 'Oraculo/Pagano') {
-            matchesClass = item.item_class === 'Oraculo/Pagano' || item.item_class === 'Oraculo' || item.item_class === 'Pagano';
-          } else matchesClass = item.item_class === selectedClass;
-        }
+        // Classes are strictly handled for costumes
+        let matchesClass = selectedClass === 'All' ? true : item.item_class === selectedClass;
         const matchesGender = selectedGender === 'All' || item.gender === Gender.BOTH || item.gender === selectedGender;
         return matchesFaction && matchesClass && matchesGender;
       }
       return true;
     });
   }, [activeTab, selectedFaction, selectedClass, selectedGender, allItems]);
+
+  // Adjust selected class when faction changes for costumes
+  useEffect(() => {
+    if (activeTab === 'costumes') {
+      setSelectedClass(CLASSES_BY_FACTION[selectedFaction][0]);
+    } else {
+      setSelectedClass('All');
+    }
+  }, [selectedFaction, activeTab]);
 
   const handleAdminAuth = (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,7 +132,7 @@ const App: React.FC = () => {
         {activeTab !== 'report' && activeTab !== 'admin' && activeTab !== 'staff_app' && activeTab !== 'droplist' && (
           <>
             <header className="text-center mb-16 animate-fade-in">
-              <h1 className="text-6xl md:text-8xl font-shaiya text-white mb-2 tracking-tighter drop-shadow-[0_0_25px_rgba(212,175,55,0.5)]">
+              <h1 className="text-6xl md:text-8xl font-shaiya text-white mb-2 tracking-tighter drop-shadow-[0_0_25px_rgba(212,175,55,0.5)] uppercase">
                 {activeTab === 'promotions' ? 'OFERTAS' : activeTab === 'mounts' ? 'MONTURAS' : activeTab === 'costumes' ? 'TRAJES' : 'TRANSFORMS'} <span className="text-[#d4af37]">NOVA</span>
               </h1>
               <p className="text-[#d4af37] max-w-2xl mx-auto uppercase tracking-[8px] text-[10px] font-bold opacity-70">
@@ -158,8 +153,7 @@ const App: React.FC = () => {
                 <div className="flex flex-col items-center">
                   <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Clase</span>
                   <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="bg-black/60 border border-white/10 text-gray-200 p-2 rounded-lg outline-none font-bold uppercase text-[10px] w-48 h-10">
-                    <option value="All">Todas</option>
-                    {CLASSES_BY_FACTION[selectedFaction]?.map(c => <option key={c} value={c}>{c}</option>)}
+                    {(CLASSES_BY_FACTION[selectedFaction] || []).map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
 

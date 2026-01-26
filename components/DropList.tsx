@@ -78,8 +78,10 @@ const DropList: React.FC = () => {
           <div className="lg:col-span-7 space-y-4">
             <h3 className="text-[#d4af37] font-black uppercase text-[10px] tracking-[4px] px-3 border-l-2 border-[#d4af37] mb-2">REGISTRO DE ENTIDADES</h3>
             {selectedEntity.mobs.map((mob) => (
-              <div key={mob.id} className="bg-black/40 border border-white/5 p-3 rounded-2xl flex items-center gap-3 hover:border-[#d4af37]/40 transition-all group mb-2">
-                <img src={mob.image || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-12 h-12 rounded-xl object-cover" />
+              <div key={mob.id} className="bg-black/40 border border-white/5 p-3 rounded-2xl flex items-center gap-3 hover:border-[#d4af37]/40 transition-all group mb-2 shadow-lg">
+                <div className="relative shrink-0">
+                   <img src={mob.image || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-12 h-12 rounded-xl object-cover border-2 shadow-inner" style={{ borderColor: mob.mapColor }} />
+                </div>
                 <div><h4 className="text-white font-shaiya text-base leading-none mb-1">{mob.name}</h4><p className="text-[8px] text-gray-500 uppercase font-black tracking-widest">NIVEL {mob.level}</p></div>
               </div>
             ))}
@@ -87,9 +89,9 @@ const DropList: React.FC = () => {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-10">
           {selectedEntity.mobs.map(mob => (
-            <div key={mob.id} className="glass-panel rounded-[2rem] overflow-hidden border border-white/5 shadow-lg">
+            <div key={mob.id} className="glass-panel rounded-[2rem] overflow-hidden border border-white/5 shadow-lg group hover:border-[#d4af37]/40 transition-colors">
               <div className="p-5 flex gap-4 items-center border-b border-white/5 bg-white/5">
-                <img src={mob.image} className="w-16 h-16 rounded-xl border border-white/10" />
+                <img src={mob.image} className="w-16 h-16 rounded-xl border-2 shadow-lg" style={{ borderColor: mob.mapColor }} />
                 <div><h3 className="text-xl font-shaiya text-white">{mob.name}</h3><p className="text-[#d4af37] text-[8px] font-black uppercase">NIVEL {mob.level}</p></div>
               </div>
               <div className="p-4 space-y-2">
@@ -160,13 +162,31 @@ const DropList: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
           {filteredDrops.map(drop => (
-            <div key={drop.id} onClick={() => setSelectedEntity(drop)} className="group cursor-pointer glass-panel rounded-[2.5rem] md:rounded-[3rem] overflow-hidden border border-white/10 hover:border-[#d4af37]/50 transition-all duration-500 shadow-2xl">
-              <div className="relative h-64 md:h-80"><img src={drop.image} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c] via-black/30 to-transparent"></div>
-                <div className="absolute bottom-8 left-8"><h3 className="text-3xl md:text-4xl font-shaiya text-white leading-none tracking-wide">{drop.name}</h3></div>
+            <div key={drop.id} onClick={() => setSelectedEntity(drop)} className="group cursor-pointer glass-panel rounded-[2.5rem] md:rounded-[3rem] overflow-hidden border border-white/10 hover:border-[#d4af37]/50 transition-all duration-500 shadow-2xl relative">
+              <div className="relative h-64 md:h-80">
+                <img src={drop.image} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c] via-black/20 to-transparent"></div>
+                <div className="absolute bottom-6 left-8"><h3 className="text-3xl md:text-4xl font-shaiya text-white leading-none tracking-wide">{drop.name}</h3></div>
+                
+                {/* Entidades Miniatura */}
+                <div className="absolute top-6 right-6 flex -space-x-3">
+                   {drop.mobs.slice(0, 4).map((mob, idx) => (
+                     <div key={mob.id} className="w-10 h-10 rounded-full border-2 shadow-2xl overflow-hidden bg-black flex-shrink-0" style={{ borderColor: mob.mapColor, zIndex: 10 - idx }}>
+                        <img src={mob.image || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                     </div>
+                   ))}
+                   {drop.mobs.length > 4 && (
+                     <div className="w-10 h-10 rounded-full border-2 border-white/20 bg-black/80 flex items-center justify-center text-white text-[10px] font-black z-0">
+                        +{drop.mobs.length - 4}
+                     </div>
+                   )}
+                </div>
               </div>
-              <div className="p-8 md:p-10"><p className="text-gray-500 text-xs md:text-sm italic line-clamp-2 mb-6 md:mb-8">{drop.description}</p>
-                <div className="flex justify-between items-center border-t border-white/5 pt-6"><span className="text-[#d4af37] text-[8px] md:text-[10px] font-black uppercase tracking-[3px] group-hover:translate-x-2 transition-transform">Ver {filterType} →</span></div>
+              <div className="p-8 md:p-10">
+                <p className="text-gray-500 text-xs md:text-sm italic line-clamp-2 mb-6 md:mb-8">{drop.description}</p>
+                <div className="flex justify-between items-center border-t border-white/5 pt-6">
+                  <span className="text-[#d4af37] text-[8px] md:text-[10px] font-black uppercase tracking-[3px] group-hover:translate-x-2 transition-transform">EXPLORAR REGISTROS →</span>
+                </div>
               </div>
             </div>
           ))}

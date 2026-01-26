@@ -43,18 +43,27 @@ const DropList: React.FC = () => {
 
   const filteredDrops = drops.filter(d => {
     if (d.category !== filterType) return false;
-    // Show map/boss if it matches faction OR if it's Neutral/Both
     return d.faction === selectedFaction || d.faction === Faction.NEUTRAL;
   });
 
-  const getRarityColor = (rarity: ItemRarity) => {
+  // Estilo de borde mejorado con el grosor y color solicitado
+  const getRarityBorder = (rarity: ItemRarity) => {
+    // Usamos border-[3px] para el grosor solicitado y colores sólidos
+    const baseStyle = "border-[3px] rounded-2xl overflow-hidden shadow-2xl transition-all group-hover:scale-105";
+    
     switch (rarity) {
-      case 'Noble': return 'border-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.3)]';
-      case 'Atroz': return 'border-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.3)]';
-      case 'Legendary': return 'border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]';
-      case 'Diosa': return 'border-[#d4af37] shadow-[0_0_10px_rgba(212,175,55,0.3)]';
-      case 'Special': return 'border-transparent bg-gradient-to-r from-orange-500 to-purple-600 bg-clip-border shadow-[0_0_15px_rgba(249,115,22,0.4)]';
-      default: return 'border-white/20 shadow-none'; // Common
+      case 'Noble': 
+        return `${baseStyle} border-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.4)]`;
+      case 'Atroz': 
+        return `${baseStyle} border-blue-700 shadow-[0_0_15px_rgba(29,78,216,0.4)]`;
+      case 'Legendary': 
+        return `${baseStyle} border-green-600 shadow-[0_0_15px_rgba(22,163,74,0.4)]`;
+      case 'Diosa': 
+        return `${baseStyle} border-[#d4af37] shadow-[0_0_20px_rgba(212,175,55,0.4)]`;
+      case 'Special': 
+        return `${baseStyle} border-purple-900 shadow-[0_0_15px_rgba(88,28,135,0.5)]`; // Morado Oscuro Sólido
+      default: 
+        return `${baseStyle} border-white/60 shadow-none`; // Common
     }
   };
 
@@ -125,8 +134,11 @@ const DropList: React.FC = () => {
               <div key={mob.id} className="glass-panel rounded-[2.5rem] overflow-hidden border border-white/10 shadow-xl">
                 <div className="flex p-6 gap-6 bg-white/5 border-b border-white/5">
                   <div className="relative">
-                     <img src={mob.image} className="w-28 h-28 rounded-2xl object-cover border-2 border-white/10 shadow-2xl" />
-                     <div className="absolute -bottom-2 -right-2 w-6 h-6 rounded-full border-2 border-white" style={{ backgroundColor: mob.mapColor }}></div>
+                     {/* Borde del Mob rediseñado según la captura */}
+                     <div className="relative w-28 h-28 p-1 rounded-2xl border-[3px] border-white/20 bg-black shadow-2xl">
+                        <img src={mob.image} className="w-full h-full rounded-xl object-cover" />
+                        <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full border-[3px] border-white bg-white/20 shadow-xl z-10" style={{ backgroundColor: mob.mapColor }}></div>
+                     </div>
                   </div>
                   <div className="flex-grow flex flex-col justify-center">
                     <h3 className="text-3xl font-shaiya text-white leading-none">{mob.name}</h3>
@@ -137,7 +149,7 @@ const DropList: React.FC = () => {
                   <div className="grid grid-cols-1 gap-4">
                     {mob.drops.map((drop, dIdx) => (
                       <div key={dIdx} className="flex items-center gap-4 bg-black/60 p-3 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group">
-                        <div className={`w-14 h-14 rounded-xl bg-black/80 flex items-center justify-center p-1 border-2 transition-all group-hover:scale-105 ${getRarityColor(drop.rarity)}`}>
+                        <div className={`w-14 h-14 bg-black flex items-center justify-center p-0.5 ${getRarityBorder(drop.rarity)}`}>
                            <img src={drop.itemImage || "https://api.dicebear.com/7.x/pixel-art/svg?seed=item"} className="w-full h-full object-contain" />
                         </div>
                         <div className="flex-grow">
@@ -147,7 +159,7 @@ const DropList: React.FC = () => {
                             drop.rarity === 'Atroz' ? 'text-blue-500' :
                             drop.rarity === 'Legendary' ? 'text-green-500' :
                             drop.rarity === 'Diosa' ? 'text-[#d4af37]' :
-                            drop.rarity === 'Special' ? 'text-orange-500' : 'text-gray-500'
+                            drop.rarity === 'Special' ? 'text-purple-500' : 'text-gray-500'
                           }`}>{drop.rarity}</p>
                         </div>
                         <div className="px-5 py-2 bg-black/80 rounded-xl border border-white/10 shadow-inner">

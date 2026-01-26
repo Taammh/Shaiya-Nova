@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Category, Faction, GameItem, CLASSES_BY_FACTION, Gender, StaffApplication, DropMap, MobEntry, DropEntry, MapPoint, ItemRarity } from '../types';
 import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting, getStaffApplications, updateStaffApplicationStatus, pushLocalItemsToCloud, deleteStaffApplicationFromDB, uploadFile, getDropListsFromDB, addDropListToDB, updateDropListInDB, deleteDropListFromDB } from '../services/supabaseClient';
@@ -134,7 +133,7 @@ const AdminPanel: React.FC = () => {
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (activeMobIdx === null) return;
-    e.preventDefault(); // Evita que la imagen se desplace/arrastre
+    e.preventDefault(); 
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
@@ -154,7 +153,6 @@ const AdminPanel: React.FC = () => {
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     
-    // Calculamos la distancia euclidiana en el sistema de coordenadas de porcentaje
     const dx = x - drawingStart.x;
     const dy = y - drawingStart.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -257,11 +255,22 @@ const AdminPanel: React.FC = () => {
   };
 
   const generateMasterLink = () => {
-    const dataToSync = { ...config };
+    // Obtenemos los datos actuales para asegurar que se incluyan en el link
+    const localItems = localStorage.getItem('nova_local_items');
+    const localDrops = localStorage.getItem('nova_local_drops');
+    
+    const dataToSync = { 
+      ...config,
+      localItems: localItems ? JSON.parse(localItems) : [],
+      localDrops: localDrops ? JSON.parse(localDrops) : []
+    };
+    
+    // Codificamos de forma segura para URL
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(dataToSync))));
     const url = `${window.location.origin}${window.location.pathname}?sync=${encoded}`;
+    
     navigator.clipboard.writeText(url);
-    alert("Link Maestro copiado.");
+    alert("Link Maestro generado y copiado. Incluye configuración, reliquias y drop list.");
   };
 
   return (
@@ -363,7 +372,6 @@ const AdminPanel: React.FC = () => {
                     >
                       <img src={newDrop.image} className="w-full h-auto opacity-70 pointer-events-none" />
                       
-                      {/* Dibujo Temporal en Tiempo Real */}
                       {isDrawing && drawingStart && (
                         <div 
                           className="absolute border-2 border-white rounded-full bg-white/20 pointer-events-none transform -translate-x-1/2 -translate-y-1/2"
@@ -377,7 +385,6 @@ const AdminPanel: React.FC = () => {
                         ></div>
                       )}
 
-                      {/* Puntos ya guardados */}
                       {newDrop.mobs?.map((mob, mIdx) => mob.points?.map((p, pIdx) => (
                         <div key={`${mIdx}-${pIdx}`} className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${p.type === 'area' ? 'border-2 rounded-full' : 'w-3 h-3 rounded-full border border-white'}`}
                              style={{ left: `${p.x}%`, top: `${p.y}%`, backgroundColor: p.type === 'area' ? `${p.color}33` : p.color, borderColor: p.color, width: p.type === 'area' ? `${p.radius! * 2}%` : '12px', height: p.type === 'area' ? `${p.radius! * 2}%` : '12px', aspectRatio: '1/1' }}></div>

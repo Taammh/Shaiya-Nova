@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import ItemCard from './components/ItemCard';
@@ -44,6 +43,8 @@ const App: React.FC = () => {
     if (syncData) {
       try {
         const decoded = JSON.parse(decodeURIComponent(escape(atob(syncData))));
+        
+        // Sincronizar Ajustes
         if (decoded.webhookSupport) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', decoded.webhookSupport);
         if (decoded.webhookApps) localStorage.setItem('nova_setting_NOVA_STAFF_APP_WEBHOOK', decoded.webhookApps);
         if (decoded.webhookWelcome) localStorage.setItem('nova_setting_NOVA_STAFF_WELCOME_WEBHOOK', decoded.webhookWelcome);
@@ -60,11 +61,19 @@ const App: React.FC = () => {
         if (decoded.mapPortalBg) localStorage.setItem('nova_setting_MAP_PORTAL_BG', decoded.mapPortalBg);
         if (decoded.bossPortalBg) localStorage.setItem('nova_setting_BOSS_PORTAL_BG', decoded.bossPortalBg);
 
+        // Sincronizar Datos Críticos (Reliquias y Drops locales)
+        if (decoded.localItems && Array.isArray(decoded.localItems)) {
+          localStorage.setItem('nova_local_items', JSON.stringify(decoded.localItems));
+        }
+        if (decoded.localDrops && Array.isArray(decoded.localDrops)) {
+          localStorage.setItem('nova_local_drops', JSON.stringify(decoded.localDrops));
+        }
+
         window.history.replaceState({}, document.title, window.location.pathname);
-        alert("¡REINO SINCRONIZADO!");
+        alert("¡EL REINO HA SIDO SINCRONIZADO COMPLETAMENTE!");
         window.location.reload(); 
       } catch (e) {
-        console.error("Error en sincronización:", e);
+        console.error("Fallo en el ritual de sincronización:", e);
       }
     }
 
@@ -91,7 +100,6 @@ const App: React.FC = () => {
 
       if (activeTab === 'costumes') {
         const matchesFaction = item.faction === selectedFaction;
-        // Normalización para evitar fallos por strings exactos
         const itemClassClean = (item.item_class || '').trim().toUpperCase();
         const selectedClassClean = (selectedClass || '').trim().toUpperCase();
         
@@ -103,7 +111,6 @@ const App: React.FC = () => {
     });
   }, [activeTab, selectedFaction, selectedClass, selectedGender, allItems]);
 
-  // Sincronizar clase seleccionada al cambiar facción en trajes
   useEffect(() => {
     if (activeTab === 'costumes') {
       const validClasses = CLASSES_BY_FACTION[selectedFaction] || [];
@@ -138,73 +145,89 @@ const App: React.FC = () => {
         {activeTab !== 'report' && activeTab !== 'admin' && activeTab !== 'staff_app' && activeTab !== 'droplist' && (
           <>
             <header className="text-center mb-16 animate-fade-in">
-              <h1 className="text-6xl md:text-8xl font-shaiya text-white mb-2 tracking-tighter drop-shadow-[0_0_25px_rgba(212,175,55,0.5)] uppercase">
-                {activeTab === 'promotions' ? 'OFERTAS' : activeTab === 'mounts' ? 'MONTURAS' : activeTab === 'costumes' ? 'TRAJES' : 'TRANSFORMS'} <span className="text-[#d4af37]">NOVA</span>
+              <h1 className="text-6xl md:text-8xl font-shaiya text-white mb-2 tracking-tighter drop-shadow-[0_0_25px_rgba(212,175,55,0.4)]">
+                {activeTab === 'promotions' ? 'PROMOCIONES' : 
+                 activeTab === 'mounts' ? 'MONTURAS' : 
+                 activeTab === 'costumes' ? 'TRAJES' : 'TRANSFORMACIONES'}
               </h1>
-              <p className="text-[#d4af37] max-w-2xl mx-auto uppercase tracking-[8px] text-[10px] font-bold opacity-70">
-                {activeTab === 'promotions' ? 'Promociones de AP Activas' : 'La base de datos definitiva de Teos'}
-              </p>
+              <p className="text-[#d4af37] font-bold uppercase tracking-[8px] text-xs opacity-60">Biblioteca Sagrada de Etain</p>
             </header>
 
             {activeTab === 'costumes' && (
-              <div className="mb-12 glass-panel p-8 rounded-[2rem] border border-white/10 shadow-2xl animate-fade-in flex flex-col md:flex-row gap-8 items-center justify-center">
-                <div className="flex flex-col items-center">
-                  <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Facción</span>
-                  <div className="flex gap-4">
-                    <button onClick={() => setSelectedFaction(Faction.LIGHT)} className={`px-6 py-2 rounded-lg font-bold uppercase text-xs transition-all ${selectedFaction === Faction.LIGHT ? 'bg-blue-600/40 border border-blue-400 text-blue-100 shadow-[0_0_15px_rgba(37,99,235,0.3)]' : 'bg-black/40 text-gray-500'}`}>Luz</button>
-                    <button onClick={() => setSelectedFaction(Faction.FURY)} className={`px-6 py-2 rounded-lg font-bold uppercase text-xs transition-all ${selectedFaction === Faction.FURY ? 'bg-red-600/40 border border-red-400 text-red-100 shadow-[0_0_15px_rgba(220,38,38,0.3)]' : 'bg-black/40 text-gray-500'}`}>Furia</button>
+              <div className="max-w-4xl mx-auto glass-panel p-8 rounded-[2.5rem] mb-12 flex flex-wrap gap-6 justify-center animate-fade-in border-[#d4af37]/30">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-[#d4af37] uppercase tracking-widest ml-1">Facción</label>
+                  <div className="flex bg-black/40 p-1.5 rounded-2xl border border-white/5">
+                    <button onClick={() => setSelectedFaction(Faction.LIGHT)} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${selectedFaction === Faction.LIGHT ? 'bg-[#d4af37] text-black shadow-lg shadow-[#d4af37]/20' : 'text-gray-500 hover:text-white'}`}>Luz</button>
+                    <button onClick={() => setSelectedFaction(Faction.FURY)} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${selectedFaction === Faction.FURY ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'text-gray-500 hover:text-white'}`}>Furia</button>
                   </div>
                 </div>
-                
-                <div className="flex flex-col items-center">
-                  <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Clase</span>
-                  <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="bg-black/60 border border-white/10 text-gray-200 p-2 rounded-lg outline-none font-bold uppercase text-[10px] w-48 h-10 cursor-pointer hover:border-[#d4af37]/50 transition-colors">
+                <div className="space-y-2">
+                   <label className="text-[10px] font-black text-[#d4af37] uppercase tracking-widest ml-1">Clase</label>
+                   <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="bg-black/40 border border-white/5 p-3 rounded-2xl text-white text-[10px] font-bold uppercase tracking-widest outline-none focus:border-[#d4af37] transition-colors cursor-pointer w-48">
+                    <option value="All">Todas</option>
                     {(CLASSES_BY_FACTION[selectedFaction] || []).map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                   </select>
                 </div>
-
-                <div className="flex flex-col items-center">
-                  <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Sexo</span>
-                  <div className="flex gap-2">
-                    <button onClick={() => setSelectedGender('All')} className={`px-4 py-2 rounded-lg font-bold uppercase text-[10px] transition-all border ${selectedGender === 'All' ? 'border-[#d4af37] bg-[#d4af37]/20 text-white' : 'border-white/5 bg-black/40 text-gray-500'}`}>Todos</button>
-                    <button onClick={() => setSelectedGender(Gender.MALE)} className={`px-4 py-2 rounded-lg font-bold uppercase text-[10px] transition-all border ${selectedGender === Gender.MALE ? 'border-[#d4af37] bg-[#d4af37]/20 text-white' : 'border-white/5 bg-black/40 text-gray-500'}`}>Masculino</button>
-                    <button onClick={() => setSelectedGender(Gender.FEMALE)} className={`px-4 py-2 rounded-lg font-bold uppercase text-[10px] transition-all border ${selectedGender === Gender.FEMALE ? 'border-[#d4af37] bg-[#d4af37]/20 text-white' : 'border-white/5 bg-black/40 text-gray-500'}`}>Femenino</button>
-                  </div>
+                <div className="space-y-2">
+                   <label className="text-[10px] font-black text-[#d4af37] uppercase tracking-widest ml-1">Género</label>
+                   <select value={selectedGender} onChange={e => setSelectedGender(e.target.value)} className="bg-black/40 border border-white/5 p-3 rounded-2xl text-white text-[10px] font-bold uppercase tracking-widest outline-none focus:border-[#d4af37] transition-colors cursor-pointer w-32">
+                    <option value="All">Ambos</option>
+                    <option value={Gender.MALE}>Hombres</option>
+                    <option value={Gender.FEMALE}>Mujeres</option>
+                   </select>
                 </div>
               </div>
             )}
 
             {isLoading ? (
-              <div className="text-center py-20 animate-pulse"><p className="text-[#d4af37] font-shaiya text-2xl">Cargando el Reino...</p></div>
+              <div className="flex flex-col items-center justify-center py-40 animate-pulse">
+                <div className="w-20 h-20 border-4 border-[#d4af37] border-t-transparent rounded-full animate-spin mb-8"></div>
+                <p className="text-[#d4af37] font-shaiya text-3xl uppercase tracking-widest">Invocando reliquias...</p>
+              </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 animate-fade-in">
-                {filteredItems.map(item => <ItemCard key={item.id} item={item} />)}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 md:gap-10">
+                {filteredItems.map(item => (
+                  <ItemCard key={item.id} item={item} />
+                ))}
+                {filteredItems.length === 0 && (
+                  <div className="col-span-full text-center py-32 opacity-30">
+                    <p className="text-gray-500 font-shaiya text-4xl uppercase tracking-widest">Ninguna reliquia encontrada en este registro...</p>
+                  </div>
+                )}
               </div>
             )}
           </>
         )}
 
-        {activeTab === 'report' && <BugReportForm />}
-        {activeTab === 'staff_app' && <StaffApplicationForm />}
+        {activeTab === 'report' && (
+          <div className="py-12"><BugReportForm /></div>
+        )}
+
+        {activeTab === 'staff_app' && (
+          <div className="py-12"><StaffApplicationForm /></div>
+        )}
+
         {activeTab === 'admin' && (
-          <div className="py-10">
+          <div className="py-12">
             {!isAdminAuthenticated ? (
-              <div className="max-w-md mx-auto glass-panel p-10 rounded-3xl border border-[#d4af37]/40 text-center">
-                <h2 className="text-2xl font-shaiya text-white mb-8 uppercase tracking-widest">Panel del Consejo</h2>
+              <div className="max-w-md mx-auto glass-panel p-12 rounded-[3rem] text-center border-[#d4af37]/30 shadow-2xl">
+                <h2 className="text-4xl font-shaiya text-white mb-8 uppercase tracking-widest">Portal Maestro</h2>
                 <form onSubmit={handleAdminAuth} className="space-y-6">
-                  <input type="password" placeholder="Contraseña de Maestro" className="w-full bg-black/80 border border-white/10 p-4 rounded-xl text-white text-center outline-none" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} />
-                  <button className="w-full bg-[#d4af37] text-black font-black py-4 rounded-xl uppercase tracking-widest hover:bg-white transition-all">Acceder</button>
+                  <input type="password" placeholder="Runa Secreta" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none focus:border-[#d4af37] text-center text-xl tracking-widest" />
+                  <button className="w-full bg-[#d4af37] text-black font-black py-4 rounded-xl uppercase tracking-widest hover:bg-white transition-all shadow-lg">Abrir Portal</button>
                 </form>
               </div>
-            ) : <AdminPanel />}
+            ) : (
+              <AdminPanel />
+            )}
           </div>
         )}
       </main>
-      <footer className="bg-black/95 py-12 border-t border-[#d4af37]/30 mt-20 relative z-20">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-[#d4af37] font-shaiya text-2xl mb-2 tracking-widest">SHAIYA NOVA DATABASE</p>
-          <p className="text-gray-600 text-[10px] uppercase tracking-[5px]">Portal de Sincronización Real v4.7</p>
-        </div>
+
+      <footer className="py-12 text-center text-gray-500 relative z-10 border-t border-white/5 bg-black/40">
+        <p className="font-shaiya text-xl tracking-widest text-white/40 mb-2">SHAIYA NOVA</p>
+        <p className="text-[9px] uppercase tracking-[5px] font-black opacity-30">El destino del reino está en tus manos • 2025</p>
       </footer>
     </div>
   );

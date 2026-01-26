@@ -134,11 +134,18 @@ const AdminPanel: React.FC = () => {
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (activeMobIdx === null) return;
+    e.preventDefault(); // Evita que la imagen se desplace/arrastre
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
-    if (drawMode === 'point') { addPointToMob(x, y, 0, 'point'); } 
-    else { setIsDrawing(true); setDrawingStart({ x, y }); setTempRadius(0); }
+    
+    if (drawMode === 'point') { 
+      addPointToMob(x, y, 0, 'point'); 
+    } else { 
+      setIsDrawing(true); 
+      setDrawingStart({ x, y }); 
+      setTempRadius(0); 
+    }
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -146,14 +153,21 @@ const AdminPanel: React.FC = () => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
-    const dist = Math.sqrt(Math.pow(x - drawingStart.x, 2) + Math.pow(y - drawingStart.y, 2));
+    
+    // Calculamos la distancia euclidiana en el sistema de coordenadas de porcentaje
+    // Pero como el radio en CSS es circular, usamos el ancho relativo
+    const dx = x - drawingStart.x;
+    const dy = y - drawingStart.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
     setTempRadius(dist);
   };
 
   const handleMouseUp = () => {
     if (isDrawing && drawingStart) {
       addPointToMob(drawingStart.x, drawingStart.y, tempRadius, 'area');
-      setIsDrawing(false); setDrawingStart(null); setTempRadius(0);
+      setIsDrawing(false); 
+      setDrawingStart(null); 
+      setTempRadius(0);
     }
   };
 
@@ -164,6 +178,14 @@ const AdminPanel: React.FC = () => {
       const mob = { ...mobs[activeMobIdx] };
       mob.points = [...(mob.points || []), { x, y, color: mob.mapColor, label: mob.name, type, radius }];
       mobs[activeMobIdx] = mob;
+      return { ...prev, mobs };
+    });
+  };
+
+  const clearMobPoints = (mIdx: number) => {
+    setNewDrop(prev => {
+      const mobs = [...(prev.mobs || [])];
+      mobs[mIdx] = { ...mobs[mIdx], points: [] };
       return { ...prev, mobs };
     });
   };
@@ -205,14 +227,12 @@ const AdminPanel: React.FC = () => {
       const clonedMob: MobEntry = {
         ...sourceMob,
         id: `mob-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        // Deep copy nested arrays
         drops: sourceMob.drops.map(d => ({ ...d })),
         points: sourceMob.points ? sourceMob.points.map(p => ({ ...p })) : []
       };
       const updatedMobs = [...mobs, clonedMob];
       return { ...prev, mobs: updatedMobs };
     });
-    // Optional: focus on the newly duplicated mob
     setTimeout(() => setActiveMobIdx((newDrop.mobs?.length || 0)), 10);
   };
 
@@ -247,6 +267,7 @@ const AdminPanel: React.FC = () => {
 
       {activeSubTab === 'settings' ? (
         <div className="space-y-10 animate-fade-in">
+          {/* Settings Tab content (no change needed here) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6">
               <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Discord Webhooks</h3>
@@ -326,8 +347,29 @@ const AdminPanel: React.FC = () => {
                        <button onClick={() => setDrawMode('point')} className={`px-4 py-1.5 rounded-lg text-[8px] font-black border ${drawMode === 'point' ? 'bg-[#d4af37] text-black' : 'bg-black/40 text-gray-500 border-white/5'}`}>Punto</button>
                        <button onClick={() => setDrawMode('area')} className={`px-4 py-1.5 rounded-lg text-[8px] font-black border ${drawMode === 'area' ? 'bg-[#d4af37] text-black' : 'bg-black/40 text-gray-500 border-white/5'}`}>Zona</button>
                     </div>
-                    <div className="relative rounded-[2rem] overflow-hidden border border-white/10 bg-black" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
-                      <img src={newDrop.image} className="w-full h-auto opacity-70" />
+                    <div 
+                      className="relative rounded-[2rem] overflow-hidden border border-white/10 bg-black cursor-crosshair select-none" 
+                      onMouseDown={handleMouseDown} 
+                      onMouseMove={handleMouseMove} 
+                      onMouseUp={handleMouseUp}
+                    >
+                      <img src={newDrop.image} className="w-full h-auto opacity-70 pointer-events-none" />
+                      
+                      {/* Dibujo Temporal en Tiempo Real */}
+                      {isDrawing && drawingStart && (
+                        <div 
+                          className="absolute border-2 border-white rounded-full bg-white/20 pointer-events-none transform -translate-x-1/2 -translate-y-1/2"
+                          style={{ 
+                            left: `${drawingStart.x}%`, 
+                            top: `${drawingStart.y}%`, 
+                            width: `${tempRadius * 2}%`, 
+                            height: `${tempRadius * 2}%`, 
+                            aspectRatio: '1/1' 
+                          }}
+                        ></div>
+                      )}
+
+                      {/* Puntos ya guardados */}
                       {newDrop.mobs?.map((mob, mIdx) => mob.points?.map((p, pIdx) => (
                         <div key={`${mIdx}-${pIdx}`} className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${p.type === 'area' ? 'border-2 rounded-full' : 'w-3 h-3 rounded-full border border-white'}`}
                              style={{ left: `${p.x}%`, top: `${p.y}%`, backgroundColor: p.type === 'area' ? `${p.color}33` : p.color, borderColor: p.color, width: p.type === 'area' ? `${p.radius! * 2}%` : '12px', height: p.type === 'area' ? `${p.radius! * 2}%` : '12px', aspectRatio: '1/1' }}></div>
@@ -358,6 +400,7 @@ const AdminPanel: React.FC = () => {
                          <div className="flex flex-col gap-2">
                             <div className="flex gap-2">
                                <button onClick={e => { e.stopPropagation(); duplicateMob(mIdx); }} title="Duplicar Entidad" className="bg-blue-600/20 text-blue-400 p-2 rounded-lg hover:bg-blue-600 hover:text-white transition-all">👯</button>
+                               <button onClick={e => { e.stopPropagation(); clearMobPoints(mIdx); }} title="Limpiar Zona/Puntos" className="bg-red-600/20 text-red-400 p-2 rounded-lg hover:bg-red-600 hover:text-white transition-all">🧹</button>
                                <input type="color" className="w-8 h-8 cursor-pointer rounded overflow-hidden" value={mob.mapColor} onClick={e => e.stopPropagation()} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].mapColor = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
                             </div>
                             <button onClick={e => { e.stopPropagation(); addDropToMob(mIdx); }} className="bg-green-600/20 text-green-500 px-3 py-1 rounded-lg text-[8px] font-black uppercase hover:bg-green-600 hover:text-white transition-all">DROP +</button>
@@ -395,6 +438,7 @@ const AdminPanel: React.FC = () => {
             </button>
           </div>
           <div className="glass-panel p-8 rounded-[3rem] border border-white/5 mt-10 overflow-hidden">
+              {/* Drop History content (no change needed here) */}
               <h3 className="text-[#d4af37] font-black uppercase tracking-[5px] text-xs p-6 border-b border-white/5">Historial de Drops</h3>
               <table className="w-full text-left">
                 <thead className="text-[#d4af37] text-[10px] uppercase font-black bg-black/40">
@@ -417,6 +461,7 @@ const AdminPanel: React.FC = () => {
         </div>
       ) : activeSubTab === 'items' ? (
         <div className="space-y-10 animate-fade-in">
+          {/* Relics Tab content (no change needed here) */}
           <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/20 text-center shadow-2xl">
             <h2 className="text-3xl font-shaiya text-[#d4af37] mb-8 uppercase tracking-widest">{editingId ? 'Reforjar Reliquia' : 'Nueva Reliquia'}</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -503,6 +548,7 @@ const AdminPanel: React.FC = () => {
         </div>
       ) : activeSubTab === 'apps' ? (
         <div className="glass-panel p-10 rounded-[3rem] border border-white/10 animate-fade-in">
+           {/* Apps Tab content (no change needed here) */}
            <h2 className="text-4xl font-shaiya text-white uppercase mb-12 text-center tracking-widest">Postulaciones del Staff</h2>
            <div className="space-y-6">
              {appsList.map(app => (

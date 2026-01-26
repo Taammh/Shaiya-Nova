@@ -77,20 +77,27 @@ const mapItemForDB = (item: any) => {
 
 export const pushLocalItemsToCloud = async () => {
   const localItemsRaw = localStorage.getItem('nova_local_items');
-  if (!localItemsRaw) return { success: true, count: 0 };
+  const localDropsRaw = localStorage.getItem('nova_local_drops');
   
-  const localItems = JSON.parse(localItemsRaw);
   const { client, isPlaceholder } = getSupabase();
-  if (isPlaceholder) throw new Error("Portal no conectado a la nube. Configura Supabase en Ajustes.");
+  if (isPlaceholder) throw new Error("Portal no conectado a la nube.");
 
-  const itemsToUpload = localItems.map(mapItemForDB);
-  
-  const { error } = await client.from('items').upsert(itemsToUpload, { onConflict: 'id' });
-  if (error) {
-    console.error("Supabase Push Error:", error);
-    throw error;
+  let count = 0;
+
+  if (localItemsRaw) {
+    const localItems = JSON.parse(localItemsRaw);
+    const itemsToUpload = localItems.map(mapItemForDB);
+    await client.from('items').upsert(itemsToUpload, { onConflict: 'id' });
+    count += localItems.length;
   }
-  return { success: true, count: localItems.length };
+
+  if (localDropsRaw) {
+    const localDrops = JSON.parse(localDropsRaw);
+    await client.from('drop_lists').upsert(localDrops, { onConflict: 'id' });
+    count += localDrops.length;
+  }
+
+  return { success: true, count };
 };
 
 export const getItemsFromDB = async () => {
@@ -106,6 +113,59 @@ export const getItemsFromDB = async () => {
     return data && data.length > 0 ? data : localItems;
   } catch (err) { 
     return localItems; 
+  }
+};
+
+export const getDropListsFromDB = async () => {
+  const localDropsRaw = localStorage.getItem('nova_local_drops');
+  const localDrops = localDropsRaw ? JSON.parse(localDropsRaw) : [];
+  const { client, isPlaceholder } = getSupabase();
+  
+  if (isPlaceholder) return localDrops;
+  
+  try {
+    const { data, error } = await client.from('drop_lists').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data && data.length > 0 ? data : localDrops;
+  } catch (err) { 
+    return localDrops; 
+  }
+};
+
+export const addDropListToDB = async (drop: any) => {
+  const newDrop = { ...drop, id: drop.id || `drop-${Date.now()}`, created_at: new Date().toISOString() };
+  const localDropsRaw = localStorage.getItem('nova_local_drops');
+  const localDrops = localDropsRaw ? JSON.parse(localDropsRaw) : [];
+  localStorage.setItem('nova_local_drops', JSON.stringify([newDrop, ...localDrops]));
+  
+  const { client, isPlaceholder } = getSupabase();
+  if (!isPlaceholder) {
+    await client.from('drop_lists').insert([newDrop]);
+  }
+  return newDrop;
+};
+
+export const updateDropListInDB = async (drop: any) => {
+  const localDropsRaw = localStorage.getItem('nova_local_drops');
+  let localDrops = localDropsRaw ? JSON.parse(localDropsRaw) : [];
+  localDrops = localDrops.map((i: any) => i.id === drop.id ? drop : i);
+  localStorage.setItem('nova_local_drops', JSON.stringify(localDrops));
+  
+  const { client, isPlaceholder } = getSupabase();
+  if (!isPlaceholder) {
+    await client.from('drop_lists').update(drop).eq('id', drop.id);
+  }
+  return drop;
+};
+
+export const deleteDropListFromDB = async (id: string) => {
+  const localDropsRaw = localStorage.getItem('nova_local_drops');
+  let localDrops = localDropsRaw ? JSON.parse(localDropsRaw) : [];
+  localStorage.setItem('nova_local_drops', JSON.stringify(localDrops.filter((i: any) => i.id !== id)));
+  
+  const { client, isPlaceholder } = getSupabase();
+  if (!isPlaceholder) {
+    await client.from('drop_lists').delete().eq('id', id);
   }
 };
 

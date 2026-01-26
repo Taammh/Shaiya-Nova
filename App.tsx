@@ -5,6 +5,7 @@ import ItemCard from './components/ItemCard';
 import BugReportForm from './components/BugReportForm';
 import StaffApplicationForm from './components/StaffApplicationForm';
 import AdminPanel from './components/AdminPanel';
+import DropList from './components/DropList';
 import { getItemsFromDB, getSetting } from './services/supabaseClient';
 import { ITEMS as STATIC_ITEMS } from './constants';
 import { Category, Faction, CLASSES_BY_FACTION, GameItem, Gender } from './types';
@@ -44,51 +45,37 @@ const App: React.FC = () => {
       try {
         const decoded = JSON.parse(decodeURIComponent(escape(atob(syncData))));
         
-        // Sincronización de los 13 Ajustes Nucleares (Aumentado para incluir siteBg)
+        // Ajustes de Webhooks
         if (decoded.webhookSupport) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', decoded.webhookSupport);
         if (decoded.webhookApps) localStorage.setItem('nova_setting_NOVA_STAFF_APP_WEBHOOK', decoded.webhookApps);
         if (decoded.webhookWelcome) localStorage.setItem('nova_setting_NOVA_STAFF_WELCOME_WEBHOOK', decoded.webhookWelcome);
+        
+        // Ajustes de Discord
         if (decoded.clientId) localStorage.setItem('nova_setting_DISCORD_CLIENT_ID', decoded.clientId);
         if (decoded.botToken) localStorage.setItem('nova_setting_DISCORD_BOT_TOKEN', decoded.botToken);
         if (decoded.guildId) localStorage.setItem('nova_setting_DISCORD_GUILD_ID', decoded.guildId);
+        
+        // Ajustes de Roles
         if (decoded.roleGs) localStorage.setItem('nova_setting_ROLE_ID_GS', decoded.roleGs);
         if (decoded.roleLgs) localStorage.setItem('nova_setting_ROLE_ID_LGS', decoded.roleLgs);
         if (decoded.roleGm) localStorage.setItem('nova_setting_ROLE_ID_GM', decoded.roleGm);
+        
+        // Ajustes de Infraestructura
         if (decoded.supabaseUrl) localStorage.setItem('nova_setting_SUPABASE_URL', decoded.supabaseUrl);
         if (decoded.supabaseKey) localStorage.setItem('nova_setting_SUPABASE_ANON_KEY', decoded.supabaseKey);
+        
+        // Ajustes de Branding Visual
         if (decoded.siteLogo) localStorage.setItem('nova_setting_SITE_LOGO_URL', decoded.siteLogo);
         if (decoded.siteBg) localStorage.setItem('nova_setting_SITE_BG_URL', decoded.siteBg);
+        if (decoded.mapPortalBg) localStorage.setItem('nova_setting_MAP_PORTAL_BG', decoded.mapPortalBg);
+        if (decoded.bossPortalBg) localStorage.setItem('nova_setting_BOSS_PORTAL_BG', decoded.bossPortalBg);
 
         window.history.replaceState({}, document.title, window.location.pathname);
-        alert("¡REINO SINCRONIZADO! Los 13 ajustes (Logo, Fondo y Configuración) han sido restaurados.");
+        alert("¡REINO SINCRONIZADO! Todos los ajustes y visuales han sido restaurados.");
         window.location.reload(); 
       } catch (e) {
         console.error("Error en sincronización:", e);
       }
-    }
-
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = hashParams.get('access_token');
-    
-    if (accessToken) {
-      setIsLoading(true);
-      fetch('https://discord.com/api/users/@me', {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      })
-      .then(res => res.json())
-      .then(user => {
-        const userData = {
-          name: `${user.username}${user.discriminator !== '0' ? '#' + user.discriminator : ''}`,
-          id: user.id,
-          avatar: user.avatar 
-            ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-            : `https://cdn.discordapp.com/embed/avatars/${parseInt(user.id) % 5}.png`
-        };
-        localStorage.setItem('nova_session', JSON.stringify(userData));
-        window.location.hash = ''; 
-        setActiveTab('report');
-      })
-      .finally(() => setIsLoading(false));
     }
 
     fetchItems();
@@ -100,9 +87,7 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const allItems = useMemo(() => {
-    return [...STATIC_ITEMS, ...cloudItems];
-  }, [cloudItems]);
+  const allItems = useMemo(() => [...STATIC_ITEMS, ...cloudItems], [cloudItems]);
 
   const filteredItems = useMemo(() => {
     return allItems.filter(item => {
@@ -135,7 +120,6 @@ const App: React.FC = () => {
     else alert('Contraseña incorrecta.');
   };
 
-  // Estilo dinámico para el fondo adaptado
   const dynamicBgStyle = siteBg ? {
     backgroundImage: `linear-gradient(to bottom, rgba(5, 5, 7, 0.8), rgba(5, 5, 7, 0.6)), url('${siteBg}')`,
     backgroundAttachment: 'fixed' as const,
@@ -148,7 +132,9 @@ const App: React.FC = () => {
     <div className={`min-h-screen flex flex-col relative transition-all duration-1000 ${siteBg ? '' : 'bg-shaiya-epic'}`} style={dynamicBgStyle}>
       <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
       <main className="flex-grow container mx-auto px-4 py-12 relative z-10">
-        {activeTab !== 'report' && activeTab !== 'admin' && activeTab !== 'staff_app' && (
+        {activeTab === 'droplist' && <DropList />}
+        
+        {activeTab !== 'report' && activeTab !== 'admin' && activeTab !== 'staff_app' && activeTab !== 'droplist' && (
           <>
             <header className="text-center mb-16 animate-fade-in">
               <h1 className="text-6xl md:text-8xl font-shaiya text-white mb-2 tracking-tighter drop-shadow-[0_0_25px_rgba(212,175,55,0.5)]">
@@ -173,7 +159,7 @@ const App: React.FC = () => {
                   <span className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-2 font-black">Clase</span>
                   <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="bg-black/60 border border-white/10 text-gray-200 p-2 rounded-lg outline-none font-bold uppercase text-[10px] w-48 h-10">
                     <option value="All">Todas</option>
-                    {CLASSES_BY_FACTION[selectedFaction].map(c => <option key={c} value={c}>{c}</option>)}
+                    {CLASSES_BY_FACTION[selectedFaction]?.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
 
@@ -217,7 +203,7 @@ const App: React.FC = () => {
       <footer className="bg-black/95 py-12 border-t border-[#d4af37]/30 mt-20 relative z-20">
         <div className="container mx-auto px-4 text-center">
           <p className="text-[#d4af37] font-shaiya text-2xl mb-2 tracking-widest">SHAIYA NOVA DATABASE</p>
-          <p className="text-gray-600 text-[10px] uppercase tracking-[5px]">Portal de Sincronización Real v4.6</p>
+          <p className="text-gray-600 text-[10px] uppercase tracking-[5px]">Portal de Sincronización Real v4.7</p>
         </div>
       </footer>
     </div>

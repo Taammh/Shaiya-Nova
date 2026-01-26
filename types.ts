@@ -12,31 +12,18 @@ export enum Faction {
   NEUTRAL = 'Neutral'
 }
 
-export enum Class {
-  FIGHTER_DEFENDER = 'Luchador/Defensor',
-  PRIEST = 'Cura',
-  MAGE = 'Mago',
-  ARCHER_RANGER = 'Arquero/Ranger',
-  WAR_GUARDIAN = 'War/Guardian',
-  ORACLE_PAGAN = 'Oraculo/Pagano',
-  ASSASSIN = 'Asesino',
-  HUNTER = 'Hunter'
-}
-
-export type LuzClass = 'Luchador/Defensor' | 'Cura' | 'Mago' | 'Arquero/Ranger';
-export type FuriaClass = 'War/Guardian' | 'Oraculo/Pagano' | 'Asesino' | 'Hunter';
-
-export const CLASSES_BY_FACTION = {
-  [Faction.LIGHT]: ['Luchador/Defensor', 'Cura', 'Mago', 'Arquero/Ranger'] as LuzClass[],
-  [Faction.FURY]: ['War/Guardian', 'Oraculo/Pagano', 'Asesino', 'Hunter'] as FuriaClass[],
-  [Faction.NEUTRAL]: [] as string[]
-};
-
 export enum Gender {
   MALE = 'Masculino',
   FEMALE = 'Femenino',
   BOTH = 'Ambos'
 }
+
+// Map of classes per faction for filtering costumes
+export const CLASSES_BY_FACTION: Record<Faction, string[]> = {
+  [Faction.LIGHT]: ['Luchador', 'Guardián', 'Explorador', 'Tirador', 'Mago', 'Oráculo', 'Oraculo/Pagano'],
+  [Faction.FURY]: ['Guerrero', 'Guardián', 'Cazador', 'Animista', 'Pagano', 'Oráculo', 'Oraculo/Pagano'],
+  [Faction.NEUTRAL]: []
+};
 
 export interface GameItem {
   id: string;
@@ -53,11 +40,45 @@ export interface GameItem {
   price?: string;
 }
 
+export interface MapPoint {
+  x: number; // Porcentaje 0-100
+  y: number; // Porcentaje 0-100
+  color: string;
+  label: string;
+}
+
+export interface DropEntry {
+  itemName: string;
+  itemImage: string;
+  rate: string;
+  rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary';
+}
+
+export interface MobEntry {
+  id: string;
+  name: string;
+  level: string;
+  image: string;
+  mapColor: string;
+  drops: DropEntry[];
+  points: MapPoint[]; // Ubicaciones en el mapa
+}
+
+export interface DropMap {
+  id: string;
+  name: string;
+  category: 'Mapa' | 'Boss';
+  image: string;
+  description: string;
+  mobs: MobEntry[];
+  created_at: string;
+}
+
 export interface StaffApplication {
   id: string;
   username: string;
   discord_id: string;
-  discord_user_id: string; // ID numérico para auto-rol
+  discord_user_id: string; 
   position: 'Game Sage' | 'Lider Game Sage' | 'GM';
   answers: {
     experience: string;

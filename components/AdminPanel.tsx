@@ -1,42 +1,54 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Category, Faction, GameItem, CLASSES_BY_FACTION, Gender, StaffApplication } from '../types';
-import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting, getStaffApplications, updateStaffApplicationStatus, pushLocalItemsToCloud, deleteStaffApplicationFromDB, uploadFile } from '../services/supabaseClient';
+import { Category, Faction, GameItem, CLASSES_BY_FACTION, Gender, StaffApplication, DropMap, MobEntry, DropEntry, MapPoint } from '../types';
+import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting, getStaffApplications, updateStaffApplicationStatus, pushLocalItemsToCloud, deleteStaffApplicationFromDB, uploadFile, getDropListsFromDB, addDropListToDB, updateDropListInDB, deleteDropListFromDB } from '../services/supabaseClient';
 
 const AdminPanel: React.FC = () => {
-  const [activeSubTab, setActiveSubTab] = useState<'items' | 'promos' | 'apps' | 'settings'>('items');
+  const [activeSubTab, setActiveSubTab] = useState<'items' | 'drops' | 'apps' | 'settings'>('items');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [isUpdatingListImage, setIsUpdatingListImage] = useState<string | null>(null);
   const [itemsList, setItemsList] = useState<GameItem[]>([]);
+  const [dropsList, setDropsList] = useState<DropMap[]>([]);
   const [appsList, setAppsList] = useState<StaffApplication[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [viewingApp, setViewingApp] = useState<StaffApplication | null>(null);
   
   const itemFileRef = useRef<HTMLInputElement>(null);
-  const listFileRef = useRef<HTMLInputElement>(null);
+  const dropFileRef = useRef<HTMLInputElement>(null);
+  const mobFileRef = useRef<HTMLInputElement>(null);
+  const dropItemFileRef = useRef<HTMLInputElement>(null);
   const logoFileRef = useRef<HTMLInputElement>(null);
   const bgFileRef = useRef<HTMLInputElement>(null);
+  const mapPortalFileRef = useRef<HTMLInputElement>(null);
+  const bossPortalFileRef = useRef<HTMLInputElement>(null);
+
+  const [activeMobIdx, setActiveMobIdx] = useState<number | null>(null);
+  const [uploadTarget, setUploadTarget] = useState<{ mobIdx: number, dropIdx?: number } | null>(null);
+
+  const [newItem, setNewItem] = useState<Partial<GameItem>>({
+    name: '', category: Category.MOUNT, image: '', description: '', 
+    faction: Faction.LIGHT, item_class: 'All', gender: Gender.BOTH, price: '', stats: ''
+  });
+
+  const [newDrop, setNewDrop] = useState<Partial<DropMap>>({
+    name: '', category: 'Mapa', image: '', description: '', mobs: []
+  });
 
   const [config, setConfig] = useState({
     webhookSupport: '',
     webhookApps: '',
     webhookWelcome: '',
     clientId: '',
-    supabaseUrl: '',
-    supabaseKey: '',
     botToken: '',
     guildId: '',
+    supabaseUrl: '',
+    supabaseKey: '',
     roleGs: '',
     roleLgs: '',
     roleGm: '',
     siteLogo: '',
-    siteBg: ''
-  });
-
-  const [newItem, setNewItem] = useState<Partial<GameItem>>({
-    name: '', category: Category.MOUNT, image: '', description: '', 
-    faction: Faction.LIGHT, item_class: 'All', gender: Gender.BOTH, price: '', stats: ''
+    siteBg: '',
+    mapPortalBg: '',
+    bossPortalBg: ''
   });
 
   const loadData = async () => {
@@ -44,113 +56,84 @@ const AdminPanel: React.FC = () => {
       if (activeSubTab === 'apps') {
         const apps = await getStaffApplications();
         setAppsList(apps || []);
+      } else if (activeSubTab === 'drops') {
+        const drops = await getDropListsFromDB();
+        setDropsList(drops || []);
       } else {
         const items = await getItemsFromDB();
         setItemsList(items || []);
       }
-    } catch (e) {
-      console.error("Error loading data:", e);
-    }
+    } catch (e) { console.error(e); }
   };
 
   const loadConfig = async () => {
-    const loadedConfig = {
+    setConfig({
       webhookSupport: await getSetting('NOVA_WEBHOOK_URL') || '',
       webhookApps: await getSetting('NOVA_STAFF_APP_WEBHOOK') || '',
       webhookWelcome: await getSetting('NOVA_STAFF_WELCOME_WEBHOOK') || '',
       clientId: await getSetting('DISCORD_CLIENT_ID') || '',
-      supabaseUrl: localStorage.getItem('nova_setting_SUPABASE_URL') || '',
-      supabaseKey: localStorage.getItem('nova_setting_SUPABASE_ANON_KEY') || '',
       botToken: await getSetting('DISCORD_BOT_TOKEN') || '',
       guildId: await getSetting('DISCORD_GUILD_ID') || '',
+      supabaseUrl: localStorage.getItem('nova_setting_SUPABASE_URL') || '',
+      supabaseKey: localStorage.getItem('nova_setting_SUPABASE_ANON_KEY') || '',
       roleGs: await getSetting('ROLE_ID_GS') || '',
       roleLgs: await getSetting('ROLE_ID_LGS') || '',
       roleGm: await getSetting('ROLE_ID_GM') || '',
       siteLogo: await getSetting('SITE_LOGO_URL') || '',
-      siteBg: await getSetting('SITE_BG_URL') || ''
-    };
-    setConfig(loadedConfig);
+      siteBg: await getSetting('SITE_BG_URL') || '',
+      mapPortalBg: await getSetting('MAP_PORTAL_BG') || '',
+      bossPortalBg: await getSetting('BOSS_PORTAL_BG') || ''
+    });
   };
 
-  useEffect(() => {
-    loadConfig();
+  useEffect(() => { 
     loadData();
+    if (activeSubTab === 'settings') loadConfig();
   }, [activeSubTab]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'item' | 'logo' | 'bg') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setIsUploading(true);
     try {
-      const folder = type === 'item' ? 'items' : 'branding';
+      const folder = type.includes('Portal') || type === 'logo' || type === 'bg' ? 'branding' : 'drops';
       const publicUrl = await uploadFile(file, folder);
       
-      if (type === 'item') {
-        setNewItem(prev => ({ ...prev, image: publicUrl }));
-      } else if (type === 'logo') {
+      if (type === 'item') setNewItem(prev => ({ ...prev, image: publicUrl }));
+      else if (type === 'drop') setNewDrop(prev => ({ ...prev, image: publicUrl }));
+      else if (type === 'logo') {
+        await saveSetting('SITE_LOGO_URL', publicUrl);
         setConfig(prev => ({ ...prev, siteLogo: publicUrl }));
-      } else if (type === 'bg') {
+      }
+      else if (type === 'bg') {
+        await saveSetting('SITE_BG_URL', publicUrl);
         setConfig(prev => ({ ...prev, siteBg: publicUrl }));
       }
-      // Alerta eliminada para flujo rápido
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleListImageUpdate = async (e: React.ChangeEvent<HTMLInputElement>, item: GameItem) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUpdatingListImage(item.id);
-    try {
-      const publicUrl = await uploadFile(file, 'items');
-      const updatedItem = { ...item, image: publicUrl };
-      await updateItemInDB(updatedItem);
-      // Alerta eliminada para flujo rápido
-      loadData();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setIsUpdatingListImage(null);
-    }
-  };
-
-  const handleCloudSync = async () => {
-    if (!window.confirm("¿Sincronizar todos los items con la nube?")) return;
-    setIsSaving(true);
-    try {
-      const result = await pushLocalItemsToCloud();
-      alert(`¡Éxito! Se han sincronizado ${result.count} items.`);
-      loadData();
-    } catch (e: any) {
-      alert(e.message);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSaveSettings = async () => {
-    setIsSaving(true);
-    await saveSetting('NOVA_WEBHOOK_URL', config.webhookSupport);
-    await saveSetting('NOVA_STAFF_APP_WEBHOOK', config.webhookApps);
-    await saveSetting('NOVA_STAFF_WELCOME_WEBHOOK', config.webhookWelcome);
-    await saveSetting('DISCORD_CLIENT_ID', config.clientId);
-    await saveSetting('DISCORD_BOT_TOKEN', config.botToken);
-    await saveSetting('DISCORD_GUILD_ID', config.guildId);
-    await saveSetting('ROLE_ID_GS', config.roleGs);
-    await saveSetting('ROLE_ID_LGS', config.roleLgs);
-    await saveSetting('ROLE_ID_GM', config.roleGm);
-    await saveSetting('SITE_LOGO_URL', config.siteLogo);
-    await saveSetting('SITE_BG_URL', config.siteBg);
-    localStorage.setItem('nova_setting_SUPABASE_URL', config.supabaseUrl);
-    localStorage.setItem('nova_setting_SUPABASE_ANON_KEY', config.supabaseKey);
-    setIsSaving(false);
-    alert('Configuración Nucleares Guardada.');
-    loadConfig();
+      else if (type === 'mapPortal') {
+        await saveSetting('MAP_PORTAL_BG', publicUrl);
+        setConfig(prev => ({ ...prev, mapPortalBg: publicUrl }));
+      }
+      else if (type === 'bossPortal') {
+        await saveSetting('BOSS_PORTAL_BG', publicUrl);
+        setConfig(prev => ({ ...prev, bossPortalBg: publicUrl }));
+      }
+      else if (type === 'mob' && uploadTarget) {
+        setNewDrop(prev => {
+          const mobs = [...(prev.mobs || [])];
+          mobs[uploadTarget.mobIdx].image = publicUrl;
+          return { ...prev, mobs };
+        });
+      }
+      else if (type === 'dropItem' && uploadTarget && uploadTarget.dropIdx !== undefined) {
+        setNewDrop(prev => {
+          const mobs = [...(prev.mobs || [])];
+          mobs[uploadTarget.mobIdx].drops[uploadTarget.dropIdx!].itemImage = publicUrl;
+          return { ...prev, mobs };
+        });
+      }
+      alert("Archivo manifestado con éxito.");
+    } catch (err: any) { alert(err.message); }
+    finally { setIsUploading(false); }
   };
 
   const generateMasterLink = () => {
@@ -161,14 +144,16 @@ const AdminPanel: React.FC = () => {
     };
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
     const link = `${window.location.origin}${window.location.pathname}?sync=${encoded}`;
-    
-    navigator.clipboard.writeText(link).then(() => {
-      alert("¡LINK MAESTRO GENERADO! Incluye fondo épico, logo y toda la configuración del reino.");
-    });
+    navigator.clipboard.writeText(link).then(() => alert("¡LINK MAESTRO GENERADO Y COPIADO! Sincronización total lista."));
+  };
+
+  const saveConfigField = async (key: string, value: string, settingKey: string) => {
+    setConfig(prev => ({ ...prev, [key]: value }));
+    await saveSetting(settingKey, value);
   };
 
   const handleAddItem = async () => {
-    if (!newItem.name || !newItem.image) return alert("Faltan datos.");
+    if (!newItem.name) return alert("Falta el nombre.");
     setIsSaving(true);
     try {
       if (editingId) await updateItemInDB({ ...newItem, id: editingId } as GameItem);
@@ -176,327 +161,301 @@ const AdminPanel: React.FC = () => {
       setNewItem({ name: '', category: Category.MOUNT, image: '', description: '', faction: Faction.LIGHT, item_class: 'All', gender: Gender.BOTH, price: '', stats: '' });
       setEditingId(null);
       loadData();
-    } catch { alert('Error de sincronización.'); }
+    } catch { alert('Error.'); }
     finally { setIsSaving(false); }
   };
 
-  const assignDiscordRole = async (userId: string, position: string) => {
-    const botTokenRaw = (await getSetting('DISCORD_BOT_TOKEN') || '').trim();
-    const guildId = (await getSetting('DISCORD_GUILD_ID') || '').trim();
-    const roleGs = (await getSetting('ROLE_ID_GS') || '').trim();
-    const roleLgs = (await getSetting('ROLE_ID_LGS') || '').trim();
-    const roleGm = (await getSetting('ROLE_ID_GM') || '').trim();
-
-    if (!botTokenRaw || !guildId) return false;
-
-    let cleanToken = botTokenRaw.startsWith('Bot ') ? botTokenRaw.replace('Bot ', '').trim() : botTokenRaw.trim();
-
-    let roleId = '';
-    const pos = position.toLowerCase();
-    if (pos.includes('sage') && !pos.includes('lider')) roleId = roleGs;
-    else if (pos.includes('lider')) roleId = roleLgs;
-    else if (pos.includes('gm')) roleId = roleGm;
-
-    if (!roleId) return false;
-
-    try {
-      const url = `https://discord.com/api/v10/guilds/${guildId}/members/${userId.trim()}/roles/${roleId}`;
-      const response = await fetch(url, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bot ${cleanToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({})
-      });
-      return response.ok;
-    } catch (e) {
-      console.error(e);
-      return false;
-    }
-  };
-
-  const handleAppStatus = async (app: StaffApplication, status: 'accepted' | 'rejected') => {
-    if (!window.confirm(`¿Deseas ${status === 'accepted' ? 'ACEPTAR' : 'RECHAZAR'} a ${app.username}?`)) return;
+  const handleAddDrop = async () => {
+    if (!newDrop.name || !newDrop.image) return alert("Faltan datos del mapa.");
     setIsSaving(true);
     try {
-      await updateStaffApplicationStatus(app.id, status);
-      if (status === 'accepted') {
-        const roleSuccess = await assignDiscordRole(app.discord_user_id, app.position);
-        const webhookWelcome = await getSetting('NOVA_STAFF_WELCOME_WEBHOOK');
-        if (webhookWelcome) {
-          await fetch(webhookWelcome, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              embeds: [{
-                title: "🛡️ ¡Nuevo Guardián en NOVA! 🛡️",
-                description: `¡Bienvenido **${app.username}** como **${app.position}**!\n\n${roleSuccess ? '✅ **Rol asignado.**' : '⚠️ **Revisar Jerarquía de Roles en Discord.**'}`,
-                color: 0xd4af37,
-                thumbnail: { url: app.avatar_url },
-                footer: { text: "Sistema de Auto-Gestión de NOVA" },
-                timestamp: new Date().toISOString()
-              }]
-            })
-          });
-        }
-      }
+      if (editingId) await updateDropListInDB({ ...newDrop, id: editingId } as DropMap);
+      else await addDropListToDB(newDrop);
+      setNewDrop({ name: '', category: 'Mapa', image: '', description: '', mobs: [] });
+      setEditingId(null);
       loadData();
-      setViewingApp(null);
-    } catch (err) { alert("Error al procesar."); }
+    } catch { alert('Error.'); }
     finally { setIsSaving(false); }
   };
 
-  const handleDeleteApp = async (id: string) => {
-    if (!window.confirm("¿Eliminar para siempre?")) return;
-    setIsSaving(true);
-    try {
-      await deleteStaffApplicationFromDB(id);
-      loadData();
-    } catch { alert("Error al eliminar."); }
-    finally { setIsSaving(false); }
+  // Fix: Added missing handleMapClick function to allow marking locations on the map
+  const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (activeMobIdx === null) return alert("Selecciona una entidad del bestiario primero para marcar su posición.");
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+    setNewDrop(prev => {
+      const mobs = [...(prev.mobs || [])];
+      const mob = { ...mobs[activeMobIdx] };
+      const newPoint: MapPoint = { x, y, color: mob.mapColor || '#d4af37', label: mob.name };
+      mob.points = [...(mob.points || []), newPoint];
+      mobs[activeMobIdx] = mob;
+      return { ...prev, mobs };
+    });
+  };
+
+  // Fix: Added missing addMob function to allow adding new entities to the map's bestiary
+  const addMob = () => {
+    const mob: MobEntry = {
+      id: `mob-${Date.now()}`,
+      name: 'Nueva Entidad',
+      level: '1',
+      image: '',
+      mapColor: '#d4af37',
+      drops: [],
+      points: []
+    };
+    setNewDrop(prev => ({
+      ...prev,
+      mobs: [...(prev.mobs || []), mob]
+    }));
+    setActiveMobIdx(newDrop.mobs?.length || 0);
+  };
+
+  // Fix: Added missing addDropToMob function to allow adding loot items to a specific mob
+  const addDropToMob = (mIdx: number) => {
+    const newDropEntry: DropEntry = {
+      itemName: 'Nuevo Item',
+      itemImage: '',
+      rate: '1%',
+      rarity: 'Common'
+    };
+    setNewDrop(prev => {
+      const mobs = [...(prev.mobs || [])];
+      mobs[mIdx].drops = [...mobs[mIdx].drops, newDropEntry];
+      return { ...prev, mobs };
+    });
   };
 
   return (
     <div className="max-w-7xl mx-auto space-y-10 animate-fade-in pb-20">
-      <div className="flex flex-wrap gap-4 justify-center">
-        {['items', 'promos', 'apps', 'settings'].map(t => (
-          <button key={t} onClick={() => setActiveSubTab(t as any)} className={`px-8 py-3 rounded-xl font-black uppercase text-xs transition-all ${activeSubTab === t ? 'bg-[#d4af37] text-black shadow-lg shadow-[#d4af37]/20' : 'bg-black/40 text-gray-500 border border-white/5'}`}>
-            {t === 'items' ? 'Reliquias' : t === 'promos' ? 'Promos' : t === 'apps' ? 'Staff' : 'Ajustes'}
+      <div className="flex flex-wrap gap-4 justify-center mb-10">
+        {['items', 'drops', 'apps', 'settings'].map(t => (
+          <button key={t} onClick={() => setActiveSubTab(t as any)} className={`px-10 py-3 rounded-full font-black uppercase text-xs transition-all tracking-widest ${activeSubTab === t ? 'bg-[#d4af37] text-black shadow-[0_0_20px_rgba(212,175,55,0.4)]' : 'bg-black/60 text-gray-500 border border-white/5'}`}>
+            {t === 'items' ? 'Reliquias' : t === 'drops' ? 'Drop List Pro' : t === 'apps' ? 'Staff' : 'Ajustes'}
           </button>
         ))}
       </div>
 
-      {activeSubTab === 'items' || activeSubTab === 'promos' ? (
-        <div className="space-y-12">
-          <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/20 shadow-2xl relative">
-             <div className="absolute top-4 right-4">
-                <button onClick={handleCloudSync} disabled={isSaving} className="px-4 py-2 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg text-[10px] font-black uppercase hover:bg-blue-600 hover:text-white transition-all">
-                  {isSaving ? 'Sincronizando...' : 'Subir a la Nube'}
-                </button>
-             </div>
-            <h2 className="text-3xl font-shaiya text-[#d4af37] mb-8 text-center uppercase tracking-widest">{editingId ? 'Reforjar' : 'Nueva Forja'}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <input placeholder="Nombre" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white outline-none focus:border-[#d4af37]" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
-              <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value as any})}>
-                {Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              {newItem.category === Category.PROMOTION && (
-                <input placeholder="Precio AP" className="bg-green-900/10 border border-green-500/20 p-4 rounded-xl text-white md:col-span-2" value={newItem.price} onChange={e => setNewItem({...newItem, price: e.target.value})} />
-              )}
-              {newItem.category === Category.COSTUME && (
-                <>
-                  <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newItem.faction} onChange={e => setNewItem({...newItem, faction: e.target.value as any})}>
-                    <option value={Faction.LIGHT}>Facción Luz</option>
-                    <option value={Faction.FURY}>Facción Furia</option>
-                  </select>
-                  <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newItem.item_class} onChange={e => setNewItem({...newItem, item_class: e.target.value})}>
-                    <option value="All">Todas las Clases</option>
-                    {newItem.faction && CLASSES_BY_FACTION[newItem.faction as Faction].map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <select className="bg-black/60 border border-white/10 p-4 rounded-xl text-white md:col-span-2" value={newItem.gender} onChange={e => setNewItem({...newItem, gender: e.target.value as any})}>
-                    <option value={Gender.BOTH}>Ambos Sexos</option>
-                    <option value={Gender.MALE}>Masculino</option>
-                    <option value={Gender.FEMALE}>Femenino</option>
-                  </select>
-                </>
-              )}
-              <div className="flex gap-2">
-                <input placeholder="Imagen URL" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-[10px]" value={newItem.image} onChange={e => setNewItem({...newItem, image: e.target.value})} />
-                <button onClick={() => itemFileRef.current?.click()} className="bg-white/10 border border-white/20 text-white px-4 rounded-xl text-[10px] font-black uppercase hover:bg-[#d4af37] hover:text-black transition-all">
-                  {isUploading ? '⌛' : 'Subir'}
-                </button>
-                <input type="file" ref={itemFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'item')} />
-              </div>
-              <input placeholder="Stats (Ej: +15 Str)" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white" value={newItem.stats} onChange={e => setNewItem({...newItem, stats: e.target.value})} />
-              <textarea placeholder="Descripción" className="bg-black/60 border border-white/10 p-4 rounded-xl text-white md:col-span-2 h-24" value={newItem.description} onChange={e => setNewItem({...newItem, description: e.target.value})} />
-            </div>
-            {newItem.image && (
-              <div className="mt-4 flex justify-center">
-                <img src={newItem.image} className="h-32 rounded-xl border border-[#d4af37]/40 shadow-xl" alt="Preview" />
-              </div>
-            )}
-            <button onClick={handleAddItem} disabled={isSaving || isUploading} className="w-full mt-8 bg-white text-black font-black py-4 rounded-2xl uppercase hover:bg-[#d4af37] transition-all disabled:opacity-50">
-              {editingId ? 'Actualizar Reliquia' : 'Publicar en el Reino'}
-            </button>
+      {activeSubTab === 'settings' ? (
+        <div className="space-y-12 animate-fade-in">
+          {/* SINCRONIZACIÓN TOTAL */}
+          <div className="glass-panel p-16 rounded-[3rem] border border-[#d4af37]/40 text-center space-y-8 shadow-[0_0_60px_rgba(0,0,0,0.5)] relative overflow-hidden">
+             <div className="absolute inset-0 border-[2px] border-dashed border-[#d4af37]/20 rounded-[3rem] m-2 pointer-events-none"></div>
+             <h2 className="text-4xl font-shaiya text-[#d4af37] uppercase tracking-[8px]">Sincronización Total</h2>
+             <p className="text-gray-400 text-[10px] uppercase tracking-[4px] max-w-2xl mx-auto">Genera un enlace único con tus 15 ajustes (Logo, Fondo, Webhooks, Portales y Supabase).</p>
+             <button onClick={generateMasterLink} className="bg-white text-black font-black px-12 py-5 rounded-2xl uppercase tracking-[6px] hover:bg-[#d4af37] transition-all shadow-2xl flex items-center gap-3 mx-auto">
+                <span className="text-xl">🔗</span> GENERAR LINK MAESTRO
+             </button>
           </div>
 
-          <div className="glass-panel p-8 rounded-[2rem] border border-white/5">
-            <h3 className="text-xl font-shaiya text-white mb-6 uppercase text-center">Gestión de Archivo</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="border-b border-white/10 text-[10px] font-black uppercase text-[#d4af37]">
-                  <tr><th className="p-4">Item (Click Imagen para Editar)</th><th className="p-4">Categoría</th><th className="p-4 text-right">Acción</th></tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {itemsList.filter(i => activeSubTab === 'items' ? i.category !== Category.PROMOTION : i.category === Category.PROMOTION).map(item => (
-                    <tr key={item.id} className="group hover:bg-white/5">
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="relative group/img cursor-pointer w-12 h-12 rounded-lg overflow-hidden border border-white/10 hover:border-[#d4af37] transition-all"
-                               onClick={() => {
-                                 const input = document.getElementById(`list-upload-${item.id}`) as HTMLInputElement;
-                                 input?.click();
-                               }}>
-                            <img src={item.image} className={`w-full h-full object-cover transition-opacity ${isUpdatingListImage === item.id ? 'opacity-30' : 'group-hover/img:opacity-50'}`} />
-                            {isUpdatingListImage === item.id ? (
-                              <div className="absolute inset-0 flex items-center justify-center animate-spin text-[#d4af37]">⌛</div>
-                            ) : (
-                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 text-[7px] text-[#d4af37] font-black uppercase text-center px-1">Cambiar Imagen</div>
-                            )}
-                            <input 
-                              type="file" 
-                              id={`list-upload-${item.id}`} 
-                              className="hidden" 
-                              accept="image/*" 
-                              onChange={(e) => handleListImageUpdate(e, item)} 
-                            />
-                          </div>
-                          <span className="font-shaiya text-gray-200">{item.name}</span>
-                        </div>
-                      </td>
-                      <td className="p-4 text-[10px] text-gray-500 uppercase tracking-widest">{item.category}</td>
-                      <td className="p-4 text-right">
-                        <button onClick={() => { setNewItem(item); setEditingId(item.id); window.scrollTo({top:0, behavior:'smooth'}) }} className="p-2 text-[#d4af37] hover:bg-[#d4af37]/10 rounded-lg mr-2 transition-colors">✏️</button>
-                        <button onClick={() => { if(confirm('¿Eliminar esta reliquia del reino?')) deleteItemFromDB(item.id).then(loadData) }} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">🗑️</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <h2 className="text-3xl font-shaiya text-white text-center uppercase tracking-[10px]">Branding del Reino</h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+             {/* LOGO */}
+             <div className="glass-panel p-10 rounded-[2.5rem] border border-white/10 space-y-6">
+                <h3 className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest">Logo Principal</h3>
+                <div className="flex gap-4 items-center">
+                   <div className="w-20 h-20 bg-black/60 rounded-xl border border-white/10 p-2 shrink-0">
+                      <img src={config.siteLogo || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-full h-full object-contain" />
+                   </div>
+                   <button onClick={() => logoFileRef.current?.click()} className="flex-grow bg-white/5 border border-white/10 text-white font-black py-4 rounded-xl uppercase tracking-widest hover:bg-[#d4af37] hover:text-black transition-all">Subir Logo</button>
+                </div>
+                <input type="file" ref={logoFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logo')} />
+             </div>
+
+             {/* FONDO */}
+             <div className="glass-panel p-10 rounded-[2.5rem] border border-white/10 space-y-6">
+                <h3 className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest">Fondo Épico</h3>
+                <div className="flex gap-4 items-center">
+                   <div className="w-20 h-20 bg-black/60 rounded-xl border border-white/10 overflow-hidden shrink-0">
+                      <img src={config.siteBg || "https://api.dicebear.com/7.x/pixel-art/svg?seed=bg"} className="w-full h-full object-cover" />
+                   </div>
+                   <button onClick={() => bgFileRef.current?.click()} className="flex-grow bg-white/5 border border-white/10 text-white font-black py-4 rounded-xl uppercase tracking-widest hover:bg-[#d4af37] hover:text-black transition-all">Subir Fondo</button>
+                </div>
+                <input type="file" ref={bgFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'bg')} />
+             </div>
+
+             {/* PORTAL MAPA */}
+             <div className="glass-panel p-10 rounded-[2.5rem] border border-white/10 space-y-6">
+                <h3 className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest">Imagen Portal "Por Mapa"</h3>
+                <div className="flex gap-4 items-center">
+                   <div className="w-20 h-20 bg-black/60 rounded-xl border border-white/10 overflow-hidden shrink-0">
+                      <img src={config.mapPortalBg || "https://api.dicebear.com/7.x/pixel-art/svg?seed=map"} className="w-full h-full object-cover" />
+                   </div>
+                   <button onClick={() => mapPortalFileRef.current?.click()} className="flex-grow bg-white/5 border border-white/10 text-white font-black py-4 rounded-xl uppercase tracking-widest hover:bg-[#d4af37] hover:text-black transition-all">Subir Portal</button>
+                </div>
+                <input type="file" ref={mapPortalFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'mapPortal')} />
+             </div>
+
+             {/* PORTAL BOSS */}
+             <div className="glass-panel p-10 rounded-[2.5rem] border border-white/10 space-y-6">
+                <h3 className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest">Imagen Portal "Por Boss"</h3>
+                <div className="flex gap-4 items-center">
+                   <div className="w-20 h-20 bg-black/60 rounded-xl border border-white/10 overflow-hidden shrink-0">
+                      <img src={config.bossPortalBg || "https://api.dicebear.com/7.x/pixel-art/svg?seed=boss"} className="w-full h-full object-cover" />
+                   </div>
+                   <button onClick={() => bossPortalFileRef.current?.click()} className="flex-grow bg-white/5 border border-white/10 text-white font-black py-4 rounded-xl uppercase tracking-widest hover:bg-[#d4af37] hover:text-black transition-all">Subir Portal</button>
+                </div>
+                <input type="file" ref={bossPortalFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'bossPortal')} />
+             </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+             {/* WEBHOOKS Y DISCORD */}
+             <div className="glass-panel p-10 rounded-[3rem] border border-white/10 space-y-6">
+                <h3 className="text-white text-lg font-shaiya uppercase border-b border-white/10 pb-4">Webhooks y Discord</h3>
+                <div className="space-y-4">
+                   <input placeholder="Webhook Soporte" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.webhookSupport} onChange={e => saveConfigField('webhookSupport', e.target.value, 'NOVA_WEBHOOK_URL')} />
+                   <input placeholder="Webhook Postulaciones" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.webhookApps} onChange={e => saveConfigField('webhookApps', e.target.value, 'NOVA_STAFF_APP_WEBHOOK')} />
+                   <input placeholder="Webhook Bienvenida" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.webhookWelcome} onChange={e => saveConfigField('webhookWelcome', e.target.value, 'NOVA_STAFF_WELCOME_WEBHOOK')} />
+                   <div className="grid grid-cols-1 gap-4">
+                      <input placeholder="Discord Client ID" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.clientId} onChange={e => saveConfigField('clientId', e.target.value, 'DISCORD_CLIENT_ID')} />
+                      <input placeholder="Discord Bot Token" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.botToken} onChange={e => saveConfigField('botToken', e.target.value, 'DISCORD_BOT_TOKEN')} />
+                      <input placeholder="Discord Guild ID" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.guildId} onChange={e => saveConfigField('guildId', e.target.value, 'DISCORD_GUILD_ID')} />
+                   </div>
+                </div>
+             </div>
+
+             {/* SUPABASE Y ROLES */}
+             <div className="glass-panel p-10 rounded-[3rem] border border-white/10 space-y-6">
+                <h3 className="text-white text-lg font-shaiya uppercase border-b border-white/10 pb-4">Supabase y Roles</h3>
+                <div className="space-y-4">
+                   <input placeholder="Supabase Project URL" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.supabaseUrl} onChange={e => { setConfig({...config, supabaseUrl: e.target.value}); localStorage.setItem('nova_setting_SUPABASE_URL', e.target.value); }} />
+                   <input placeholder="Supabase Anon Key" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.supabaseKey} onChange={e => { setConfig({...config, supabaseKey: e.target.value}); localStorage.setItem('nova_setting_SUPABASE_ANON_KEY', e.target.value); }} />
+                   <div className="grid grid-cols-1 gap-4">
+                      <input placeholder="ID Rol GS" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.roleGs} onChange={e => saveConfigField('roleGs', e.target.value, 'ROLE_ID_GS')} />
+                      <div className="grid grid-cols-2 gap-4">
+                         <input placeholder="ID Rol LGS" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.roleLgs} onChange={e => saveConfigField('roleLgs', e.target.value, 'ROLE_ID_LGS')} />
+                         <input placeholder="ID Rol GM" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.roleGm} onChange={e => saveConfigField('roleGm', e.target.value, 'ROLE_ID_GM')} />
+                      </div>
+                   </div>
+                </div>
+             </div>
           </div>
         </div>
-      ) : activeSubTab === 'settings' ? (
-        <div className="space-y-10 animate-fade-in">
-          <div className="glass-panel p-10 rounded-[3rem] border-2 border-dashed border-[#d4af37] bg-[#d4af37]/5 space-y-6 shadow-2xl relative overflow-hidden">
-             <div className="text-center relative z-10">
-                <h2 className="text-3xl font-shaiya text-[#d4af37] uppercase tracking-widest mb-2">Sincronización Total</h2>
-                <p className="text-gray-400 text-[10px] uppercase font-bold tracking-[4px] max-w-xl mx-auto">Genera un enlace único con tus 13 ajustes (Logo, Fondo, Webhooks y Supabase).</p>
-             </div>
-             <div className="flex justify-center pt-4">
-                <button onClick={generateMasterLink} className="px-12 py-5 bg-white text-black font-black rounded-2xl uppercase tracking-[6px] hover:bg-[#d4af37] transition-all shadow-xl">
-                  🔗 GENERAR LINK MAESTRO
-                </button>
-             </div>
-          </div>
-
-          <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/20 space-y-8 shadow-2xl">
-            <h2 className="text-2xl font-shaiya text-white text-center uppercase tracking-widest">Branding del Reino</h2>
+      ) : activeSubTab === 'drops' ? (
+        <div className="space-y-12 animate-fade-in">
+           <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/30 shadow-2xl">
+            <h2 className="text-3xl font-shaiya text-[#d4af37] mb-10 text-center uppercase tracking-widest">{editingId ? 'Reforjar Pergamino de Drop' : 'Nueva Guía Táctica'}</h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-               <div className="bg-black/60 p-6 rounded-3xl border border-white/5 space-y-4">
-                 <h3 className="text-[#d4af37] font-black text-[10px] uppercase tracking-widest">Logo Principal</h3>
-                 <div className="flex items-center gap-4">
-                    <div className="w-20 h-20 bg-black/40 rounded-xl border border-white/10 overflow-hidden flex items-center justify-center">
-                      {config.siteLogo ? <img src={config.siteLogo} className="w-full h-full object-contain" /> : <span className="text-[9px] text-gray-700">VACÍO</span>}
-                    </div>
-                    <div className="flex-grow">
-                      <button onClick={() => logoFileRef.current?.click()} className="w-full bg-white/5 border border-white/10 text-white text-[10px] font-black py-2 rounded-lg uppercase hover:bg-[#d4af37] hover:text-black transition-all">Subir Logo</button>
-                      <input type="file" ref={logoFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logo')} />
-                    </div>
-                 </div>
-               </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+              <div className="space-y-8">
+                <div className="space-y-4">
+                  <h3 className="text-white text-[10px] font-black uppercase tracking-[4px] ml-2">Configuración Base</h3>
+                  <input placeholder="Nombre (Ej: Pantano Infernal)" className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none focus:border-[#d4af37]" value={newDrop.name} onChange={e => setNewDrop({...newDrop, name: e.target.value})} />
+                  <select className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none cursor-pointer" value={newDrop.category} onChange={e => setNewDrop({...newDrop, category: e.target.value as any})}>
+                    <option value="Mapa">Tipo: Mapa / Región</option>
+                    <option value="Boss">Tipo: Jefe / Boss</option>
+                  </select>
+                  <div className="flex gap-4">
+                    <input placeholder="Imagen URL del Mapa" className="flex-grow bg-black/60 border border-white/10 p-5 rounded-2xl text-white text-xs" value={newDrop.image} onChange={e => setNewDrop({...newDrop, image: e.target.value})} />
+                    <button onClick={() => dropFileRef.current?.click()} className="bg-[#d4af37] text-black px-6 rounded-2xl font-black uppercase text-[10px] hover:bg-white transition-all shadow-lg">Subir</button>
+                    <input type="file" ref={dropFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'drop')} />
+                  </div>
+                  <textarea placeholder="Breve descripción o guía para los jugadores..." className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-white h-32 resize-none outline-none focus:border-[#d4af37]" value={newDrop.description} onChange={e => setNewDrop({...newDrop, description: e.target.value})} />
+                </div>
 
-               <div className="bg-black/60 p-6 rounded-3xl border border-white/5 space-y-4">
-                 <h3 className="text-[#d4af37] font-black text-[10px] uppercase tracking-widest">Fondo Épico</h3>
-                 <div className="flex items-center gap-4">
-                    <div className="w-20 h-20 bg-black/40 rounded-xl border border-white/10 overflow-hidden">
-                      {config.siteBg ? <img src={config.siteBg} className="w-full h-full object-cover" /> : <span className="text-[9px] text-gray-700 p-2 block">DEFAULT</span>}
+                {newDrop.image && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="flex justify-between items-end px-2">
+                       <h3 className="text-[#d4af37] text-[10px] font-black uppercase tracking-[4px]">Marcado de GPS</h3>
+                       <p className="text-gray-500 text-[9px] uppercase font-bold italic">Selecciona un mob y haz clic en el mapa para marcarlo</p>
                     </div>
-                    <div className="flex-grow">
-                      <button onClick={() => bgFileRef.current?.click()} className="w-full bg-white/5 border border-white/10 text-white text-[10px] font-black py-2 rounded-lg uppercase hover:bg-[#d4af37] hover:text-black transition-all">Subir Fondo</button>
-                      <input type="file" ref={bgFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'bg')} />
+                    <div className="relative rounded-[2rem] overflow-hidden border border-white/10 cursor-crosshair bg-black group" onClick={handleMapClick}>
+                      <img src={newDrop.image} className="w-full h-auto opacity-70 group-hover:opacity-90 transition-opacity" />
+                      {newDrop.mobs?.map((mob, mIdx) => 
+                        mob.points?.map((p, pIdx) => (
+                          <div 
+                            key={`${mIdx}-${pIdx}`} 
+                            className="absolute w-4 h-4 rounded-full border-2 border-white shadow-2xl transform -translate-x-1/2 -translate-y-1/2" 
+                            style={{ left: `${p.x}%`, top: `${p.y}%`, backgroundColor: mob.mapColor }}
+                          ></div>
+                        ))
+                      )}
                     </div>
-                 </div>
-               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/5">
-              <div className="space-y-4">
-                <h3 className="text-white text-[10px] font-black uppercase tracking-widest ml-2">Webhooks y Discord</h3>
-                <input placeholder="Webhook Soporte" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.webhookSupport} onChange={e => setConfig({...config, webhookSupport: e.target.value})} />
-                <input placeholder="Webhook Postulaciones" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.webhookApps} onChange={e => setConfig({...config, webhookApps: e.target.value})} />
-                <input placeholder="Webhook Bienvenida" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.webhookWelcome} onChange={e => setConfig({...config, webhookWelcome: e.target.value})} />
-                <input placeholder="Discord Client ID" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.clientId} onChange={e => setConfig({...config, clientId: e.target.value})} />
-                <input placeholder="Bot Token" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.botToken} onChange={e => setConfig({...config, botToken: e.target.value})} />
+                  </div>
+                )}
               </div>
 
-              <div className="space-y-4">
-                <h3 className="text-white text-[10px] font-black uppercase tracking-widest ml-2">Supabase y Roles</h3>
-                <input placeholder="Supabase URL" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.supabaseUrl} onChange={e => setConfig({...config, supabaseUrl: e.target.value})} />
-                <input placeholder="Supabase Key" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.supabaseKey} onChange={e => setConfig({...config, supabaseKey: e.target.value})} />
-                <input placeholder="Guild ID" className="w-full bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.guildId} onChange={e => setConfig({...config, guildId: e.target.value})} />
-                <div className="grid grid-cols-3 gap-2">
-                  <input placeholder="GS" className="bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.roleGs} onChange={e => setConfig({...config, roleGs: e.target.value})} />
-                  <input placeholder="L-GS" className="bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.roleLgs} onChange={e => setConfig({...config, roleLgs: e.target.value})} />
-                  <input placeholder="GM" className="bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.roleGm} onChange={e => setConfig({...config, roleGm: e.target.value})} />
+              <div className="space-y-8">
+                <div className="flex justify-between items-center px-2">
+                  <h3 className="text-white text-[10px] font-black uppercase tracking-[4px]">Bestiario del Mapa</h3>
+                  <button onClick={addMob} className="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase">+ Nueva Entidad</button>
+                </div>
+                <div className="space-y-6 max-h-[800px] overflow-y-auto pr-3 custom-scroll">
+                  {newDrop.mobs?.map((mob, mIdx) => (
+                    <div key={mob.id} className={`p-6 rounded-[2rem] border-2 transition-all ${activeMobIdx === mIdx ? 'bg-[#d4af37]/10 border-[#d4af37]' : 'bg-black/60 border-white/5'}`} onClick={() => setActiveMobIdx(mIdx)}>
+                       <div className="flex gap-4">
+                         <input placeholder="Nombre" className="w-full bg-black/40 border border-white/5 p-3 rounded-xl text-white text-sm" value={mob.name} onChange={e => {
+                            const mobs = [...(newDrop.mobs || [])];
+                            mobs[mIdx].name = e.target.value;
+                            setNewDrop({...newDrop, mobs});
+                          }} />
+                          <input type="color" className="w-16 h-11 bg-transparent rounded-xl cursor-pointer" value={mob.mapColor} onChange={e => {
+                             const mobs = [...(newDrop.mobs || [])];
+                             mobs[mIdx].mapColor = e.target.value;
+                             setNewDrop({...newDrop, mobs});
+                          }} />
+                       </div>
+                       <button onClick={(e) => { e.stopPropagation(); addDropToMob(mIdx); }} className="mt-4 text-green-400 text-[10px] font-black uppercase hover:underline">+ Añadir Item Drop</button>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
-
-            <button onClick={handleSaveSettings} disabled={isSaving || isUploading} className="w-full bg-[#d4af37] text-black font-black py-5 rounded-2xl uppercase tracking-widest hover:bg-white transition-all shadow-xl disabled:opacity-50">
-              {isSaving ? 'Guardando Destino...' : 'Confirmar Ajustes del Reino'}
+            <button onClick={handleAddDrop} disabled={isSaving || isUploading} className="w-full mt-12 bg-white text-black font-black py-6 rounded-[2rem] uppercase tracking-[10px] hover:bg-[#d4af37] transition-all">
+               Guardar Cambios
+            </button>
+          </div>
+        </div>
+      ) : activeSubTab === 'items' ? (
+        <div className="space-y-12 animate-fade-in">
+          <div className="glass-panel p-10 rounded-[3rem] border border-[#d4af37]/20 shadow-2xl relative text-center">
+            <h2 className="text-3xl font-shaiya text-[#d4af37] mb-8 uppercase tracking-widest">{editingId ? 'Reforjar Reliquia' : 'Nueva Reliquia de NOVA'}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <input placeholder="Nombre" className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none focus:border-[#d4af37]" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
+              <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none cursor-pointer" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value as any})}>
+                {Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <div className="flex gap-4">
+                <input placeholder="URL de Imagen" className="flex-grow bg-black/60 border border-white/10 p-5 rounded-2xl text-white text-[10px]" value={newItem.image} onChange={e => setNewItem({...newItem, image: e.target.value})} />
+                <button onClick={() => itemFileRef.current?.click()} className="bg-white/10 border border-white/20 text-white px-6 rounded-2xl text-[10px] font-black uppercase hover:bg-[#d4af37] hover:text-black">Subir</button>
+                <input type="file" ref={itemFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'item')} />
+              </div>
+              <input placeholder="Stats" className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.stats} onChange={e => setNewItem({...newItem, stats: e.target.value})} />
+            </div>
+            <button onClick={handleAddItem} disabled={isSaving || isUploading} className="w-full mt-10 bg-white text-black font-black py-5 rounded-[2rem] uppercase tracking-widest hover:bg-[#d4af37] transition-all">
+              Manifestar en el Reino
             </button>
           </div>
         </div>
       ) : (
-        <div className="glass-panel p-10 rounded-[3rem] min-h-[400px] border border-white/10 relative">
-           <div className="flex justify-between items-center mb-10">
-             <h2 className="text-3xl font-shaiya text-white uppercase tracking-widest">Candidatos al Staff</h2>
-             <button onClick={loadData} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[10px] font-black uppercase text-[#d4af37] hover:bg-white/10">Refrescar</button>
-           </div>
+        <div className="glass-panel p-10 rounded-[3rem] border border-white/10 min-h-[400px]">
+           <h2 className="text-3xl font-shaiya text-white uppercase tracking-widest mb-10 text-center">Aspirantes al Staff</h2>
            <div className="space-y-6">
-             {appsList.length === 0 ? (
-               <div className="text-center py-20 text-gray-600 font-shaiya text-xl uppercase">Sin pergaminos pendientes</div>
-             ) : (
-               appsList.map(app => (
-                 <div key={app.id} className="bg-black/40 p-6 rounded-3xl border border-white/10 flex justify-between items-center group">
-                   <div className="flex gap-6 items-center flex-grow cursor-pointer" onClick={() => setViewingApp(app)}>
-                     <img src={app.avatar_url} className="w-16 h-16 rounded-2xl border-2 border-[#d4af37]" />
-                     <div>
-                       <p className="text-white text-xl font-shaiya group-hover:text-[#d4af37]">{app.username}</p>
-                       <p className="text-[#d4af37] text-[10px] uppercase font-black">{app.position}</p>
-                     </div>
-                   </div>
-                   <div className="flex gap-3">
-                     <button onClick={() => setViewingApp(app)} className="p-3 bg-white/5 text-[#d4af37] border border-[#d4af37]/20 rounded-xl">👁️</button>
-                     {app.status === 'pending' ? (
-                       <>
-                        <button onClick={() => handleAppStatus(app, 'accepted')} className="bg-green-600/20 text-green-500 border border-green-500/30 px-6 py-2 rounded-xl text-[10px] font-black uppercase">Aceptar</button>
-                        <button onClick={() => handleAppStatus(app, 'rejected')} className="bg-red-600/20 text-red-500 border border-red-500/30 px-6 py-2 rounded-xl text-[10px] font-black uppercase">Rechazar</button>
-                       </>
-                     ) : <span className={`px-6 py-2 rounded-xl font-black uppercase text-[10px] border ${app.status === 'accepted' ? 'text-green-500 border-green-500/20' : 'text-red-500 border-red-500/20'}`}>{app.status}</span>}
-                     <button onClick={() => handleDeleteApp(app.id)} className="p-3 bg-red-600/10 text-red-500 border border-red-500/20 rounded-xl">🗑️</button>
-                   </div>
-                 </div>
-               ))
-             )}
-           </div>
-           {viewingApp && (
-             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
-               <div className="max-w-2xl w-full glass-panel p-10 rounded-[3rem] border-[#d4af37] shadow-2xl relative">
-                 <button onClick={() => setViewingApp(null)} className="absolute top-6 right-8 text-white/50 hover:text-white">✕</button>
-                 <div className="flex items-center gap-6 mb-10 border-b border-white/10 pb-8">
-                   <img src={viewingApp.avatar_url} className="w-24 h-24 rounded-3xl border-2 border-[#d4af37]" />
+             {appsList.map(app => (
+               <div key={app.id} className="bg-black/40 p-8 rounded-[2.5rem] border border-white/10 flex justify-between items-center group">
+                 <div className="flex gap-6 items-center">
+                   <img src={app.avatar_url} className="w-16 h-16 rounded-2xl border-2 border-[#d4af37]" />
                    <div>
-                     <h3 className="text-4xl font-shaiya text-white uppercase">{viewingApp.username}</h3>
-                     <p className="text-[#d4af37] text-xs font-black uppercase">{viewingApp.position}</p>
+                     <p className="text-white text-2xl font-shaiya">{app.username}</p>
+                     <p className="text-[#d4af37] text-[10px] uppercase font-black">{app.position}</p>
                    </div>
                  </div>
-                 <div className="space-y-6">
-                   <div className="bg-black/40 p-4 rounded-xl"><h4 className="text-[#d4af37] text-[10px] font-black uppercase mb-2">Experiencia</h4><p className="text-gray-300 text-sm italic">{viewingApp.answers.experience}</p></div>
-                   <div className="bg-black/40 p-4 rounded-xl"><h4 className="text-[#d4af37] text-[10px] font-black uppercase mb-2">Motivación</h4><p className="text-gray-300 text-sm italic">{viewingApp.answers.motivation}</p></div>
-                 </div>
-                 <div className="mt-10 flex gap-4">
-                   {viewingApp.status === 'pending' && <button onClick={() => handleAppStatus(viewingApp, 'accepted')} className="flex-grow bg-green-600 text-white font-black py-4 rounded-2xl uppercase text-xs">Aprobar</button>}
-                   <button onClick={() => { handleDeleteApp(viewingApp.id); setViewingApp(null); }} className="px-8 bg-red-600/10 text-red-500 border border-red-500/20 font-black py-4 rounded-2xl uppercase text-xs">Eliminar</button>
+                 <div className="flex gap-4">
+                   <button onClick={() => updateStaffApplicationStatus(app.id, 'accepted').then(loadData)} className="bg-green-600/20 text-green-500 border border-green-500/30 px-8 py-3 rounded-2xl text-[10px] font-black uppercase">Aprobar</button>
+                   <button onClick={() => updateStaffApplicationStatus(app.id, 'rejected').then(loadData)} className="bg-red-600/20 text-red-500 border border-red-500/30 px-8 py-3 rounded-2xl text-[10px] font-black uppercase">Rechazar</button>
                  </div>
                </div>
-             </div>
-           )}
+             ))}
+           </div>
         </div>
       )}
+
+      <input type="file" ref={mobFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'mob')} />
+      <input type="file" ref={dropItemFileRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'dropItem')} />
     </div>
   );
 };

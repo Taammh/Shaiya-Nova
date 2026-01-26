@@ -1,0 +1,235 @@
+
+import React, { useState, useEffect } from 'react';
+import { DropMap, MobEntry, DropEntry } from '../types';
+import { getDropListsFromDB, getSetting } from '../services/supabaseClient';
+
+const DropList: React.FC = () => {
+  const [drops, setDrops] = useState<DropMap[]>([]);
+  const [selectedEntity, setSelectedEntity] = useState<DropMap | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [mainView, setMainView] = useState<'selection' | 'list'>('selection');
+  const [filterType, setFilterType] = useState<'Mapa' | 'Boss'>('Mapa');
+  
+  const [portalBgs, setPortalBgs] = useState({
+    map: 'https://media.discordapp.net/attachments/1460068773175492641/1460108918108852366/img_81.jpg',
+    boss: 'https://media.discordapp.net/attachments/1460068773175492641/1460108917639217152/img_80.jpg'
+  });
+
+  useEffect(() => {
+    const fetchDropsAndBgs = async () => {
+      const data = await getDropListsFromDB();
+      setDrops(data);
+      
+      const mBg = await getSetting('MAP_PORTAL_BG');
+      const bBg = await getSetting('BOSS_PORTAL_BG');
+      
+      if (mBg || bBg) {
+        setPortalBgs({
+          map: mBg || portalBgs.map,
+          boss: bBg || portalBgs.boss
+        });
+      }
+      
+      setIsLoading(false);
+    };
+    fetchDropsAndBgs();
+  }, []);
+
+  const handleModeSelection = (type: 'Mapa' | 'Boss') => {
+    setFilterType(type);
+    setMainView('list');
+  };
+
+  const filteredDrops = drops.filter(d => d.category === filterType);
+
+  if (selectedEntity) {
+    return (
+      <div className="max-w-7xl mx-auto space-y-12 animate-fade-in pb-24">
+        <button 
+          onClick={() => setSelectedEntity(null)} 
+          className="text-[#d4af37] font-black uppercase tracking-widest text-[10px] flex items-center gap-2 hover:translate-x-[-5px] transition-all bg-black/40 px-6 py-3 rounded-full border border-white/5"
+        >
+          ← Regresar a la selección
+        </button>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="relative rounded-[2.5rem] overflow-hidden border-2 border-[#d4af37]/30 shadow-[0_0_50px_rgba(0,0,0,0.5)] bg-black">
+              <img src={selectedEntity.image} className="w-full h-auto block opacity-80" alt={selectedEntity.name} />
+              {selectedEntity.mobs.map((mob) => 
+                mob.points?.map((point, pIdx) => (
+                  <div 
+                    key={`${mob.id}-${pIdx}`}
+                    className="absolute w-5 h-5 rounded-full border-2 border-white shadow-[0_0_15px_rgba(255,255,255,0.6)] transform -translate-x-1/2 -translate-y-1/2 cursor-help group/point animate-pulse"
+                    style={{ left: `${point.x}%`, top: `${point.y}%`, backgroundColor: mob.mapColor }}
+                  >
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-3 py-1 bg-black/90 text-white text-[9px] font-black uppercase rounded-lg whitespace-nowrap opacity-0 group-hover/point:opacity-100 transition-opacity border border-[#d4af37]/30">
+                      {mob.name}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="glass-panel p-8 rounded-[2rem]">
+              <h2 className="text-4xl font-shaiya text-[#d4af37] mb-2">{selectedEntity.name}</h2>
+              <p className="text-gray-400 text-sm italic leading-relaxed">{selectedEntity.description}</p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <h3 className="text-[#d4af37] font-black uppercase text-xs tracking-[4px] px-2 border-l-2 border-[#d4af37] ml-2">Leyenda de zona</h3>
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scroll">
+              {selectedEntity.mobs.map((mob) => (
+                <div key={mob.id} className="bg-black/40 border border-white/5 p-4 rounded-2xl flex items-center gap-4 hover:border-[#d4af37]/30 transition-all group">
+                  <div className="w-1.5 h-12 rounded-full shrink-0" style={{ backgroundColor: mob.mapColor }}></div>
+                  <img src={mob.image || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-14 h-14 rounded-xl object-cover border border-white/10" />
+                  <div>
+                    <h4 className="text-white font-shaiya text-lg">{mob.name}</h4>
+                    <p className="text-[10px] text-gray-500 uppercase font-black">Nivel {mob.level}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-10 pt-10 border-t border-white/5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {selectedEntity.mobs.map((mob) => (
+              <div key={mob.id} className="glass-panel rounded-[2.5rem] overflow-hidden border border-white/10">
+                <div className="flex p-6 gap-6 bg-white/5 border-b border-white/5">
+                  <div className="relative">
+                     <img src={mob.image} className="w-28 h-28 rounded-2xl object-cover border-2 border-white/10 shadow-2xl" />
+                     <div className="absolute -bottom-2 -right-2 w-6 h-6 rounded-full border-2 border-white" style={{ backgroundColor: mob.mapColor }}></div>
+                  </div>
+                  <div className="flex-grow flex flex-col justify-center">
+                    <h3 className="text-3xl font-shaiya text-white">{mob.name}</h3>
+                    <span className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest mt-1">Nivel {mob.level}</span>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <div className="grid grid-cols-1 gap-3">
+                    {mob.drops.map((drop, dIdx) => (
+                      <div key={dIdx} className="flex items-center gap-4 bg-black/60 p-3 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group">
+                        <div className="w-12 h-12 rounded-xl bg-black/80 flex items-center justify-center p-1 border border-white/10 group-hover:border-[#d4af37]/50 transition-colors">
+                           <img src={drop.itemImage || "https://api.dicebear.com/7.x/pixel-art/svg?seed=item"} className="w-full h-full object-contain" />
+                        </div>
+                        <div className="flex-grow">
+                          <p className="text-gray-200 text-sm font-bold">{drop.itemName}</p>
+                          <p className="text-gray-500 text-[8px] font-black uppercase tracking-tighter">{drop.rarity}</p>
+                        </div>
+                        <div className="px-4 py-1 bg-[#d4af37]/10 rounded-lg border border-[#d4af37]/20">
+                           <span className="text-[#d4af37] font-mono font-black text-xs">{drop.rate}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (mainView === 'selection') {
+    return (
+      <div className="max-w-6xl mx-auto py-24 space-y-12 animate-fade-in">
+        <header className="text-center space-y-6">
+          <h2 className="text-7xl font-shaiya text-white tracking-tighter drop-shadow-[0_0_30px_rgba(212,175,55,0.3)]">BIBLIOTECA DE <span className="text-[#d4af37]">DROP</span></h2>
+          <p className="text-[#d4af37] uppercase tracking-[15px] text-xs font-bold opacity-60">Selecciona el método de búsqueda</p>
+        </header>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-10">
+          <button 
+            onClick={() => handleModeSelection('Mapa')}
+            className="group relative h-[450px] rounded-[3.5rem] overflow-hidden border-2 border-white/5 hover:border-[#d4af37]/50 transition-all duration-700 shadow-2xl"
+          >
+            <img src={portalBgs.map} className="absolute inset-0 w-full h-full object-cover opacity-30 group-hover:scale-110 group-hover:opacity-50 transition-all duration-1000" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center space-y-6">
+              <div className="w-24 h-24 bg-[#d4af37]/10 rounded-full flex items-center justify-center border border-[#d4af37]/40 group-hover:bg-[#d4af37] group-hover:rotate-[360deg] transition-all duration-700">
+                <span className="text-5xl">🗺️</span>
+              </div>
+              <div>
+                <h3 className="text-5xl font-shaiya text-white mb-2 uppercase tracking-widest">BUSCAR POR MAPA</h3>
+                <p className="text-gray-400 text-[10px] uppercase tracking-[5px]">Explora las regiones de Teos</p>
+              </div>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => handleModeSelection('Boss')}
+            className="group relative h-[450px] rounded-[3.5rem] overflow-hidden border-2 border-white/5 hover:border-[#d4af37]/50 transition-all duration-700 shadow-2xl"
+          >
+            <img src={portalBgs.boss} className="absolute inset-0 w-full h-full object-cover opacity-30 group-hover:scale-110 group-hover:opacity-50 transition-all duration-1000" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center space-y-6">
+              <div className="w-24 h-24 bg-red-600/10 rounded-full flex items-center justify-center border border-red-500/40 group-hover:bg-red-600 group-hover:scale-110 transition-all duration-700">
+                <span className="text-5xl">👹</span>
+              </div>
+              <div>
+                <h3 className="text-5xl font-shaiya text-white mb-2 uppercase tracking-widest">BUSCAR POR BOSS</h3>
+                <p className="text-gray-400 text-[10px] uppercase tracking-[5px]">Caza a los guardianes supremos</p>
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-16 animate-fade-in">
+      <div className="flex flex-col md:flex-row items-center justify-between border-b border-white/10 pb-10 gap-6">
+        <div className="text-center md:text-left">
+          <button onClick={() => setMainView('selection')} className="text-[#d4af37] text-[10px] font-black uppercase mb-3 hover:opacity-70 flex items-center gap-2 justify-center md:justify-start">← Volver a Modos</button>
+          <h1 className="text-6xl font-shaiya text-white uppercase tracking-tighter">ARCHIVOS DE {filterType === 'Mapa' ? 'TEOS' : 'JEFES'}</h1>
+        </div>
+        <div className="bg-black/60 p-2 rounded-2xl border border-white/10 flex shadow-xl">
+          <button onClick={() => setFilterType('Mapa')} className={`px-8 py-3 rounded-xl text-xs font-black uppercase transition-all ${filterType === 'Mapa' ? 'bg-[#d4af37] text-black shadow-lg shadow-[#d4af37]/20' : 'text-gray-500 hover:text-white'}`}>Mapas</button>
+          <button onClick={() => setFilterType('Boss')} className={`px-8 py-3 rounded-xl text-xs font-black uppercase transition-all ${filterType === 'Boss' ? 'bg-[#d4af37] text-black shadow-lg shadow-[#d4af37]/20' : 'text-gray-500 hover:text-white'}`}>Bosses</button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="text-center py-40 animate-pulse text-[#d4af37] font-shaiya text-3xl uppercase tracking-widest">Consultando pergaminos antiguos...</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+          {filteredDrops.map(drop => (
+            <div 
+              key={drop.id} 
+              onClick={() => setSelectedEntity(drop)}
+              className="group cursor-pointer glass-panel rounded-[3rem] overflow-hidden border border-white/10 hover:border-[#d4af37]/50 transition-all duration-500 shadow-2xl"
+            >
+              <div className="relative h-80">
+                <img src={drop.image} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c] via-black/30 to-transparent"></div>
+                <div className="absolute bottom-10 left-10">
+                  <span className="text-[#d4af37] text-[10px] font-black uppercase tracking-[6px] mb-2 block opacity-70">{drop.category}</span>
+                  <h3 className="text-4xl font-shaiya text-white leading-none tracking-wide">{drop.name}</h3>
+                </div>
+              </div>
+              <div className="p-10">
+                <p className="text-gray-500 text-sm italic line-clamp-2 mb-8 leading-relaxed">{drop.description}</p>
+                <div className="flex justify-between items-center border-t border-white/5 pt-8">
+                  <div className="flex -space-x-3 items-center">
+                    {drop.mobs.slice(0, 3).map((m, i) => (
+                      <div key={i} className="w-10 h-10 rounded-full border-2 border-[#0a0a0c] bg-gray-900 overflow-hidden" style={{ borderColor: m.mapColor }}>
+                        <img src={m.image} className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                  <span className="text-[#d4af37] text-[10px] font-black uppercase tracking-[4px] group-hover:translate-x-3 transition-transform">Ver Mapa →</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default DropList;

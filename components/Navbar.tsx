@@ -16,7 +16,6 @@ const Navbar: React.FC<NavbarProps> = ({ onTabChange, activeTab }) => {
       if (logo) setSiteLogo(logo);
     };
     fetchLogo();
-    // Intervalo para captar cambios si se actualiza en admin
     const interval = setInterval(fetchLogo, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -26,6 +25,7 @@ const Navbar: React.FC<NavbarProps> = ({ onTabChange, activeTab }) => {
     { id: 'mounts', label: 'Monturas' },
     { id: 'costumes', label: 'Trajes' },
     { id: 'transformations', label: 'Transformaciones' },
+    { id: 'droplist', label: 'Drop List' },
     { id: 'report', label: 'Soporte' },
     { id: 'staff_app', label: 'Postulación' },
     { id: 'admin', label: 'Administración' }

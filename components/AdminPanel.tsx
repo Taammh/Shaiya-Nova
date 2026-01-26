@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Category, Faction, GameItem, CLASSES_BY_FACTION, Gender, StaffApplication, DropMap, MobEntry, DropEntry, MapPoint, ItemRarity } from '../types';
 import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting, getStaffApplications, updateStaffApplicationStatus, pushLocalItemsToCloud, deleteStaffApplicationFromDB, uploadFile, getDropListsFromDB, addDropListToDB, updateDropListInDB, deleteDropListFromDB } from '../services/supabaseClient';
@@ -187,8 +188,8 @@ const AdminPanel: React.FC = () => {
     });
   };
 
-  const removeMob = (mIdx: number) => {
-    if (!confirm('¿Seguro que deseas eliminar esta entidad (Mob/Boss)?')) return;
+  const removeMobFromCreation = (mIdx: number) => {
+    if (!confirm('¿Deseas eliminar esta entidad por completo?')) return;
     setNewDrop(prev => {
       const mobs = [...(prev.mobs || [])];
       mobs.splice(mIdx, 1);
@@ -255,22 +256,21 @@ const AdminPanel: React.FC = () => {
   };
 
   const generateMasterLink = () => {
-    // Obtenemos los datos actuales para asegurar que se incluyan en el link
-    const localItems = localStorage.getItem('nova_local_items');
-    const localDrops = localStorage.getItem('nova_local_drops');
+    // REQUISITO TÉCNICO: Sincronización total de localItems y localDrops (Historial incluido)
+    const localItemsStr = localStorage.getItem('nova_local_items');
+    const localDropsStr = localStorage.getItem('nova_local_drops');
     
     const dataToSync = { 
       ...config,
-      localItems: localItems ? JSON.parse(localItems) : [],
-      localDrops: localDrops ? JSON.parse(localDrops) : []
+      localItems: localItemsStr ? JSON.parse(localItemsStr) : [],
+      localDrops: localDropsStr ? JSON.parse(localDropsStr) : []
     };
     
-    // Codificamos de forma segura para URL
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(dataToSync))));
     const url = `${window.location.origin}${window.location.pathname}?sync=${encoded}`;
     
     navigator.clipboard.writeText(url);
-    alert("Link Maestro generado y copiado. Incluye configuración, reliquias y drop list.");
+    alert("¡LINK MAESTRO GENERADO! Incluye Reliquias, Mapas, Jefes y toda su configuración.");
   };
 
   return (
@@ -306,28 +306,28 @@ const AdminPanel: React.FC = () => {
                         <input placeholder="URL Logo Principal" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.siteLogo} onChange={e => saveConfigField('siteLogo', e.target.value, 'SITE_LOGO_URL')} />
                         <button onClick={() => logoFileRef.current?.click()} className="bg-white/10 px-4 rounded-xl text-white">📁</button>
                     </div>
-                    {config.siteLogo && <div className="p-2 border border-white/5 rounded-xl bg-black/20"><img src={config.siteLogo} className="h-20 w-auto mx-auto object-contain" alt="Vista previa logo" /></div>}
+                    {config.siteLogo && <div className="p-2 border border-white/5 rounded-xl bg-black/20"><img src={config.siteLogo} loading="lazy" className="h-20 w-auto mx-auto object-contain" alt="Vista previa logo" /></div>}
                  </div>
                  <div className="space-y-2">
                     <div className="flex gap-4">
                         <input placeholder="URL Fondo General" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.siteBg} onChange={e => saveConfigField('siteBg', e.target.value, 'SITE_BG_URL')} />
                         <button onClick={() => bgFileRef.current?.click()} className="bg-white/10 px-4 rounded-xl text-white">📁</button>
                     </div>
-                    {config.siteBg && <div className="p-2 border border-white/5 rounded-xl bg-black/20 overflow-hidden"><img src={config.siteBg} className="h-20 w-full object-cover" alt="Vista previa fondo" /></div>}
+                    {config.siteBg && <div className="p-2 border border-white/5 rounded-xl bg-black/20 overflow-hidden"><img src={config.siteBg} loading="lazy" className="h-20 w-full object-cover" alt="Vista previa fondo" /></div>}
                  </div>
                  <div className="space-y-2">
                     <div className="flex gap-4">
                         <input placeholder="URL Portal Mapas" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.mapPortalBg} onChange={e => saveConfigField('mapPortalBg', e.target.value, 'MAP_PORTAL_BG')} />
                         <button onClick={() => mapPortalFileRef.current?.click()} className="bg-white/10 px-4 rounded-xl text-white">📁</button>
                     </div>
-                    {config.mapPortalBg && <div className="p-2 border border-white/5 rounded-xl bg-black/20 overflow-hidden"><img src={config.mapPortalBg} className="h-20 w-full object-cover" alt="Vista previa portal mapas" /></div>}
+                    {config.mapPortalBg && <div className="p-2 border border-white/5 rounded-xl bg-black/20 overflow-hidden"><img src={config.mapPortalBg} loading="lazy" className="h-20 w-full object-cover" alt="Vista previa portal mapas" /></div>}
                  </div>
                  <div className="space-y-2">
                     <div className="flex gap-4">
                         <input placeholder="URL Portal Jefes" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.bossPortalBg} onChange={e => saveConfigField('bossPortalBg', e.target.value, 'BOSS_PORTAL_BG')} />
                         <button onClick={() => bossPortalFileRef.current?.click()} className="bg-white/10 px-4 rounded-xl text-white">📁</button>
                     </div>
-                    {config.bossPortalBg && <div className="p-2 border border-white/5 rounded-xl bg-black/20 overflow-hidden"><img src={config.bossPortalBg} className="h-20 w-full object-cover" alt="Vista previa portal bosses" /></div>}
+                    {config.bossPortalBg && <div className="p-2 border border-white/5 rounded-xl bg-black/20 overflow-hidden"><img src={config.bossPortalBg} loading="lazy" className="h-20 w-full object-cover" alt="Vista previa portal bosses" /></div>}
                  </div>
               </div>
             </div>
@@ -370,7 +370,7 @@ const AdminPanel: React.FC = () => {
                       onMouseMove={handleMouseMove} 
                       onMouseUp={handleMouseUp}
                     >
-                      <img src={newDrop.image} className="w-full h-auto opacity-70 pointer-events-none" />
+                      <img src={newDrop.image} loading="lazy" className="w-full h-auto opacity-70 pointer-events-none" />
                       
                       {isDrawing && drawingStart && (
                         <div 
@@ -403,7 +403,7 @@ const AdminPanel: React.FC = () => {
                     <div key={mob.id} className={`p-6 rounded-[2.5rem] border-2 cursor-pointer transition-all ${activeMobIdx === mIdx ? 'bg-[#d4af37]/10 border-[#d4af37]' : 'bg-black/60 border-white/5'}`} onClick={() => setActiveMobIdx(mIdx)}>
                        <div className="flex gap-4 items-center">
                          <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-black shrink-0 group">
-                           <img src={mob.image || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-full h-full object-cover" />
+                           <img src={mob.image || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} loading="lazy" className="w-full h-full object-cover" />
                            <button onClick={(e) => { e.stopPropagation(); setUploadTarget({ mobIdx: mIdx }); mobFileRef.current?.click(); }} className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[8px] font-black">UP</button>
                          </div>
                          <div className="flex-grow">
@@ -416,7 +416,8 @@ const AdminPanel: React.FC = () => {
                             <div className="flex gap-2">
                                <button onClick={e => { e.stopPropagation(); duplicateMob(mIdx); }} title="Duplicar Entidad" className="bg-blue-600/20 text-blue-400 p-2 rounded-lg hover:bg-blue-600 hover:text-white transition-all">👯</button>
                                <button onClick={e => { e.stopPropagation(); clearMobPoints(mIdx); }} title="Limpiar Zona/Puntos" className="bg-orange-600/20 text-orange-400 p-2 rounded-lg hover:bg-orange-600 hover:text-white transition-all">🧹</button>
-                               <button onClick={e => { e.stopPropagation(); removeMob(mIdx); }} title="Eliminar Entidad" className="bg-red-600/20 text-red-400 p-2 rounded-lg hover:bg-red-600 hover:text-white transition-all">🗑️</button>
+                               {/* BOTÓN SOLICITADO: Eliminar Entidad (Mob/Boss) */}
+                               <button onClick={e => { e.stopPropagation(); removeMobFromCreation(mIdx); }} title="Eliminar Entidad" className="bg-red-600/20 text-red-400 p-2 rounded-lg hover:bg-red-600 hover:text-white transition-all">🗑️</button>
                                <input type="color" className="w-8 h-8 cursor-pointer rounded overflow-hidden" value={mob.mapColor} onClick={e => e.stopPropagation()} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].mapColor = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
                             </div>
                             <button onClick={e => { e.stopPropagation(); addDropToMob(mIdx); }} className="bg-green-600/20 text-green-500 px-3 py-1 rounded-lg text-[8px] font-black uppercase hover:bg-green-600 hover:text-white transition-all">DROP +</button>
@@ -427,7 +428,7 @@ const AdminPanel: React.FC = () => {
                             {mob.drops.map((drop, dIdx) => (
                               <div key={dIdx} className="flex items-center gap-3 bg-black/40 p-3 rounded-xl group/drop border border-white/5">
                                  <div className="relative w-10 h-10 shrink-0 bg-black rounded-lg overflow-hidden">
-                                    <img src={drop.itemImage || "https://api.dicebear.com/7.x/pixel-art/svg?seed=item"} className="w-full h-full object-contain" />
+                                    <img src={drop.itemImage || "https://api.dicebear.com/7.x/pixel-art/svg?seed=item"} loading="lazy" className="w-full h-full object-contain" />
                                     <button onClick={(e) => { e.stopPropagation(); setUploadTarget({ mobIdx: mIdx, dropIdx: dIdx }); dropItemFileRef.current?.click(); }} className="absolute inset-0 bg-black/60 opacity-0 group-hover/drop:opacity-100 flex items-center justify-center text-white text-[7px] font-black">UP</button>
                                  </div>
                                  <div className="flex-grow space-y-1">
@@ -525,7 +526,7 @@ const AdminPanel: React.FC = () => {
                    <input placeholder="URL Imagen Reliquia" className="flex-grow bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none text-xs" value={newItem.image} onChange={e => setNewItem({...newItem, image: e.target.value})} />
                    <button onClick={() => itemFileRef.current?.click()} className="bg-[#d4af37] text-black px-10 rounded-2xl font-black uppercase text-xs">SUBIR</button>
                 </div>
-                {newItem.image && <div className="p-4 bg-black/40 border border-white/10 rounded-2xl w-40 h-40 mx-auto overflow-hidden shadow-inner"><img src={newItem.image} className="w-full h-full object-contain" alt="Preview item" /></div>}
+                {newItem.image && <div className="p-4 bg-black/40 border border-white/10 rounded-2xl w-40 h-40 mx-auto overflow-hidden shadow-inner"><img src={newItem.image} loading="lazy" className="w-full h-full object-contain" alt="Preview item" /></div>}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                <input placeholder="Estadísticas (Ej: STR +20)" className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.stats} onChange={e => setNewItem({...newItem, stats: e.target.value})} />
@@ -546,7 +547,7 @@ const AdminPanel: React.FC = () => {
                   {itemsList.map(item => (
                     <tr key={item.id} className="text-white hover:bg-white/5 transition-colors">
                       <td className="p-6 flex items-center gap-4">
-                          <div className="w-12 h-12 bg-black rounded-xl overflow-hidden border border-white/10 shrink-0"><img src={item.image} className="w-full h-full object-contain" /></div>
+                          <div className="w-12 h-12 bg-black rounded-xl overflow-hidden border border-white/10 shrink-0"><img src={item.image} loading="lazy" className="w-full h-full object-contain" /></div>
                           <span className="font-shaiya text-2xl">{item.name}</span>
                       </td>
                       <td className="p-6 text-[10px] uppercase font-black text-gray-500">{item.category} • {item.faction} • {item.item_class}</td>
@@ -568,7 +569,7 @@ const AdminPanel: React.FC = () => {
                <div key={app.id} className="bg-black/60 p-8 rounded-[2.5rem] border border-white/5 flex flex-col gap-6 group hover:border-[#d4af37]/40 transition-all">
                  <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                    <div className="flex gap-6 items-center">
-                     <img src={app.avatar_url} className="w-20 h-20 rounded-2xl border-2 border-[#d4af37]/30 shadow-lg" />
+                     <img src={app.avatar_url} loading="lazy" className="w-20 h-20 rounded-2xl border-2 border-[#d4af37]/30 shadow-lg" />
                      <div>
                        <p className="text-white font-shaiya text-3xl">{app.username}</p>
                        <p className="text-[#d4af37] text-[10px] font-black uppercase tracking-[4px]">{app.position} • {app.status}</p>

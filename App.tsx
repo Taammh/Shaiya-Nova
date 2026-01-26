@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import ItemCard from './components/ItemCard';
@@ -44,7 +45,7 @@ const App: React.FC = () => {
       try {
         const decoded = JSON.parse(decodeURIComponent(escape(atob(syncData))));
         
-        // Sincronizar Ajustes
+        // Sincronizar Ajustes Críticos
         if (decoded.webhookSupport) localStorage.setItem('nova_setting_NOVA_WEBHOOK_URL', decoded.webhookSupport);
         if (decoded.webhookApps) localStorage.setItem('nova_setting_NOVA_STAFF_APP_WEBHOOK', decoded.webhookApps);
         if (decoded.webhookWelcome) localStorage.setItem('nova_setting_NOVA_STAFF_WELCOME_WEBHOOK', decoded.webhookWelcome);
@@ -61,7 +62,7 @@ const App: React.FC = () => {
         if (decoded.mapPortalBg) localStorage.setItem('nova_setting_MAP_PORTAL_BG', decoded.mapPortalBg);
         if (decoded.bossPortalBg) localStorage.setItem('nova_setting_BOSS_PORTAL_BG', decoded.bossPortalBg);
 
-        // Sincronizar Datos Críticos (Reliquias y Drops locales)
+        // Sincronizar Base de Datos Local (Reliquias y Historial de Drops solicitado)
         if (decoded.localItems && Array.isArray(decoded.localItems)) {
           localStorage.setItem('nova_local_items', JSON.stringify(decoded.localItems));
         }
@@ -70,7 +71,7 @@ const App: React.FC = () => {
         }
 
         window.history.replaceState({}, document.title, window.location.pathname);
-        alert("¡EL REINO HA SIDO SINCRONIZADO COMPLETAMENTE!");
+        alert("¡EL REINO HA SIDO SINCRONIZADO! Historial de reliquias y drops restaurado.");
         window.location.reload(); 
       } catch (e) {
         console.error("Fallo en el ritual de sincronización:", e);

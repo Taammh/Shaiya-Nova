@@ -91,9 +91,9 @@ const App: React.FC = () => {
 
       if (activeTab === 'costumes') {
         const matchesFaction = item.faction === selectedFaction;
-        // Normalización para evitar fallos por espacios o mayúsculas/minúsculas
-        const itemClassClean = (item.item_class || '').trim();
-        const selectedClassClean = (selectedClass || '').trim();
+        // Normalización para evitar fallos por strings exactos
+        const itemClassClean = (item.item_class || '').trim().toUpperCase();
+        const selectedClassClean = (selectedClass || '').trim().toUpperCase();
         
         let matchesClass = selectedClass === 'All' ? true : itemClassClean === selectedClassClean;
         const matchesGender = selectedGender === 'All' || item.gender === Gender.BOTH || item.gender === selectedGender;
@@ -106,7 +106,10 @@ const App: React.FC = () => {
   // Sincronizar clase seleccionada al cambiar facción en trajes
   useEffect(() => {
     if (activeTab === 'costumes') {
-      setSelectedClass(CLASSES_BY_FACTION[selectedFaction][0]);
+      const validClasses = CLASSES_BY_FACTION[selectedFaction] || [];
+      if (validClasses.length > 0) {
+        setSelectedClass(validClasses[0]);
+      }
     } else {
       setSelectedClass('All');
     }

@@ -245,21 +245,33 @@ const AdminPanel: React.FC = () => {
             <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6 md:col-span-2">
               <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Identidad Visual & Portales</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <div className="flex gap-4">
-                    <input placeholder="URL Logo Principal" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.siteLogo} onChange={e => saveConfigField('siteLogo', e.target.value, 'SITE_LOGO_URL')} />
-                    <button onClick={() => logoFileRef.current?.click()} className="bg-white/10 px-4 rounded-xl text-white">📁</button>
+                 <div className="space-y-2">
+                    <div className="flex gap-4">
+                        <input placeholder="URL Logo Principal" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.siteLogo} onChange={e => saveConfigField('siteLogo', e.target.value, 'SITE_LOGO_URL')} />
+                        <button onClick={() => logoFileRef.current?.click()} className="bg-white/10 px-4 rounded-xl text-white">📁</button>
+                    </div>
+                    {config.siteLogo && <div className="p-2 border border-white/5 rounded-xl bg-black/20"><img src={config.siteLogo} className="h-20 w-auto mx-auto object-contain" alt="Vista previa logo" /></div>}
                  </div>
-                 <div className="flex gap-4">
-                    <input placeholder="URL Fondo General" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.siteBg} onChange={e => saveConfigField('siteBg', e.target.value, 'SITE_BG_URL')} />
-                    <button onClick={() => bgFileRef.current?.click()} className="bg-white/10 px-4 rounded-xl text-white">📁</button>
+                 <div className="space-y-2">
+                    <div className="flex gap-4">
+                        <input placeholder="URL Fondo General" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.siteBg} onChange={e => saveConfigField('siteBg', e.target.value, 'SITE_BG_URL')} />
+                        <button onClick={() => bgFileRef.current?.click()} className="bg-white/10 px-4 rounded-xl text-white">📁</button>
+                    </div>
+                    {config.siteBg && <div className="p-2 border border-white/5 rounded-xl bg-black/20 overflow-hidden"><img src={config.siteBg} className="h-20 w-full object-cover" alt="Vista previa fondo" /></div>}
                  </div>
-                 <div className="flex gap-4">
-                    <input placeholder="URL Portal Mapas" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.mapPortalBg} onChange={e => saveConfigField('mapPortalBg', e.target.value, 'MAP_PORTAL_BG')} />
-                    <button onClick={() => mapPortalFileRef.current?.click()} className="bg-white/10 px-4 rounded-xl text-white">📁</button>
+                 <div className="space-y-2">
+                    <div className="flex gap-4">
+                        <input placeholder="URL Portal Mapas" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.mapPortalBg} onChange={e => saveConfigField('mapPortalBg', e.target.value, 'MAP_PORTAL_BG')} />
+                        <button onClick={() => mapPortalFileRef.current?.click()} className="bg-white/10 px-4 rounded-xl text-white">📁</button>
+                    </div>
+                    {config.mapPortalBg && <div className="p-2 border border-white/5 rounded-xl bg-black/20 overflow-hidden"><img src={config.mapPortalBg} className="h-20 w-full object-cover" alt="Vista previa portal mapas" /></div>}
                  </div>
-                 <div className="flex gap-4">
-                    <input placeholder="URL Portal Jefes" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.bossPortalBg} onChange={e => saveConfigField('bossPortalBg', e.target.value, 'BOSS_PORTAL_BG')} />
-                    <button onClick={() => bossPortalFileRef.current?.click()} className="bg-white/10 px-4 rounded-xl text-white">📁</button>
+                 <div className="space-y-2">
+                    <div className="flex gap-4">
+                        <input placeholder="URL Portal Jefes" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.bossPortalBg} onChange={e => saveConfigField('bossPortalBg', e.target.value, 'BOSS_PORTAL_BG')} />
+                        <button onClick={() => bossPortalFileRef.current?.click()} className="bg-white/10 px-4 rounded-xl text-white">📁</button>
+                    </div>
+                    {config.bossPortalBg && <div className="p-2 border border-white/5 rounded-xl bg-black/20 overflow-hidden"><img src={config.bossPortalBg} className="h-20 w-full object-cover" alt="Vista previa portal bosses" /></div>}
                  </div>
               </div>
             </div>
@@ -391,7 +403,10 @@ const AdminPanel: React.FC = () => {
               <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value as any})}>
                 {Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.faction} onChange={e => setNewItem({...newItem, faction: e.target.value as any})}>
+              <select className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.faction} onChange={e => {
+                const newFact = e.target.value as Faction;
+                setNewItem({...newItem, faction: newFact, item_class: CLASSES_BY_FACTION[newFact][0]});
+              }}>
                 <option value={Faction.LIGHT}>Fación: Luz</option>
                 <option value={Faction.FURY}>Fación: Furia</option>
                 <option value={Faction.NEUTRAL}>Fación: Neutral</option>
@@ -425,9 +440,12 @@ const AdminPanel: React.FC = () => {
                 {['Common', 'Noble', 'Atroz', 'Legendary', 'Diosa', 'Special', 'Unique'].map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
-            <div className="flex gap-4 mb-6">
-               <input placeholder="URL Imagen Reliquia" className="flex-grow bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none text-xs" value={newItem.image} onChange={e => setNewItem({...newItem, image: e.target.value})} />
-               <button onClick={() => itemFileRef.current?.click()} className="bg-[#d4af37] text-black px-10 rounded-2xl font-black uppercase text-xs">SUBIR</button>
+            <div className="space-y-4 mb-6">
+                <div className="flex gap-4">
+                   <input placeholder="URL Imagen Reliquia" className="flex-grow bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none text-xs" value={newItem.image} onChange={e => setNewItem({...newItem, image: e.target.value})} />
+                   <button onClick={() => itemFileRef.current?.click()} className="bg-[#d4af37] text-black px-10 rounded-2xl font-black uppercase text-xs">SUBIR</button>
+                </div>
+                {newItem.image && <div className="p-4 bg-black/40 border border-white/10 rounded-2xl w-40 h-40 mx-auto overflow-hidden shadow-inner"><img src={newItem.image} className="w-full h-full object-contain" alt="Preview item" /></div>}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                <input placeholder="Estadísticas (Ej: STR +20)" className="bg-black/60 border border-white/10 p-5 rounded-2xl text-white outline-none" value={newItem.stats} onChange={e => setNewItem({...newItem, stats: e.target.value})} />
@@ -447,7 +465,10 @@ const AdminPanel: React.FC = () => {
                 <tbody className="divide-y divide-white/5">
                   {itemsList.map(item => (
                     <tr key={item.id} className="text-white hover:bg-white/5 transition-colors">
-                      <td className="p-6 font-shaiya text-2xl">{item.name}</td>
+                      <td className="p-6 flex items-center gap-4">
+                          <div className="w-12 h-12 bg-black rounded-xl overflow-hidden border border-white/10 shrink-0"><img src={item.image} className="w-full h-full object-contain" /></div>
+                          <span className="font-shaiya text-2xl">{item.name}</span>
+                      </td>
                       <td className="p-6 text-[10px] uppercase font-black text-gray-500">{item.category} • {item.faction} • {item.item_class}</td>
                       <td className="p-6 text-right">
                         <button onClick={() => { setNewItem(item); setEditingId(item.id); window.scrollTo({top:0, behavior:'smooth'}) }} className="text-[#d4af37] mr-4 hover:scale-125 transition-transform">✏️</button>

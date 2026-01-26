@@ -198,6 +198,24 @@ const AdminPanel: React.FC = () => {
     setActiveMobIdx((newDrop.mobs?.length || 0));
   };
 
+  const duplicateMob = (mIdx: number) => {
+    setNewDrop(prev => {
+      const mobs = [...(prev.mobs || [])];
+      const sourceMob = mobs[mIdx];
+      const clonedMob: MobEntry = {
+        ...sourceMob,
+        id: `mob-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        // Deep copy nested arrays
+        drops: sourceMob.drops.map(d => ({ ...d })),
+        points: sourceMob.points ? sourceMob.points.map(p => ({ ...p })) : []
+      };
+      const updatedMobs = [...mobs, clonedMob];
+      return { ...prev, mobs: updatedMobs };
+    });
+    // Optional: focus on the newly duplicated mob
+    setTimeout(() => setActiveMobIdx((newDrop.mobs?.length || 0)), 10);
+  };
+
   const addDropToMob = (mIdx: number) => {
     setNewDrop(prev => {
       const mobs = [...(prev.mobs || [])];
@@ -338,7 +356,10 @@ const AdminPanel: React.FC = () => {
                             </div>
                          </div>
                          <div className="flex flex-col gap-2">
-                            <input type="color" className="w-8 h-8 cursor-pointer" value={mob.mapColor} onClick={e => e.stopPropagation()} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].mapColor = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
+                            <div className="flex gap-2">
+                               <button onClick={e => { e.stopPropagation(); duplicateMob(mIdx); }} title="Duplicar Entidad" className="bg-blue-600/20 text-blue-400 p-2 rounded-lg hover:bg-blue-600 hover:text-white transition-all">👯</button>
+                               <input type="color" className="w-8 h-8 cursor-pointer rounded overflow-hidden" value={mob.mapColor} onClick={e => e.stopPropagation()} onChange={e => { const ms = [...(newDrop.mobs || [])]; ms[mIdx].mapColor = e.target.value; setNewDrop({...newDrop, mobs: ms}); }} />
+                            </div>
                             <button onClick={e => { e.stopPropagation(); addDropToMob(mIdx); }} className="bg-green-600/20 text-green-500 px-3 py-1 rounded-lg text-[8px] font-black uppercase hover:bg-green-600 hover:text-white transition-all">DROP +</button>
                          </div>
                        </div>

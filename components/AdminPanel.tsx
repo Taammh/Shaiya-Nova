@@ -336,6 +336,45 @@ const AdminPanel: React.FC = () => {
         </div>
       )}
 
+      {activeSubTab === 'apps' && (
+        <div className="space-y-6 animate-fade-in">
+          <h2 className="text-3xl font-shaiya text-white uppercase text-center tracking-[8px] mb-10">Postulaciones del Reino</h2>
+          {appsList.length === 0 ? (
+            <p className="text-center text-gray-500 uppercase text-xs">No hay postulaciones registradas.</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-6">
+              {appsList.map(app => (
+                <div key={app.id} className="glass-panel p-6 rounded-[2rem] border-white/5 shadow-xl transition-all">
+                  <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div className="flex items-center gap-6 text-left">
+                      <img src={app.avatar_url} className="w-16 h-16 rounded-xl border-2 border-[#d4af37] shadow-lg" />
+                      <div>
+                        <h4 className="text-white font-shaiya text-2xl">{app.username}</h4>
+                        <p className="text-[#d4af37] text-[9px] font-black uppercase tracking-widest">{app.position} • {app.status}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-4">
+                      <button onClick={() => setExpandedAppId(expandedAppId === app.id ? null : app.id)} className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${expandedAppId === app.id ? 'bg-[#d4af37] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}>EXPEDIENTE</button>
+                      <button onClick={() => updateStaffApplicationStatus(app.id, 'accepted').then(loadData)} className="bg-green-600/20 text-green-400 border border-green-600/40 px-6 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-green-600 hover:text-white">ACEPTAR</button>
+                      <button onClick={() => { if(confirm('¿Borrar expediente?')) deleteStaffApplicationFromDB(app.id).then(loadData); }} className="bg-red-600/20 text-red-400 border border-red-600/40 px-6 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-red-600 hover:text-white">BORRAR</button>
+                    </div>
+                  </div>
+                  {expandedAppId === app.id && (
+                    <div className="mt-8 p-6 bg-black/40 rounded-2xl border border-white/5 grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in text-[11px] leading-relaxed">
+                       <p className="text-gray-300"><span className="text-[#d4af37] block font-black mb-1 uppercase tracking-widest text-[9px]">Experiencia</span> {app.answers.experience}</p>
+                       <p className="text-gray-300"><span className="text-[#d4af37] block font-black mb-1 uppercase tracking-widest text-[9px]">Motivación</span> {app.answers.motivation}</p>
+                       <p className="text-gray-300"><span className="text-[#d4af37] block font-black mb-1 uppercase tracking-widest text-[9px]">Conflictos</span> {app.answers.conflict}</p>
+                       <p className="text-gray-300"><span className="text-[#d4af37] block font-black mb-1 uppercase tracking-widest text-[9px]">Disponibilidad</span> {app.answers.availability}</p>
+                       <p className="text-gray-300 md:col-span-2"><span className="text-[#d4af37] block font-black mb-1 uppercase tracking-widest text-[9px]">Aporte Único</span> {app.answers.contribution}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {activeSubTab === 'settings' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in">
           <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-6">

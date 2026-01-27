@@ -44,7 +44,8 @@ const AdminPanel: React.FC = () => {
     SITE_LOGO_URL: '', SITE_BG_URL: '',
     NOVA_WEBHOOK_URL: '', NOVA_STAFF_APP_WEBHOOK: '', NOVA_PROMO_WEBHOOK: '',
     ROLE_ID_GS: '', ROLE_ID_GM: '', ROLE_ID_ADMIN: '',
-    DISCORD_CLIENT_ID: ''
+    DISCORD_CLIENT_ID: '',
+    DISCORD_GUILD_ID: ''
   });
 
   const loadData = async () => {
@@ -69,7 +70,8 @@ const AdminPanel: React.FC = () => {
       ROLE_ID_GS: await getSetting('ROLE_ID_GS') || '',
       ROLE_ID_GM: await getSetting('ROLE_ID_GM') || '',
       ROLE_ID_ADMIN: await getSetting('ROLE_ID_ADMIN') || '',
-      DISCORD_CLIENT_ID: await getSetting('DISCORD_CLIENT_ID') || ''
+      DISCORD_CLIENT_ID: await getSetting('DISCORD_CLIENT_ID') || '',
+      DISCORD_GUILD_ID: await getSetting('DISCORD_GUILD_ID') || ''
     });
   };
 
@@ -376,30 +378,54 @@ const AdminPanel: React.FC = () => {
       )}
 
       {activeSubTab === 'settings' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in">
-          <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-6">
-            <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Sincronización de Reino</h3>
-            <button onClick={generateMasterLink} className="w-full bg-[#d4af37] text-black font-black py-4 rounded-xl uppercase tracking-widest text-[10px] shadow-lg">Generar Link Maestro Completo</button>
-          </div>
-          <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-4">
-            <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Conexión Supabase</h3>
-            <input placeholder="URL" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.SUPABASE_URL} onChange={e => { setConfig({...config, SUPABASE_URL: e.target.value}); saveSetting('SUPABASE_URL', e.target.value); }} />
-            <input placeholder="Key" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.SUPABASE_ANON_KEY} onChange={e => { setConfig({...config, SUPABASE_ANON_KEY: e.target.value}); saveSetting('SUPABASE_ANON_KEY', e.target.value); }} />
-          </div>
-          <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-6">
-            <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Webhooks Discord</h3>
-            <div className="space-y-4">
-              <input placeholder="Soporte" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.NOVA_WEBHOOK_URL} onChange={e => { setConfig({...config, NOVA_WEBHOOK_URL: e.target.value}); saveSetting('NOVA_WEBHOOK_URL', e.target.value); }} />
-              <input placeholder="Staff" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.NOVA_STAFF_APP_WEBHOOK} onChange={e => { setConfig({...config, NOVA_STAFF_APP_WEBHOOK: e.target.value}); saveSetting('NOVA_STAFF_APP_WEBHOOK', e.target.value); }} />
-              <input placeholder="Promociones" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.NOVA_PROMO_WEBHOOK} onChange={e => { setConfig({...config, NOVA_PROMO_WEBHOOK: e.target.value}); saveSetting('NOVA_PROMO_WEBHOOK', e.target.value); }} />
+        <div className="space-y-10 animate-fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-6">
+              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Sincronización de Reino</h3>
+              <button onClick={generateMasterLink} className="w-full bg-[#d4af37] text-black font-black py-4 rounded-xl uppercase tracking-widest text-[10px] shadow-lg">Generar Link Maestro Completo</button>
+            </div>
+            <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-4">
+              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Conexión Supabase</h3>
+              <input placeholder="URL" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.SUPABASE_URL} onChange={e => { setConfig({...config, SUPABASE_URL: e.target.value}); saveSetting('SUPABASE_URL', e.target.value); }} />
+              <input placeholder="Key" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.SUPABASE_ANON_KEY} onChange={e => { setConfig({...config, SUPABASE_ANON_KEY: e.target.value}); saveSetting('SUPABASE_ANON_KEY', e.target.value); }} />
+            </div>
+            <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-6">
+              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Webhooks Discord</h3>
+              <div className="space-y-4">
+                <input placeholder="Soporte" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.NOVA_WEBHOOK_URL} onChange={e => { setConfig({...config, NOVA_WEBHOOK_URL: e.target.value}); saveSetting('NOVA_WEBHOOK_URL', e.target.value); }} />
+                <input placeholder="Staff" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.NOVA_STAFF_APP_WEBHOOK} onChange={e => { setConfig({...config, NOVA_STAFF_APP_WEBHOOK: e.target.value}); saveSetting('NOVA_STAFF_APP_WEBHOOK', e.target.value); }} />
+                <input placeholder="Promociones" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.NOVA_PROMO_WEBHOOK} onChange={e => { setConfig({...config, NOVA_PROMO_WEBHOOK: e.target.value}); saveSetting('NOVA_PROMO_WEBHOOK', e.target.value); }} />
+              </div>
+            </div>
+            <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-6">
+              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">IDs de Discord</h3>
+              <div className="space-y-4">
+                <input placeholder="ID del Servidor (Guild ID)" className="w-full bg-black/60 border border-[#d4af37]/30 p-3 rounded-xl text-white text-[10px]" value={config.DISCORD_GUILD_ID} onChange={e => { setConfig({...config, DISCORD_GUILD_ID: e.target.value}); saveSetting('DISCORD_GUILD_ID', e.target.value); }} />
+                <input placeholder="Role ID GS" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.ROLE_ID_GS} onChange={e => { setConfig({...config, ROLE_ID_GS: e.target.value}); saveSetting('ROLE_ID_GS', e.target.value); }} />
+                <input placeholder="Role ID GM" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.ROLE_ID_GM} onChange={e => { setConfig({...config, ROLE_ID_GM: e.target.value}); saveSetting('ROLE_ID_GM', e.target.value); }} />
+                <input placeholder="Role ID Admin" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.ROLE_ID_ADMIN} onChange={e => { setConfig({...config, ROLE_ID_ADMIN: e.target.value}); saveSetting('ROLE_ID_ADMIN', e.target.value); }} />
+                <input placeholder="Discord Client ID (Login)" className="w-full bg-black/40 border border-[#5865f2]/20 p-3 rounded-xl text-white text-[10px]" value={config.DISCORD_CLIENT_ID} onChange={e => { setConfig({...config, DISCORD_CLIENT_ID: e.target.value}); saveSetting('DISCORD_CLIENT_ID', e.target.value); }} />
+              </div>
             </div>
           </div>
+
           <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-6">
-            <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Roles IDs</h3>
-            <div className="space-y-4">
-              <input placeholder="Role ID GS" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.ROLE_ID_GS} onChange={e => { setConfig({...config, ROLE_ID_GS: e.target.value}); saveSetting('ROLE_ID_GS', e.target.value); }} />
-              <input placeholder="Role ID GM" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.ROLE_ID_GM} onChange={e => { setConfig({...config, ROLE_ID_GM: e.target.value}); saveSetting('ROLE_ID_GM', e.target.value); }} />
-              <input placeholder="Role ID Admin" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.ROLE_ID_ADMIN} onChange={e => { setConfig({...config, ROLE_ID_ADMIN: e.target.value}); saveSetting('ROLE_ID_ADMIN', e.target.value); }} />
+            <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Identidad Visual & Branding</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <label className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest block">Logo Principal</label>
+                <div className="flex gap-2">
+                  <input placeholder="URL Logo" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.SITE_LOGO_URL} onChange={e => { setConfig({...config, SITE_LOGO_URL: e.target.value}); saveSetting('SITE_LOGO_URL', e.target.value); }} />
+                  <button onClick={() => logoFileRef.current?.click()} className="bg-white/10 text-white px-4 rounded-xl font-black text-[10px] border border-white/5">SUBIR</button>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <label className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest block">Fondo del Reino</label>
+                <div className="flex gap-2">
+                  <input placeholder="URL Fondo" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.SITE_BG_URL} onChange={e => { setConfig({...config, SITE_BG_URL: e.target.value}); saveSetting('SITE_BG_URL', e.target.value); }} />
+                  <button onClick={() => bgFileRef.current?.click()} className="bg-white/10 text-white px-4 rounded-xl font-black text-[10px] border border-white/5">SUBIR</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

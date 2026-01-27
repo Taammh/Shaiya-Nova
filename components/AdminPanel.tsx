@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Category, Faction, CLASSES_BY_FACTION, Gender, StaffApplication, DropMap, MobEntry, DropEntry, MapPoint, ItemRarity, GameItem } from '../types';
-import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting, getStaffApplications, updateStaffApplicationStatus, deleteStaffApplicationFromDB, uploadFile, getDropListsFromDB, addDropListToDB, updateDropListInDB, deleteDropListFromDB } from '../services/supabaseClient';
+import { addItemToDB, updateItemInDB, deleteItemFromDB, getItemsFromDB, saveSetting, getSetting, getStaffApplications, updateStaffApplicationStatus, deleteStaffApplicationFromDB, uploadFile, getDropListsFromDB, addDropListToDB, updateDropListInDB, deleteDropListFromDB, massSyncLocalToCloud } from '../services/supabaseClient';
 
 const AdminPanel: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'items' | 'drops' | 'apps' | 'settings'>('items');
@@ -78,15 +78,30 @@ const AdminPanel: React.FC = () => {
   useEffect(() => { loadData(); loadConfig(); }, [activeSubTab]);
 
   const generateMasterLink = () => {
-    const syncObj = { config, items: itemsList, drops: dropsList };
+    // Solo enviamos la configuración para que el link sea corto y compatible con Bitly
+    const syncObj = { config };
     const jsonStr = JSON.stringify(syncObj);
     const safeBase64 = btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode(parseInt(p1, 16))));
     
-    // CORRECCIÓN: Se fuerza el uso del dominio principal shaiya-nova.vercel.app
+    // Forzamos el dominio principal
     const url = `https://shaiya-nova.vercel.app/?sync=${encodeURIComponent(safeBase64)}`;
     
     navigator.clipboard.writeText(url);
-    alert("¡LINK MAESTRO GENERADO! Se han incluido todos los ajustes, roles, webhooks e historial.");
+    alert("¡LINK MAESTRO CORTO GENERADO! Ahora puedes usar Bitly. Al abrirlo, el reino se sincronizará automáticamente con Supabase.");
+  };
+
+  const handleMassSync = async () => {
+    if (!confirm("¿Deseas subir todos tus ítems, monturas y drops locales a la base de datos de Supabase? Esto respaldará todo el contenido.")) return;
+    setIsSaving(true);
+    try {
+      const result = await massSyncLocalToCloud();
+      alert(`¡Sincronización Exitosa! Se han respaldado ${result.itemsCount} ítems y ${result.dropsCount} registros de drop list en la nube.`);
+      loadData();
+    } catch (err: any) {
+      alert("Error en el respaldo: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
@@ -385,7 +400,8 @@ const AdminPanel: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-6">
               <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Sincronización de Reino</h3>
-              <button onClick={generateMasterLink} className="w-full bg-[#d4af37] text-black font-black py-4 rounded-xl uppercase tracking-widest text-[10px] shadow-lg">Generar Link Maestro Completo</button>
+              <button onClick={generateMasterLink} className="w-full bg-[#d4af37] text-black font-black py-4 rounded-xl uppercase tracking-widest text-[10px] shadow-lg">Generar Link Maestro Corto</button>
+              <button onClick={handleMassSync} className="w-full bg-green-600 hover:bg-green-500 text-white font-black py-4 rounded-xl uppercase tracking-widest text-[10px] shadow-lg transition-colors">Subir Todo al Trono de Supabase</button>
             </div>
             <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-4">
               <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Conexión Supabase</h3>

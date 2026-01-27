@@ -48,27 +48,20 @@ const App: React.FC = () => {
         const jsonStr = decodeURIComponent(binary.split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
         const decoded = JSON.parse(jsonStr);
         
-        // Sincronizar Configuración
+        // Sincronización Ultra-Corta: Solo guardamos la configuración de conexión
         if (decoded.config) {
           Object.entries(decoded.config).forEach(([k, v]) => {
             if (v) {
               localStorage.setItem(`nova_setting_${k}`, String(v));
             }
           });
+          
+          // Limpiamos la URL y recargamos para que el cliente Supabase inicie fresco y descargue todo
+          window.history.replaceState({}, document.title, window.location.pathname);
+          alert("¡REINO VINCULADO! Sincronizando datos con el Trono de Supabase...");
+          window.location.reload(); 
+          return;
         }
-
-        // NUEVO: Sincronizar Ítems e Historial para que la página no esté vacía
-        if (decoded.items) {
-          localStorage.setItem('nova_local_items', JSON.stringify(decoded.items));
-        }
-        if (decoded.drops) {
-          localStorage.setItem('nova_local_drops', JSON.stringify(decoded.drops));
-        }
-        
-        window.history.replaceState({}, document.title, window.location.pathname);
-        alert("¡EL REINO HA SIDO VINCULADO! Conectando a la base de datos de NOVA...");
-        window.location.reload(); 
-        return;
       } catch (e) { 
         console.error("Fallo de sincronización:", e);
       }

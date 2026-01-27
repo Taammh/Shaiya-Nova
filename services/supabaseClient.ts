@@ -73,6 +73,14 @@ const mapItemForDB = (item: any) => {
   };
 };
 
+const updateLocalItems = (items: any[]) => {
+  localStorage.setItem('nova_local_items', JSON.stringify(items));
+};
+
+const updateLocalDrops = (drops: any[]) => {
+  localStorage.setItem('nova_local_drops', JSON.stringify(drops));
+};
+
 export const getItemsFromDB = async () => {
   const { client, isPlaceholder } = getSupabase();
   const localItemsRaw = localStorage.getItem('nova_local_items');
@@ -83,8 +91,11 @@ export const getItemsFromDB = async () => {
   try {
     const { data, error } = await client.from('items').select('*').order('created_at', { ascending: false });
     if (error) throw error;
-    // Si hay datos en la nube, los priorizamos
-    return data && data.length > 0 ? data : localItems;
+    if (data && data.length > 0) {
+      updateLocalItems(data);
+      return data;
+    }
+    return localItems;
   } catch (err) { 
     return localItems; 
   }
@@ -100,15 +111,34 @@ export const getDropListsFromDB = async () => {
   try {
     const { data, error } = await client.from('drop_lists').select('*').order('created_at', { ascending: false });
     if (error) throw error;
-    // Si hay datos en la nube, los priorizamos sobre los locales
-    return data && data.length > 0 ? data : localDrops;
+    if (data && data.length > 0) {
+      updateLocalDrops(data);
+      return data;
+    }
+    return localDrops;
   } catch (err) { 
     return localDrops; 
   }
 };
 
-const updateLocalDrops = (drops: any[]) => {
-  localStorage.setItem('nova_local_drops', JSON.stringify(drops));
+// Función para cargar todo lo local a la nube de golpe
+export const massSyncLocalToCloud = async () => {
+  const { client, isPlaceholder } = getSupabase();
+  if (isPlaceholder) throw new Error("Debes configurar Supabase primero.");
+
+  const localItems = JSON.parse(localStorage.getItem('nova_local_items') || '[]');
+  const localDrops = JSON.parse(localStorage.getItem('nova_local_drops') || '[]');
+
+  if (localItems.length > 0) {
+    const mappedItems = localItems.map(mapItemForDB);
+    await client.from('items').upsert(mappedItems);
+  }
+
+  if (localDrops.length > 0) {
+    await client.from('drop_lists').upsert(localDrops);
+  }
+
+  return { itemsCount: localItems.length, dropsCount: localDrops.length };
 };
 
 export const addDropListToDB = async (drop: any) => {
@@ -119,8 +149,7 @@ export const addDropListToDB = async (drop: any) => {
   updateLocalDrops([newDrop, ...currentLocal]);
 
   if (!isPlaceholder) {
-    const { error } = await client.from('drop_lists').insert([newDrop]);
-    if (error) console.error("Error guardando drop en nube:", error);
+    await client.from('drop_lists').upsert([newDrop]);
   }
   return newDrop;
 };
@@ -132,7 +161,7 @@ export const updateDropListInDB = async (drop: any) => {
   updateLocalDrops(currentLocal.map((d: any) => d.id === drop.id ? drop : d));
 
   if (!isPlaceholder) {
-    await client.from('drop_lists').update(drop).eq('id', drop.id);
+    await client.from('drop_lists').upsert([drop]);
   }
   return drop;
 };
@@ -148,10 +177,6 @@ export const deleteDropListFromDB = async (id: string) => {
   }
 };
 
-const updateLocalItems = (items: any[]) => {
-  localStorage.setItem('nova_local_items', JSON.stringify(items));
-};
-
 export const addItemToDB = async (item: any) => {
   const newItem = { ...item, id: item.id || `item-${Date.now()}`, created_at: new Date().toISOString() };
   const { client, isPlaceholder } = getSupabase();
@@ -160,7 +185,7 @@ export const addItemToDB = async (item: any) => {
   updateLocalItems([newItem, ...currentLocal]);
 
   if (!isPlaceholder) {
-    await client.from('items').insert([mapItemForDB(newItem)]);
+    await client.from('items').upsert([mapItemForDB(newItem)]);
   }
   return newItem;
 };
@@ -172,7 +197,7 @@ export const updateItemInDB = async (item: any) => {
   updateLocalItems(currentLocal.map((i: any) => i.id === item.id ? item : i));
 
   if (!isPlaceholder) {
-    await client.from('items').update(mapItemForDB(item)).eq('id', item.id);
+    await client.from('items').upsert([mapItemForDB(item)]);
   }
   return item;
 };

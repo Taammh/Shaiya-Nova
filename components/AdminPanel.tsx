@@ -81,7 +81,10 @@ const AdminPanel: React.FC = () => {
     const syncObj = { config, items: itemsList, drops: dropsList };
     const jsonStr = JSON.stringify(syncObj);
     const safeBase64 = btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode(parseInt(p1, 16))));
-    const url = `${window.location.origin}${window.location.pathname}?sync=${encodeURIComponent(safeBase64)}`;
+    
+    // CORRECCIÓN: Se fuerza el uso del dominio principal shaiya-nova.vercel.app
+    const url = `https://shaiya-nova.vercel.app/?sync=${encodeURIComponent(safeBase64)}`;
+    
     navigator.clipboard.writeText(url);
     alert("¡LINK MAESTRO GENERADO! Se han incluido todos los ajustes, roles, webhooks e historial.");
   };

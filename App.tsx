@@ -48,12 +48,21 @@ const App: React.FC = () => {
         const jsonStr = decodeURIComponent(binary.split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
         const decoded = JSON.parse(jsonStr);
         
+        // Sincronizar Configuración
         if (decoded.config) {
           Object.entries(decoded.config).forEach(([k, v]) => {
             if (v) {
               localStorage.setItem(`nova_setting_${k}`, String(v));
             }
           });
+        }
+
+        // NUEVO: Sincronizar Ítems e Historial para que la página no esté vacía
+        if (decoded.items) {
+          localStorage.setItem('nova_local_items', JSON.stringify(decoded.items));
+        }
+        if (decoded.drops) {
+          localStorage.setItem('nova_local_drops', JSON.stringify(decoded.drops));
         }
         
         window.history.replaceState({}, document.title, window.location.pathname);

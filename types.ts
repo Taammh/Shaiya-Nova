@@ -52,11 +52,20 @@ export interface MapPoint {
 
 export type ItemRarity = 'Common' | 'Noble' | 'Atroz' | 'Legendary' | 'Diosa' | 'Special' | 'Unique';
 
+export interface DropSubItem {
+  name: string;
+  image: string;
+  rate: string;
+  rarity: ItemRarity;
+}
+
 export interface DropEntry {
   itemName: string;
   itemImage: string;
   rate: string;
   rarity: ItemRarity;
+  isChest?: boolean;
+  chestContents?: DropSubItem[];
 }
 
 export interface MobEntry {

@@ -10,6 +10,7 @@ const DropList: React.FC = () => {
   const [mainView, setMainView] = useState<'selection' | 'list'>('selection');
   const [filterType, setFilterType] = useState<'Mapa' | 'Boss'>('Mapa');
   const [selectedFaction, setSelectedFaction] = useState<Faction>(Faction.LIGHT); 
+  const [openChestId, setOpenChestId] = useState<string | null>(null);
   
   const [portalBgs, setPortalBgs] = useState({
     map: 'https://media.discordapp.net/attachments/1460068773175492641/1460108918108852366/img_81.jpg',
@@ -37,7 +38,6 @@ const DropList: React.FC = () => {
 
   const filteredDrops = drops.filter(d => {
     if (d.category !== filterType) return false;
-    // Si no tiene facción o es neutral, aparece en ambas búsquedas
     const dropFaction = d.faction || Faction.NEUTRAL;
     return dropFaction === selectedFaction || dropFaction === Faction.NEUTRAL;
   });
@@ -96,14 +96,41 @@ const DropList: React.FC = () => {
                 <img src={mob.image} className="w-16 h-16 rounded-xl border-2 shadow-lg" style={{ borderColor: mob.mapColor }} />
                 <div><h3 className="text-xl font-shaiya text-white">{mob.name}</h3><p className="text-[#d4af37] text-[8px] font-black uppercase">NIVEL {mob.level}</p></div>
               </div>
-              <div className="p-4 space-y-2">
-                 {mob.drops.map((drop, dIdx) => (
-                    <div key={dIdx} className="flex items-center gap-3 bg-black/60 p-2 rounded-xl border border-white/5">
-                       <div className={`w-10 h-10 shrink-0 ${getRarityBorder(drop.rarity)}`}><img src={drop.itemImage} className="w-full h-full object-contain" /></div>
-                       <div className="flex-grow"><p className="text-white text-[10px] font-bold truncate">{drop.itemName}</p><p className="text-gray-500 text-[6px] uppercase">{drop.rarity}</p></div>
-                       <div className="text-[#d4af37] font-black text-[9px] px-2">{drop.rate}</div>
-                    </div>
-                 ))}
+              <div className="p-4 space-y-3">
+                 {mob.drops.map((drop, dIdx) => {
+                    const chestId = `${mob.id}-${dIdx}`;
+                    const isChestOpen = openChestId === chestId;
+                    return (
+                      <div key={dIdx} className="space-y-2">
+                        <div className="flex items-center gap-3 bg-black/60 p-2 rounded-xl border border-white/5">
+                           <div className={`w-10 h-10 shrink-0 ${getRarityBorder(drop.rarity)}`}><img src={drop.itemImage} className="w-full h-full object-contain" /></div>
+                           <div className="flex-grow"><p className="text-white text-[10px] font-bold truncate">{drop.itemName}</p><p className="text-gray-500 text-[6px] uppercase">{drop.rarity}</p></div>
+                           <div className="flex flex-col items-end gap-1">
+                             <div className="text-[#d4af37] font-black text-[9px] px-2">{drop.rate}</div>
+                             {drop.isChest && (
+                               <button 
+                                 onClick={() => setOpenChestId(isChestOpen ? null : chestId)}
+                                 className="text-[7px] text-sky-400 font-black uppercase hover:underline"
+                               >
+                                 {isChestOpen ? 'Ocultar Contenido' : '📦 Ver Contenido'}
+                               </button>
+                             )}
+                           </div>
+                        </div>
+                        {drop.isChest && isChestOpen && (
+                          <div className="ml-4 pl-4 border-l border-white/10 space-y-2 py-2 animate-fade-in">
+                            {drop.chestContents?.map((sub, sIdx) => (
+                              <div key={sIdx} className="flex items-center gap-2 bg-white/5 p-2 rounded-lg border border-white/5">
+                                <div className={`w-8 h-8 shrink-0 ${getRarityBorder(sub.rarity)}`}><img src={sub.image} className="w-full h-full object-contain" /></div>
+                                <div className="flex-grow"><p className="text-gray-200 text-[9px] font-bold">{sub.name}</p></div>
+                                <div className="text-[#d4af37] font-black text-[8px] opacity-70">{sub.rate}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                 })}
               </div>
             </div>
           ))}
@@ -172,19 +199,12 @@ const DropList: React.FC = () => {
                   <img src={drop.image} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c] via-black/20 to-transparent"></div>
                   <div className="absolute bottom-6 left-8"><h3 className="text-3xl md:text-4xl font-shaiya text-white leading-none tracking-wide">{drop.name}</h3></div>
-                  
-                  {/* Entidades Miniatura */}
                   <div className="absolute top-6 right-6 flex -space-x-3">
                      {drop.mobs.slice(0, 4).map((mob, idx) => (
                        <div key={mob.id} className="w-10 h-10 rounded-full border-2 shadow-2xl overflow-hidden bg-black flex-shrink-0" style={{ borderColor: mob.mapColor, zIndex: 10 - idx }}>
                           <img src={mob.image || "https://api.dicebear.com/7.x/pixel-art/svg?seed=fallback"} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                        </div>
                      ))}
-                     {drop.mobs.length > 4 && (
-                       <div className="w-10 h-10 rounded-full border-2 border-white/20 bg-black/80 flex items-center justify-center text-white text-[10px] font-black z-0">
-                          +{drop.mobs.length - 4}
-                       </div>
-                     )}
                   </div>
                 </div>
                 <div className="p-8 md:p-10">

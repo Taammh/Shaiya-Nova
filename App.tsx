@@ -39,6 +39,49 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
+    // CAPTURADOR DE SESIÓN DISCORD (Implicit Grant Flow)
+    const hash = window.location.hash;
+    if (hash.includes('access_token')) {
+      const params = new URLSearchParams(hash.substring(1));
+      const token = params.get('access_token');
+      if (token) {
+        setIsLoading(true);
+        fetch('https://discord.com/api/users/@me', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        .then(res => res.json())
+        .then(user => {
+          if (user.id) {
+            const session = {
+              name: user.username,
+              id: user.id,
+              avatar: user.avatar 
+                ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+                : `https://api.dicebear.com/7.x/pixel-art/svg?seed=${user.username}`
+            };
+            localStorage.setItem('nova_session', JSON.stringify(session));
+            
+            // Recuperar la pestaña en la que estaba el usuario
+            const lastTab = localStorage.getItem('nova_last_active_tab');
+            if (lastTab) {
+              setActiveTab(lastTab);
+              localStorage.removeItem('nova_last_active_tab');
+            }
+
+            // Limpiar el hash de la URL para seguridad y estética
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+            // Pequeña pausa para asegurar que el storage se asiente antes de la carga
+            setTimeout(() => setIsLoading(false), 500);
+          }
+        })
+        .catch(e => {
+          console.error("Error identificando con Discord:", e);
+          setIsLoading(false);
+        });
+        return;
+      }
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const sync = urlParams.get('sync');
     

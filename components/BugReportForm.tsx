@@ -39,6 +39,9 @@ const BugReportForm: React.FC = () => {
       return;
     }
 
+    // Guardar en qué pestaña estamos para volver aquí después del login
+    localStorage.setItem('nova_last_active_tab', 'report');
+
     // Flujo Implicit Grant: Seguro para apps de una sola página sin backend
     const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
     const scope = encodeURIComponent('identify');

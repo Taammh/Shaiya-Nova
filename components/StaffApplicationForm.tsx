@@ -29,6 +29,10 @@ const StaffApplicationForm: React.FC = () => {
   const handleLogin = async () => {
     const clientId = await getSetting('DISCORD_CLIENT_ID');
     if (!clientId) return alert("Admin debe configurar Client ID.");
+    
+    // Guardar en qué pestaña estamos para volver aquí después del login
+    localStorage.setItem('nova_last_active_tab', 'staff_app');
+
     const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
     window.location.href = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=identify`;
   };

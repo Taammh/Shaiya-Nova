@@ -250,6 +250,7 @@ const AdminPanel: React.FC = () => {
             </button>
           </div>
           <div className="glass-panel p-6 rounded-[2rem] border-white/5 overflow-x-auto">
+            <h3 className="text-[#d4af37] font-shaiya text-xl mb-6 uppercase">Historial de Reliquias</h3>
             <table className="w-full text-left text-xs">
               <thead className="text-gray-500 uppercase font-black border-b border-white/5">
                 <tr><th className="p-4">Item</th><th className="p-4">Categoría</th><th className="p-4">Acciones</th></tr>
@@ -330,7 +331,6 @@ const AdminPanel: React.FC = () => {
                                  >📦</button>
                                  <button onClick={(e) => { e.stopPropagation(); const ms = [...(newDrop.mobs || [])]; ms[mIdx].drops.splice(dIdx, 1); setNewDrop({...newDrop, mobs: ms}); }} className="text-red-800">×</button>
                                </div>
-
                                {drop.isChest && (
                                  <div className="pl-6 border-l border-[#d4af37]/30 space-y-3 animate-fade-in">
                                    <div className="flex justify-between items-center mb-2">
@@ -364,6 +364,117 @@ const AdminPanel: React.FC = () => {
               </div>
             </div>
             <button onClick={handleAddDrop} disabled={isSaving} className="w-full mt-10 bg-white text-black font-black py-4 rounded-xl uppercase tracking-widest">{isSaving ? 'Registrando...' : 'Confirmar Registro Total'}</button>
+          </div>
+          {/* Historial de Drop Lists */}
+          <div className="glass-panel p-6 rounded-[2rem] border-white/5">
+            <h3 className="text-[#d4af37] font-shaiya text-xl mb-6 uppercase">Historial de Drop Lists</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {dropsList.map(drop => (
+                <div key={drop.id} className="bg-black/60 border border-white/5 rounded-[1.5rem] overflow-hidden">
+                  <img src={drop.image} className="w-full h-32 object-cover opacity-60 hover:opacity-100 transition-opacity" />
+                  <div className="p-4 flex justify-between items-center">
+                    <div><h4 className="text-white font-shaiya text-lg">{drop.name}</h4><p className="text-[8px] text-gray-500 uppercase">{drop.category}</p></div>
+                    <div className="flex gap-2">
+                       <button onClick={() => { setNewDrop(drop); setEditingId(drop.id); window.scrollTo({top:0, behavior:'smooth'}); }} className="text-[#d4af37] font-black text-[10px]">EDITAR</button>
+                       <button onClick={() => { if(confirm('¿Eliminar?')) deleteDropListFromDB(drop.id).then(loadData); }} className="text-red-500 font-black text-[10px]">BORRAR</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === 'apps' && (
+        <div className="space-y-6 animate-fade-in">
+          <h2 className="text-3xl font-shaiya text-white uppercase text-center tracking-[8px] mb-10">Postulaciones del Reino</h2>
+          {appsList.length === 0 ? (
+            <p className="text-center text-gray-500 uppercase text-xs">No hay postulaciones registradas.</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-6">
+              {appsList.map(app => (
+                <div key={app.id} className="glass-panel p-6 rounded-[2rem] border-white/5 shadow-xl transition-all">
+                  <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div className="flex items-center gap-6 text-left">
+                      <img src={app.avatar_url} className="w-16 h-16 rounded-xl border-2 border-[#d4af37] shadow-lg" />
+                      <div>
+                        <h4 className="text-white font-shaiya text-2xl">{app.username}</h4>
+                        <p className="text-[#d4af37] text-[9px] font-black uppercase tracking-widest">{app.position} • {app.status}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-4">
+                      <button onClick={() => setExpandedAppId(expandedAppId === app.id ? null : app.id)} className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${expandedAppId === app.id ? 'bg-[#d4af37] text-black' : 'bg-white/5 text-white hover:bg-white/10'}`}>EXPEDIENTE</button>
+                      <button onClick={() => updateStaffApplicationStatus(app.id, 'accepted').then(loadData)} className="bg-green-600/20 text-green-400 border border-green-600/40 px-6 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-green-600 hover:text-white">ACEPTAR</button>
+                      <button onClick={() => { if(confirm('¿Borrar expediente?')) deleteStaffApplicationFromDB(app.id).then(loadData); }} className="bg-red-600/20 text-red-400 border border-red-600/40 px-6 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-red-600 hover:text-white">BORRAR</button>
+                    </div>
+                  </div>
+                  {expandedAppId === app.id && (
+                    <div className="mt-8 p-6 bg-black/40 rounded-2xl border border-white/5 grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in text-[11px] leading-relaxed">
+                       <p className="text-gray-300"><span className="text-[#d4af37] block font-black mb-1 uppercase tracking-widest text-[9px]">Experiencia</span> {app.answers.experience}</p>
+                       <p className="text-gray-300"><span className="text-[#d4af37] block font-black mb-1 uppercase tracking-widest text-[9px]">Motivación</span> {app.answers.motivation}</p>
+                       <p className="text-gray-300"><span className="text-[#d4af37] block font-black mb-1 uppercase tracking-widest text-[9px]">Conflictos</span> {app.answers.conflict}</p>
+                       <p className="text-gray-300"><span className="text-[#d4af37] block font-black mb-1 uppercase tracking-widest text-[9px]">Disponibilidad</span> {app.answers.availability}</p>
+                       <p className="text-gray-300 md:col-span-2"><span className="text-[#d4af37] block font-black mb-1 uppercase tracking-widest text-[9px]">Aporte Único</span> {app.answers.contribution}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeSubTab === 'settings' && (
+        <div className="space-y-10 animate-fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-6">
+              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Sincronización de Reino</h3>
+              <button onClick={generateMasterLink} className="w-full bg-[#d4af37] text-black font-black py-4 rounded-xl uppercase tracking-widest text-[10px] shadow-lg">Generar Link Maestro Corto</button>
+              <button onClick={handleMassSync} className="w-full bg-green-600 hover:bg-green-500 text-white font-black py-4 rounded-xl uppercase tracking-widest text-[10px] shadow-lg transition-colors">Subir Todo al Trono de Supabase</button>
+            </div>
+            <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-4">
+              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Conexión Supabase</h3>
+              <input placeholder="URL" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.SUPABASE_URL} onChange={e => { setConfig({...config, SUPABASE_URL: e.target.value}); saveSetting('SUPABASE_URL', e.target.value); }} />
+              <input placeholder="Key" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.SUPABASE_ANON_KEY} onChange={e => { setConfig({...config, SUPABASE_ANON_KEY: e.target.value}); saveSetting('SUPABASE_ANON_KEY', e.target.value); }} />
+            </div>
+            <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-6">
+              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Webhooks Discord</h3>
+              <div className="space-y-4">
+                <input placeholder="Soporte" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.NOVA_WEBHOOK_URL} onChange={e => { setConfig({...config, NOVA_WEBHOOK_URL: e.target.value}); saveSetting('NOVA_WEBHOOK_URL', e.target.value); }} />
+                <input placeholder="Staff" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.NOVA_STAFF_APP_WEBHOOK} onChange={e => { setConfig({...config, NOVA_STAFF_APP_WEBHOOK: e.target.value}); saveSetting('NOVA_STAFF_APP_WEBHOOK', e.target.value); }} />
+                <input placeholder="Promociones" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.NOVA_PROMO_WEBHOOK} onChange={e => { setConfig({...config, NOVA_PROMO_WEBHOOK: e.target.value}); saveSetting('NOVA_PROMO_WEBHOOK', e.target.value); }} />
+              </div>
+            </div>
+            <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-6">
+              <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">IDs de Discord</h3>
+              <div className="space-y-4">
+                <input placeholder="ID del Servidor (Guild ID)" className="w-full bg-black/60 border border-[#d4af37]/30 p-3 rounded-xl text-white text-[10px]" value={config.DISCORD_GUILD_ID} onChange={e => { setConfig({...config, DISCORD_GUILD_ID: e.target.value}); saveSetting('DISCORD_GUILD_ID', e.target.value); }} />
+                <input placeholder="Role ID GS" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.ROLE_ID_GS} onChange={e => { setConfig({...config, ROLE_ID_GS: e.target.value}); saveSetting('ROLE_ID_GS', e.target.value); }} />
+                <input placeholder="Role ID GM" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.ROLE_ID_GM} onChange={e => { setConfig({...config, ROLE_ID_GM: e.target.value}); saveSetting('ROLE_ID_GM', e.target.value); }} />
+                <input placeholder="Role ID Admin" className="w-full bg-black/60 border border-white/10 p-3 rounded-xl text-white text-[10px]" value={config.ROLE_ID_ADMIN} onChange={e => { setConfig({...config, ROLE_ID_ADMIN: e.target.value}); saveSetting('ROLE_ID_ADMIN', e.target.value); }} />
+                <input placeholder="Discord Client ID (Login)" className="w-full bg-black/40 border border-[#5865f2]/20 p-3 rounded-xl text-white text-[10px]" value={config.DISCORD_CLIENT_ID} onChange={e => { setConfig({...config, DISCORD_CLIENT_ID: e.target.value}); saveSetting('DISCORD_CLIENT_ID', e.target.value); }} />
+              </div>
+            </div>
+          </div>
+          <div className="glass-panel p-8 rounded-[2.5rem] border-white/10 space-y-6">
+            <h3 className="text-white font-shaiya text-xl uppercase border-b border-white/5 pb-3">Identidad Visual & Branding</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <label className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest block">Logo Principal</label>
+                <div className="flex gap-2">
+                  <input placeholder="URL Logo" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.SITE_LOGO_URL} onChange={e => { setConfig({...config, SITE_LOGO_URL: e.target.value}); saveSetting('SITE_LOGO_URL', e.target.value); }} />
+                  <button onClick={() => logoFileRef.current?.click()} className="bg-white/10 text-white px-4 rounded-xl font-black text-[10px] border border-white/5">SUBIR</button>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <label className="text-[#d4af37] text-[10px] font-black uppercase tracking-widest block">Fondo del Reino</label>
+                <div className="flex gap-2">
+                  <input placeholder="URL Fondo" className="flex-grow bg-black/60 border border-white/10 p-4 rounded-xl text-white text-xs" value={config.SITE_BG_URL} onChange={e => { setConfig({...config, SITE_BG_URL: e.target.value}); saveSetting('SITE_BG_URL', e.target.value); }} />
+                  <button onClick={() => bgFileRef.current?.click()} className="bg-white/10 text-white px-4 rounded-xl font-black text-[10px] border border-white/5">SUBIR</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
